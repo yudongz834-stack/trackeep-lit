@@ -1,0 +1,457 @@
+<style>
+  :root{
+    /* Anthropic warm — light (default) */
+    --bg:#F3F1E9; --surface:#FBFAF6; --surface-2:#EDEAE0; --inset:#F6F4EC;
+    --line:#E4E0D4; --line-2:#D8D3C4;
+    --ink:#20201E; --ink-dim:#6E6A60; --ink-faint:#9C978A;
+    --accent:#D97757; --accent-deep:#BE5A3C; --accent-soft:#F4E3DA; --on-accent:#FFFFFF;
+    --new:#4F7A50; --new-bg:#E7EFE1; --new-line:#C9DCBE;
+    --dup:#A8792B; --dup-bg:#F3EAD5; --dup-line:#E2D2A8;
+    --shadow:0 1px 2px rgba(60,50,40,.05), 0 8px 24px -14px rgba(80,60,45,.18);
+    --mono:ui-monospace,"Cascadia Code","Consolas","Sarasa Mono SC",monospace;
+    --sans:ui-sans-serif,system-ui,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    --serif:ui-serif,Georgia,"Songti SC","Times New Roman",serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#262523; --surface:#302F2C; --surface-2:#211F1D; --inset:#2B2926;
+      --line:#3D3B37; --line-2:#4A4742;
+      --ink:#EFEBE1; --ink-dim:#ABA69B; --ink-faint:#78736A;
+      --accent:#E08A6B; --accent-deep:#D97757; --accent-soft:#3A2E28; --on-accent:#20140F;
+      --new:#84B084; --new-bg:#25301F; --new-line:#3C5232;
+      --dup:#D3A557; --dup-bg:#332A16; --dup-line:#544427;
+      --shadow:0 1px 2px rgba(0,0,0,.2), 0 10px 30px -18px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#F3F1E9; --surface:#FBFAF6; --surface-2:#EDEAE0; --inset:#F6F4EC;
+    --line:#E4E0D4; --line-2:#D8D3C4;
+    --ink:#20201E; --ink-dim:#6E6A60; --ink-faint:#9C978A;
+    --accent:#D97757; --accent-deep:#BE5A3C; --accent-soft:#F4E3DA; --on-accent:#FFFFFF;
+    --new:#4F7A50; --new-bg:#E7EFE1; --new-line:#C9DCBE;
+    --dup:#A8792B; --dup-bg:#F3EAD5; --dup-line:#E2D2A8;
+    --shadow:0 1px 2px rgba(60,50,40,.05), 0 8px 24px -14px rgba(80,60,45,.18);
+  }
+  :root[data-theme="dark"]{
+    --bg:#262523; --surface:#302F2C; --surface-2:#211F1D; --inset:#2B2926;
+    --line:#3D3B37; --line-2:#4A4742;
+    --ink:#EFEBE1; --ink-dim:#ABA69B; --ink-faint:#78736A;
+    --accent:#E08A6B; --accent-deep:#D97757; --accent-soft:#3A2E28; --on-accent:#20140F;
+    --new:#84B084; --new-bg:#25301F; --new-line:#3C5232;
+    --dup:#D3A557; --dup-bg:#332A16; --dup-line:#544427;
+    --shadow:0 1px 2px rgba(0,0,0,.2), 0 10px 30px -18px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .app{display:flex;flex-direction:column;height:100vh;min-height:580px}
+
+  /* titlebar */
+  .titlebar{display:flex;align-items:center;gap:13px;padding:13px 20px;
+    background:var(--surface);border-bottom:1px solid var(--line)}
+  .mark{width:22px;height:22px;border-radius:6px;background:var(--accent);
+    display:grid;place-items:center;color:var(--on-accent);font-size:13px;
+    box-shadow:0 1px 0 rgba(0,0,0,.06) inset}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand .nm{font-weight:650;font-size:15.5px;letter-spacing:.2px}
+  .brand .nm b{color:var(--accent-deep);font-weight:650}
+  .brand .sub{color:var(--ink-faint);font-size:12.5px;font-family:var(--serif);font-style:italic}
+  .chips{margin-left:auto;display:flex;gap:8px;font-family:var(--mono);font-size:11.5px}
+  .chip{padding:4px 11px;border:1px solid var(--line-2);border-radius:999px;color:var(--ink-dim);
+    background:var(--inset);font-variant-numeric:tabular-nums}
+  .chip b{color:var(--ink)}
+  .chip.eng{color:var(--accent-deep);border-color:var(--accent-soft);background:var(--accent-soft)}
+
+  .body{flex:1;display:grid;grid-template-columns:272px 1fr;min-height:0}
+
+  /* sidebar */
+  .sidebar{border-right:1px solid var(--line);background:var(--surface-2);overflow-y:auto;padding:14px 10px}
+  .side-h{font-family:var(--mono);font-size:10px;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--ink-faint);padding:6px 12px 10px}
+  .cat{margin-bottom:3px}
+  .cat-hd{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:9px;cursor:pointer;
+    user-select:none;color:var(--ink-dim)}
+  .cat-hd:hover{background:var(--inset);color:var(--ink)}
+  .cat-hd .caret{transition:transform .2s ease;color:var(--ink-faint);font-size:10px;width:10px}
+  .cat.open .caret{transform:rotate(90deg)}
+  .cat-hd .nm{flex:1;font-weight:550;font-size:13.5px}
+  .cat-hd .ct{font-family:var(--mono);font-size:11px;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+  .jlist{display:none;padding:3px 0 8px 10px}
+  .cat.open .jlist{display:block}
+  .j{display:flex;align-items:center;gap:9px;padding:7px 12px;margin:1px 2px;border-radius:8px;cursor:pointer;
+    color:var(--ink-dim);font-size:13px;border-left:2px solid transparent;transition:background .12s}
+  .j:hover{background:var(--inset);color:var(--ink)}
+  .j.sel{background:var(--accent-soft);color:var(--ink);border-left-color:var(--accent)}
+  .j .tick{width:6px;height:6px;border-radius:50%;background:var(--line-2);flex:none}
+  .j.has .tick{background:var(--new)}
+  .j.faint{color:var(--ink-faint);font-style:italic}
+
+  /* main */
+  .main{min-width:0;overflow-y:auto;padding:26px 30px;display:flex;flex-direction:column;gap:20px}
+  .wb-head{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+  .cat-tag{font-family:var(--mono);font-size:11px;color:var(--accent-deep);letter-spacing:.4px}
+  .wb-head h1{margin:4px 0 0;font-family:var(--serif);font-size:30px;font-weight:600;
+    letter-spacing:.1px;text-wrap:balance;line-height:1.1}
+  .wb-head .meta{color:var(--ink-faint);font-size:11.5px;font-family:var(--mono);margin-left:auto;
+    font-variant-numeric:tabular-nums;text-align:right;line-height:1.7}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px;
+    box-shadow:var(--shadow)}
+  .lbl{font-family:var(--mono);font-size:10px;letter-spacing:1.3px;text-transform:uppercase;
+    color:var(--ink-faint);margin-bottom:14px}
+
+  /* 检索配置 = 例外表（合一） */
+  .cfg-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .lbl2{font-family:var(--mono);font-size:10px;letter-spacing:1.3px;text-transform:uppercase;color:var(--ink-faint)}
+  .cfg-note{font-size:11.5px;color:var(--ink-faint)}
+  .cfg-note b{color:var(--accent-deep);font-weight:600}
+  .optrow{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .optchip{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;
+    padding:7px 13px;border-radius:9px;border:1px solid var(--line-2);background:var(--inset);
+    color:var(--ink-dim);cursor:pointer;user-select:none;transition:all .12s}
+  .optchip:hover{border-color:var(--accent);color:var(--ink)}
+  .optchip .box{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--line-2);display:grid;
+    place-items:center;font-size:10px;color:transparent;transition:all .12s}
+  .optchip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep)}
+  .optchip.on .box{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .optchip.exc.on::after{content:"例外";font-size:9.5px;color:var(--accent-deep);border:1px solid var(--accent);
+    border-radius:5px;padding:0 4px;margin-left:1px}
+  .optchip.disabled{opacity:.5;cursor:not-allowed;border-style:dashed}
+  .optchip.disabled:hover{border-color:var(--line-2);color:var(--ink-dim)}
+  .sep{width:1px;height:22px;background:var(--line-2);margin:0 3px}
+  .divider{height:1px;background:var(--line);margin:18px 0}
+
+  /* mode switch (segmented) */
+  .modeswitch{display:inline-flex;background:var(--inset);border:1px solid var(--line-2);border-radius:12px;
+    padding:4px;gap:4px;margin-bottom:18px}
+  .mode{font-family:var(--sans);font-size:13.5px;font-weight:600;padding:8px 18px;border-radius:9px;cursor:pointer;
+    border:none;background:transparent;color:var(--ink-dim);display:inline-flex;align-items:center;gap:8px;transition:all .14s}
+  .mode:hover{color:var(--ink)}
+  .mode.sel{background:var(--surface);color:var(--accent-deep);box-shadow:var(--shadow)}
+  .mode .dot{width:7px;height:7px;border-radius:50%;background:var(--line-2)}
+  .mode.sel .dot{background:var(--accent)}
+  .mode-body{animation:fade .22s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+
+  /* computed-window card (采集最新) */
+  .wcard{background:var(--inset);border:1px solid var(--line);border-radius:13px;padding:16px 18px;
+    display:flex;flex-direction:column;gap:9px}
+  .wc-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-size:13.5px;color:var(--ink-dim)}
+  .wc-row .big{font-family:var(--serif);font-size:19px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .wc-win{font-family:var(--mono);font-size:14px;color:var(--accent-deep);background:var(--accent-soft);
+    padding:3px 11px;border-radius:8px;font-variant-numeric:tabular-nums}
+  .wc-arrow{color:var(--ink-faint)}
+  .wc-tag{font-family:var(--mono);font-size:11px;color:var(--ink-faint);border:1px solid var(--line-2);
+    border-radius:6px;padding:2px 8px}
+  .wc-note{font-size:12px;color:var(--ink-faint);line-height:1.5;border-top:1px dashed var(--line-2);padding-top:9px}
+  .wc-note b{color:var(--dup);font-weight:600}
+
+  /* backfill range */
+  .selrow{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
+  .fld{display:flex;flex-direction:column;gap:8px}
+  .fld .cap{font-size:12px;color:var(--ink-dim)}
+  .dfld{appearance:none;background:var(--inset);border:1px solid var(--line-2);color:var(--ink);
+    border-radius:10px;padding:10px 14px;font-family:var(--mono);font-size:14px;cursor:pointer;width:140px;
+    font-variant-numeric:tabular-nums}
+  .dfld:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .presets{display:flex;gap:7px}
+  .pre{font-family:var(--mono);font-size:12px;padding:8px 13px;border-radius:9px;border:1px solid var(--line-2);
+    background:var(--inset);color:var(--ink-dim);cursor:pointer;transition:all .12s}
+  .pre:hover{border-color:var(--accent);color:var(--ink)}
+  .pre.sel{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:700}
+
+  .actions{display:flex;align-items:center;gap:16px;margin-top:20px;flex-wrap:wrap}
+  .btn{font-family:var(--sans);font-size:14px;font-weight:600;padding:11px 22px;border-radius:11px;cursor:pointer;
+    border:1px solid transparent;display:inline-flex;align-items:center;gap:9px;transition:all .14s}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn.go{background:var(--accent);color:var(--on-accent);box-shadow:0 2px 10px -4px var(--accent)}
+  .btn.go:hover{background:var(--accent-deep)}
+  .btn.ghost{background:transparent;color:var(--ink-dim);border-color:var(--line-2)}
+  .btn.ghost:hover{background:var(--inset);color:var(--ink)}
+  .hint{color:var(--ink-faint);font-size:12px;font-family:var(--mono)}
+
+  /* receipt（检索并导入后回执） */
+  .receipt{display:none;flex-direction:column;gap:16px}
+  .receipt.show{display:flex;animation:rise .3s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .rc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:13px;
+    font-variant-numeric:tabular-nums}
+  .rc-badge{font-family:var(--sans);font-weight:700;font-size:12.5px;color:var(--on-accent);background:var(--new);
+    padding:6px 13px;border-radius:9px;display:inline-flex;gap:7px;align-items:center}
+  .stat{padding:7px 14px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface)}
+  .stat b{font-size:17px}
+  .stat.hit b{color:var(--ink)} .stat.new b{color:var(--new)} .stat.dup b{color:var(--dup)}
+  .qline{font-family:var(--mono);font-size:11px;color:var(--ink-dim);background:var(--inset);
+    border:1px solid var(--line);border-radius:10px;padding:10px 13px;overflow-x:auto;white-space:nowrap}
+  .list{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
+  .grp{font-family:var(--mono);font-size:10px;letter-spacing:.9px;text-transform:uppercase;color:var(--ink-faint);
+    background:var(--inset);padding:9px 16px;border-top:1px solid var(--line)}
+  .grp:first-child{border-top:none}
+  .row{display:grid;grid-template-columns:74px 78px 1fr;gap:12px;align-items:center;padding:10px 16px;
+    border-top:1px solid var(--line);font-size:13px}
+  .row:hover{background:var(--inset)}
+  .pill{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.5px;text-align:center;
+    padding:4px 0;border-radius:6px}
+  .pill.new{color:var(--new);background:var(--new-bg);border:1px solid var(--new-line)}
+  .pill.dup{color:var(--dup);background:var(--dup-bg);border:1px solid var(--dup-line)}
+  .ty{font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
+  .ti{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row.dup .ti{color:var(--ink-faint)}
+  .row.more .ti{color:var(--ink-faint);font-style:italic}
+  .rc-foot{font-size:12px;color:var(--ink-faint);line-height:1.55}
+  .rc-foot b{color:var(--ink-dim);font-weight:600}
+
+  /* interaction spec */
+  .spec .lbl{margin-bottom:16px}
+  .spec dl{margin:0;display:grid;grid-template-columns:150px 1fr;gap:2px 18px}
+  .spec dt{font-weight:650;color:var(--ink);font-size:13px;padding:11px 0;border-top:1px solid var(--line)}
+  .spec dd{margin:0;color:var(--ink-dim);font-size:12.5px;line-height:1.6;padding:11px 0;border-top:1px solid var(--line)}
+  .spec dl>dt:first-of-type,.spec dl>dd:nth-of-type(1){border-top:none}
+  .spec code{font-family:var(--mono);font-size:11.5px;background:var(--inset);border:1px solid var(--line);
+    border-radius:5px;padding:1px 6px;color:var(--accent-deep)}
+  .spec .k{color:var(--new);font-weight:600}
+
+  /* statusbar */
+  .statusbar{border-top:1px solid var(--line);background:var(--surface);padding:9px 20px;font-family:var(--mono);
+    font-size:11.5px;color:var(--ink-faint);display:flex;gap:18px;align-items:center;font-variant-numeric:tabular-nums}
+  .statusbar .k{color:var(--accent-deep)}
+  .statusbar .sp{margin-left:auto}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  @media (max-width:820px){.body{grid-template-columns:1fr}.sidebar{display:none}.wb-head h1{font-size:25px}
+    .spec dl{grid-template-columns:1fr;gap:0}.spec dd{padding-top:0;border-top:none}}
+</style>
+
+<div class="app">
+  <div class="titlebar">
+    <div class="mark">📡</div>
+    <div class="brand"><span class="nm">Mecha·<b>Lit</b></span><span class="sub">文献采集台</span></div>
+    <div class="chips">
+      <span class="chip"><b>74</b> 期刊</span>
+      <span class="chip"><b>5</b> 分类</span>
+      <span class="chip eng">引擎 zotero-import.ps1</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <aside class="sidebar">
+      <div class="side-h">期刊 · 按分类</div>
+
+      <div class="cat open">
+        <div class="cat-hd" onclick="this.parentElement.classList.toggle('open')">
+          <span class="caret">▶</span><span class="nm">胸部肿瘤与胸外科</span><span class="ct">10</span>
+        </div>
+        <div class="jlist">
+          <div class="j sel has"><span class="tick"></span>J Thorac Oncol</div>
+          <div class="j has"><span class="tick"></span>Ann Thorac Surg</div>
+          <div class="j"><span class="tick"></span>Eur J Cardiothorac Surg</div>
+          <div class="j"><span class="tick"></span>J Thorac Cardiovasc Surg</div>
+          <div class="j has"><span class="tick"></span>Lung Cancer</div>
+          <div class="j"><span class="tick"></span>Chest</div>
+          <div class="j"><span class="tick"></span>Thorax</div>
+          <div class="j"><span class="tick"></span>Lancet Respir Med</div>
+          <div class="j"><span class="tick"></span>Eur Respir J</div>
+          <div class="j"><span class="tick"></span>Clin Lung Cancer</div>
+        </div>
+      </div>
+
+      <div class="cat">
+        <div class="cat-hd" onclick="this.parentElement.classList.toggle('open')">
+          <span class="caret">▶</span><span class="nm">临床医学综合</span><span class="ct">21</span>
+        </div>
+        <div class="jlist">
+          <div class="j"><span class="tick"></span>N Engl J Med</div>
+          <div class="j"><span class="tick"></span>Lancet</div>
+          <div class="j"><span class="tick"></span>JAMA</div>
+          <div class="j"><span class="tick"></span>J Clin Oncol</div>
+          <div class="j faint"><span class="tick"></span>… 余 17 本</div>
+        </div>
+      </div>
+
+      <div class="cat">
+        <div class="cat-hd" onclick="this.parentElement.classList.toggle('open')">
+          <span class="caret">▶</span><span class="nm">基础与转化医学</span><span class="ct">24</span>
+        </div>
+        <div class="jlist"><div class="j faint"><span class="tick"></span>Cell · Cancer Cell · …</div></div>
+      </div>
+
+      <div class="cat">
+        <div class="cat-hd" onclick="this.parentElement.classList.toggle('open')">
+          <span class="caret">▶</span><span class="nm">医学AI与数字医学</span><span class="ct">10</span>
+        </div>
+        <div class="jlist"><div class="j faint"><span class="tick"></span>NEJM AI · Nat Mach Intell · …</div></div>
+      </div>
+
+      <div class="cat">
+        <div class="cat-hd" onclick="this.parentElement.classList.toggle('open')">
+          <span class="caret">▶</span><span class="nm">流行病学与公共卫生</span><span class="ct">9</span>
+        </div>
+        <div class="jlist"><div class="j faint"><span class="tick"></span>Lancet Public Health · …</div></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="wb-head">
+        <div>
+          <div class="cat-tag">胸部肿瘤与胸外科</div>
+          <h1>J Thorac Oncol</h1>
+        </div>
+        <div class="meta">Journal of Thoracic Oncology<br>[TA] J Thorac Oncol · collection 已建</div>
+      </div>
+
+      <div class="panel">
+        <!-- 检索配置 = 例外表（合一） -->
+        <div class="cfg-h">
+          <span class="lbl2">检索配置 · 该刊</span>
+          <span class="cfg-note">默认＝<b>Article + Review + 有摘要</b>；改动即成为此刊配置，与默认不同＝自动进「例外表」</span>
+        </div>
+        <div class="optrow" id="opts">
+          <span class="optchip on" data-k="article"><span class="box">✓</span>Article</span>
+          <span class="optchip on" data-k="review"><span class="box">✓</span>Review</span>
+          <span class="optchip on exc" data-k="editorial"><span class="box">✓</span>Editorial</span>
+          <span class="optchip" data-k="letter"><span class="box">✓</span>Letter</span>
+          <span class="sep"></span>
+          <span class="optchip on" data-k="hasabstract"><span class="box">✓</span>仅要有摘要<span style="color:var(--ink-faint)">（限 Article/Review）</span></span>
+          <span class="optchip disabled" title="专科刊无需主题过滤"><span class="box">✓</span>主题过滤 · 专科刊不适用</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="modeswitch">
+          <button class="mode sel" data-mode="latest"><span class="dot"></span>采集最新</button>
+          <button class="mode" data-mode="backfill"><span class="dot"></span>回填历史</button>
+        </div>
+
+        <!-- 采集最新 -->
+        <div class="mode-body" id="m-latest">
+          <div class="wcard">
+            <div class="wc-row">
+              <span>上次成功采集</span><span class="big">2026-06-18</span>
+              <span class="wc-tag">− 30 天重叠缓冲</span>
+              <span class="wc-arrow">→</span>
+              <span class="wc-win">2026-05-19 → 今天 07-13</span>
+              <span class="wc-tag">datetype=edat</span>
+            </div>
+            <div class="wc-note">检索窗＝<b>上次成功采集时间 − 30 天缓冲 → 现在</b>，自动算出、无需选月选期。重叠缓冲吃掉 PubMed 收录延迟；重叠部分的已入库文献由 DOI/PMID/标题去重兜掉（下方 DUP 即证）。窗过长时自动按月分窗绕 retmax=1000。</div>
+          </div>
+          <div class="actions">
+            <button class="btn go" onclick="runImport()">检索并导入 →</button>
+            <span class="hint">点一下＝在 PubMed 检索 + 直接导入 Zotero（新增 · 去重 · 可逆）</span>
+          </div>
+        </div>
+
+        <!-- 回填历史 -->
+        <div class="mode-body" id="m-backfill" style="display:none">
+          <div class="selrow">
+            <div class="fld"><span class="cap">起（含）</span><input class="dfld" value="2024-01" spellcheck="false"></div>
+            <div class="fld"><span class="cap">止（含）</span><input class="dfld" value="2024-12" spellcheck="false"></div>
+            <div class="fld">
+              <span class="cap">快捷整年</span>
+              <div class="presets">
+                <button class="pre sel">2024</button><button class="pre">2023</button><button class="pre">2022</button>
+              </div>
+            </div>
+          </div>
+          <div class="wc-note" style="margin-top:14px;border:none;padding:0">按<b style="color:var(--ink-dim)">出版日期 [DP]</b> 检索历史区间 · 超 retmax=1000 自动按月/季分窗 · DOI/PMID/标题三重去重。用于补一本刊的历史文献，非日常。</div>
+          <div class="actions">
+            <button class="btn go" onclick="runImport()">检索并导入 →</button>
+            <span class="hint">点一下＝检索历史区间 + 直接导入 Zotero（新增 · 去重 · 可逆）</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="receipt">
+        <div class="rc-head">
+          <span class="rc-badge">✓ 已导入 Zotero</span>
+          <span class="stat hit">命中 <b>19</b></span>
+          <span class="stat new">导入 <b>16</b></span>
+          <span class="stat dup">去重跳过 <b>3</b></span>
+          <span class="hint">Article 13 / Review 1 / Editorial 2 · 3 DUP＝重叠缓冲内已入库（去重兜底正确）</span>
+        </div>
+        <div class="qline" id="qline">"J Thorac Oncol"[TA] AND (((journal article OR review) AND hasabstract) OR editorial) NOT (comment/letter/erratum…) &amp; datetype=edat reldate=55</div>
+
+        <div class="list">
+          <div class="grp">已导入 · 研究论文（Article 13 + Review 1）</div>
+          <div class="row"><span class="pill new">导入</span><span class="ty">Article</span><span class="ti">The IASLC Staging Project: Proposals for the Ninth Edition of the TNM…</span></div>
+          <div class="row"><span class="pill new">导入</span><span class="ty">Article</span><span class="ti">Enhanced Versus Standard Dermatologic Management With Amivantamab…</span></div>
+          <div class="row"><span class="pill new">导入</span><span class="ty">Article</span><span class="ti">Targeting WEE1 to Overcome ARID1A Mutation-Driven Osimertinib Resistance…</span></div>
+          <div class="row"><span class="pill new">导入</span><span class="ty">Article</span><span class="ti">Quantitative and Dynamic ctDNA as a Biomarker of Response and Resistance…</span></div>
+          <div class="row"><span class="pill new">导入</span><span class="ty">Review</span><span class="ti">50 Years of Progress in NSCLC: A New Fellow's Guide…</span></div>
+          <div class="row more"><span></span><span></span><span class="ti">… 余 9 篇</span></div>
+
+          <div class="grp">已导入 · 社论（Editorial 2，无摘要，此刊例外保留）</div>
+          <div class="row"><span class="pill new">导入</span><span class="ty">Editorial</span><span class="ti">Reading Between the Lines: Circulating Tumor DNA Dynamics Illuminate…</span></div>
+          <div class="row"><span class="pill new">导入</span><span class="ty">Editorial</span><span class="ti">"WEE"ding Out Resistance to Osimertinib in the "ARID"1A-Mutant Setting</span></div>
+
+          <div class="grp">去重跳过 · 重叠缓冲内已在库（去重正确，未重复写）</div>
+          <div class="row dup"><span class="pill dup">跳过</span><span class="ty">台账+库</span><span class="ti">Osimertinib Plus Savolitinib in Patients With EGFR-Mutated Advanced NSCLC…</span></div>
+          <div class="row dup"><span class="pill dup">跳过</span><span class="ty">台账+库</span><span class="ti">Brief Report: Emphysema as a Prognostic Factor in Advanced NSCLC…</span></div>
+          <div class="row dup"><span class="pill dup">跳过</span><span class="ty">DOI</span><span class="ti">Advancing Lung Cancer Staging: Integrating IASLC Recommendations…</span></div>
+        </div>
+
+        <div class="rc-foot">
+          <b>16 篇</b>已写入 J Thorac Oncol collection（可逆：Zotero 回收站）· 台账记 16 条（只记 POST 确认成功）· 锚点更新为 <b>2026-07-13</b> · PDF 待 Zotero 找-PDF sweep（OA）。<br>后续人工筛选在下游素材库加工端，不在采集这步。
+        </div>
+      </div>
+
+      <div class="panel spec">
+        <div class="lbl">交互说明（供审阅）</div>
+        <dl>
+          <dt>检索配置＝例外表</dt>
+          <dd>每刊一组可勾项（<code>Article/Review/Editorial/Letter</code> · <code>有摘要</code> · 综合刊<code>主题过滤</code>）。默认＝Article+Review+有摘要；<b>动过默认的刊才落一行「例外」</b>，其余用默认、零维护。</dd>
+
+          <dt><span class="k">检索并导入</span></dt>
+          <dd>一步：PubMed 检索 → 新增直接写 Zotero → 出回执。无写前闸——新增是 <b>additive + 去重 + 可逆</b>；仅「合并 / 删除 / 改现有条目」才需先报 PI（不在此流程）。</dd>
+
+          <dt><span class="k">采集最新 / 回填历史</span></dt>
+          <dd><b>最新</b>＝上次采集 −30~45 天缓冲 → 今（首次默认 60 天，认 <code>EDAT</code>）；<b>回填</b>＝选区间、认 <code>[DP]</code>。两者超 retmax 自动分窗。</dd>
+
+          <dt>引擎底座</dt>
+          <dd>去重＝DOI › PMID › 归一标题（比库+台账）；台账只记 POST 成功＝幂等、重复跑安全、锚点只在成功后前移。</dd>
+        </dl>
+      </div>
+    </main>
+  </div>
+
+  <div class="statusbar">
+    <span><span class="k">引擎</span> <span id="statuscmd">zotero-import.ps1 -Journal "J Thorac Oncol" -ReldateDays 55 -Execute</span></span>
+    <span><span class="k">模式</span> 检索并导入 · 真写（可逆）</span>
+    <span class="sp">Zotero API ✓</span>
+  </div>
+</div>
+
+<script>
+  var QLATEST='"J Thorac Oncol"[TA] AND (((journal article OR review) AND hasabstract) OR editorial) NOT (comment/letter/erratum…) & datetype=edat reldate=55';
+  var QBACK='"J Thorac Oncol"[TA] AND ("2024/01/01"[DP] : "2024/12/31"[DP]) AND (((journal article OR review) AND hasabstract) OR editorial) NOT (comment/letter/erratum…) · App 自动分 12 窗';
+  var CLATEST='zotero-import.ps1 -Journal "J Thorac Oncol" -ReldateDays 55 -Execute';
+  var CBACK='zotero-import.ps1 -Journal "J Thorac Oncol" -Year 2024 -Execute   (App 分窗＝12×-Month)';
+  var mode='latest';
+
+  function setMode(m){
+    mode=m;
+    document.querySelectorAll('.mode').forEach(function(b){b.classList.toggle('sel',b.dataset.mode===m)});
+    document.getElementById('m-latest').style.display   = m==='latest'  ?'':'none';
+    document.getElementById('m-backfill').style.display = m==='backfill'?'':'none';
+    document.getElementById('qline').textContent    = m==='latest'?QLATEST:QBACK;
+    document.getElementById('statuscmd').textContent = m==='latest'?CLATEST:CBACK;
+    document.querySelector('.receipt').classList.remove('show');
+  }
+  function runImport(){
+    var r=document.querySelector('.receipt'); r.classList.add('show'); r.scrollIntoView({block:'start',behavior:'smooth'});
+  }
+  document.querySelectorAll('.mode').forEach(function(b){b.addEventListener('click',function(){setMode(b.dataset.mode)})});
+  document.querySelectorAll('.pre').forEach(function(b){b.addEventListener('click',function(){
+    document.querySelectorAll('.pre').forEach(function(x){x.classList.remove('sel')});b.classList.add('sel');
+  })});
+  document.querySelectorAll('#opts .optchip').forEach(function(c){
+    if(c.classList.contains('disabled'))return;
+    c.addEventListener('click',function(){c.classList.toggle('on')});
+  });
+  document.querySelectorAll('.j').forEach(function(j){
+    j.addEventListener('click',function(){
+      document.querySelectorAll('.j').forEach(function(x){x.classList.remove('sel')});
+      j.classList.add('sel');
+    });
+  });
+</script>
