@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""采集台 —— 核心页（Slice 2）。
+"""采集台 —— 核心页（Slice 3）。
 
 Slice 1 落的：分类期刊树 + chips + dry-run 检索 + 审计渲染 + 三条护栏（线程不卡 UI /
 运行中禁按钮 / pubtype 至少一个）。Slice 2 在其上加四件：
@@ -11,18 +11,27 @@ Slice 1 落的：分类期刊树 + chips + dry-run 检索 + 审计渲染 + 三�
   4. UI 护栏两条：④ Article/Review 都没勾时灰掉「仅要有摘要」；
      ⑧ found==0 按 taMismatch 分流（错配红字 / 无新文献提示）
 
-仍禁 -Execute / 任何真实 Zotero 写入（真导入属 Slice 3）。配色只用 ui/style.py 既有常量。
+Slice 3 在其上加真实导入路径（护栏⑨⑪⑮⑯）：
+  5. 审计页加「导入」按钮（仅 new>0 显示）→ 确认框 → 受控建 collection（不存在时）
+     → run_import（-Execute 真写）线程；导入用检索时锁定的 _last_params（防切刊/改配置
+     导入错对象）；运行中禁检索+导入按钮（护栏②⑮ 单飞）
+  6. 导入回执：✓ 已导入 X · 失败 Y · 去重 Z + 按 status 分组清单；failed>0 显「重试失败」
+     （再跑一次 run_import，幂等）；导入后重读台账刷新采集窗口（护栏⑪ 锚点前移）
+  7. 受控建 collection（lit.zotero）：collection.exists==false 且点导入 → 受控建框
+     → PI 确认才 POST 创建子 collection（护栏⑯，现实极少触发）
+
+配色只用 ui/style.py 既有常量（新色为 lit 内联语义常量，沿用 Slice 2 约定）。
 """
 from datetime import datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel,
-                               QLineEdit, QPushButton, QRadioButton,
-                               QScrollArea, QTreeWidget, QTreeWidgetItem,
-                               QVBoxLayout, QWidget)
+                               QLineEdit, QMessageBox, QPushButton,
+                               QRadioButton, QScrollArea, QTreeWidget,
+                               QTreeWidgetItem, QVBoxLayout, QWidget)
 
-from lit import engine, journals, ledger, overrides
+from lit import engine, journals, ledger, overrides, zotero
 from ui import style
 from ui.workers import run_async
 
@@ -30,7 +39,6 @@ from ui.workers import run_async
 # "journal article OR review AND hasabstract"），不可在 UI 关掉对查询的影响；这里作
 # UI 状态 + 护栏④的联动开关。Editorial/Letter 才真透传引擎 -Include*。
 _PUBTYPES = ["Article", "Review", "Editorial", "Letter"]
-_PILL_TEXT = {"new": "新增", "dup": "去重", "suspect": "疑似"}
 
 # 内联语义色（lit 专用，不上 style.py：避免改 style 引入跨页漂移）
 _NEW_COLOR = style.ACCENT            # 新文献：主色珊瑚
@@ -39,6 +47,19 @@ _DUP_COLOR = "#8A8578"               # 重复：暖深灰
 _DUP_BG = "#ECE9DE"
 _SUS_COLOR = "#E8590C"               # 疑似：警示橙
 _SUS_BG = "#FFF1E6"
+_IMP_COLOR = style.ACCENT            # 已导入：同新增（imported = 已入库的 new）
+_IMP_BG = style.ACCENT_SOFT
+_FAIL_COLOR = "#C92A2A"              # 失败：危险红
+_FAIL_BG = "#FFF0F0"
+
+# status → (前景色, 底色, 药丸文字)。_item_row 与两个回执的分组清单共用。
+_STATUS_STYLE = {
+    "new":      (_NEW_COLOR,  _NEW_BG,  "新增"),
+    "imported": (_IMP_COLOR,  _IMP_BG,  "已导入"),
+    "dup":      (_DUP_COLOR,  _DUP_BG,  "去重"),
+    "suspect":  (_SUS_COLOR,  _SUS_BG,  "疑似"),
+    "failed":   (_FAIL_COLOR, _FAIL_BG, "失败"),
+}
 
 
 class HarvestPage(QWidget):
@@ -49,6 +70,8 @@ class HarvestPage(QWidget):
         self._search_journal = None   # 发起检索时锁定的刊名（防切刊后回执错位）
         self._loading = False          # 程序化载配置时抑制写回（切刊 setText/toggled 不落盘）
         self._window_days = ledger.DEFAULT_DAYS   # 当前刊算出的采集窗口（检索时用）
+        self._last_params = None      # 检索成功时锁定的参数（journal/days/inc_ed/inc_lt/topic）—— 导入用它，不用当前 UI 态
+        self._action_btns = []        # 当前回执里的动作按钮（导入/重试），_running 时整体禁用
 
         self._journals = journals.load()          # {分类: [刊名,...]}，失败回退静态 10
 
@@ -319,6 +342,8 @@ class HarvestPage(QWidget):
         inc_ed = self.pubtype_cbs["Editorial"].isChecked()
         inc_lt = self.pubtype_cbs["Letter"].isChecked()
         topic = self.topic_edit.text().strip() or None
+        params = {"journal": journal, "days": days,     # 锁定本次检索参数——导入用它，不用当前 UI 态
+                  "inc_ed": inc_ed, "inc_lt": inc_lt, "topic": topic}
         self.run_status.setText(
             "⏳ 检索中… spawn zotero-import.ps1 -Journal \"%s\" -ReldateDays %d "
             "-EmitJson（约 30–60 秒，后台线程，请勿关闭）"
@@ -335,6 +360,7 @@ class HarvestPage(QWidget):
             self._running = False
             self._update_search_btn()
             self.run_status.setVisible(False)
+            self._last_params = params          # 检索成功才锁定导入目标（失败不覆盖）
             self._render_receipt(self._search_journal, r)
 
         def failed(err):
@@ -348,6 +374,7 @@ class HarvestPage(QWidget):
     # ---------- 审计渲染 ----------
 
     def _clear_receipt(self) -> None:
+        self._action_btns = []           # 旧回执的动作按钮随 widget 一并销毁，清引用
         while self.receipt_box.count():
             it = self.receipt_box.takeAt(0)
             w = it.widget()
@@ -405,6 +432,21 @@ class HarvestPage(QWidget):
                 clay.addWidget(self._item_row(it, key))
             box.addWidget(card)
 
+        # 导入按钮（仅 new>0 显示）：确认框 → 受控建 collection（不存在时）→ run_import
+        new_count = counts.get("new", 0)
+        if new_count > 0:
+            irow = QHBoxLayout()
+            imp = QPushButton("📥  导入到 Zotero")
+            imp.setObjectName("primary")
+            imp.setCursor(Qt.PointingHandCursor)
+            imp.setEnabled(not self._running)
+            imp.clicked.connect(lambda: self._on_import_clicked(r))
+            irow.addWidget(imp)
+            irow.addWidget(self._muted(
+                "真实写库（新增 · 去重 · 可逆：可移回收站）。点击后先确认。"), 1)
+            box.addLayout(irow)
+            self._action_btns.append(imp)
+
         # 护栏⑧：found==0 按 taMismatch 分流
         if r.get("found", 0) == 0:
             card, clay = self._card()
@@ -434,6 +476,171 @@ class HarvestPage(QWidget):
         foot.setTextInteractionFlags(Qt.TextSelectableByMouse)
         box.addWidget(foot)
 
+    # ---------- 导入（Slice 3）----------
+
+    def _set_action_btns_enabled(self, on: bool) -> None:
+        """批量切当前回执里的动作按钮（导入/重试）可用态——_running 时整体禁用。"""
+        for b in self._action_btns:
+            b.setEnabled(on)
+
+    def _on_import_clicked(self, r: dict) -> None:
+        """导入按钮：确认框 → 受控建 collection（不存在时）→ run_import 线程。
+
+        用 _last_params（检索时锁定的 journal/days/配置），不用当前 UI 态——防检索后
+        切了刊/改了配置却导入错对象。_running 时直接返回（护栏⑮ 单飞）。
+        """
+        if self._running:
+            return
+        p = self._last_params
+        if not p:
+            return
+        journal = p["journal"]
+        new_count = (r.get("counts") or {}).get("new", 0)
+        ans = QMessageBox.question(
+            self, "确认真实导入",
+            "确认真实导入 %d 篇新文献到 Zotero「%s」collection？\n"
+            "（新增 · 去重 · 可逆：可移回收站）" % (new_count, journal))
+        if ans != QMessageBox.Yes:
+            return
+        # 受控建 collection（护栏⑯）：检索说 collection 不存在 → 先建再导入
+        coll = r.get("collection") or {}
+        if not coll.get("exists"):
+            if not self._ensure_collection(journal):
+                return          # 用户取消建 / 分类未找到 / 建失败 → 放弃导入
+        self._begin_import(p)
+
+    def _ensure_collection(self, journal: str) -> bool:
+        """collection 不存在时弹受控建框；Yes → POST 真建；No / 分类未找到 / 失败 → False。
+
+        parent = 该刊分类的顶层 collection（zotero.find_top_key 按分类名匹配）。
+        现实 74 刊 collection 都已存在，此路极少触发。
+        """
+        category = journals.category_of(journal)
+        if not category:
+            QMessageBox.warning(
+                self, "无法创建 collection",
+                "期刊「%s」不在任何分类下，无法确定父 collection。" % journal)
+            return False
+        ans = QMessageBox.question(
+            self, "该刊 collection 不存在",
+            "该刊 collection 不存在。拟在分类「%s」下创建 collection「%s」"
+            "（[TA]=%s）。\n确认创建？" % (category, journal, journal))
+        if ans != QMessageBox.Yes:
+            return False
+        try:
+            parent_key = zotero.find_top_key(category)
+            if not parent_key:
+                QMessageBox.warning(
+                    self, "无法创建 collection",
+                    "Zotero 中未找到分类「%s」的顶层 collection，\n"
+                    "请先手动建好该分类 collection 再导入。" % category)
+                return False
+            zotero.create_collection(journal, parent_key)
+        except Exception as e:
+            QMessageBox.warning(self, "创建 collection 失败", str(e))
+            return False
+        return True
+
+    def _begin_import(self, params: dict) -> None:
+        """发起导入：禁按钮 + 进度文案 + run_async 跑 run_import；done 渲导入回执。"""
+        self._running = True
+        self._update_search_btn()                # 禁检索按钮
+        self._set_action_btns_enabled(False)     # 禁导入/重试按钮
+        self.run_status.setText(
+            "⏳ 导入中… 真写 Zotero，请勿关闭（约 1–3 分钟，后台线程，-Execute）")
+        self.run_status.setVisible(True)
+
+        def job():
+            return engine.run_import(
+                params["journal"], reldate_days=params["days"],
+                include_editorial=params["inc_ed"], include_letter=params["inc_lt"],
+                topic_filter=params["topic"])
+
+        def done(ri):
+            self._running = False
+            self._update_search_btn()
+            self.run_status.setVisible(False)
+            # 护栏⑪：导入成功 → 台账已被引擎更新 → 重读刷新采集窗口（仅当还停在该刊）
+            if self.current_journal() == params["journal"]:
+                self._update_window_for_current()
+            self._render_import_receipt(params, ri)
+
+        def failed(err):
+            self._running = False
+            self._update_search_btn()
+            self._set_action_btns_enabled(True)
+            self.run_status.setText("❌ 导入失败：" + err)
+            self.run_status.setVisible(True)
+
+        run_async(self, job, done=done, failed=failed)
+
+    def _render_import_receipt(self, params: dict, r: dict) -> None:
+        """导入回执：✓ 已导入 X · 失败 Y · 去重 Z + 按 status 分组清单 + 失败重试。"""
+        self._clear_receipt()
+        box = self.receipt_box
+        counts = r.get("counts") or {}
+        imported = counts.get("imported", 0) or 0
+        failed = counts.get("failed", 0) or 0
+        dup = counts.get("dup", 0) or 0
+
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        badge = QLabel(f"  ✓ 已导入 {imported} · 失败 {failed} · 去重 {dup} · {ts}  ")
+        badge.setStyleSheet(
+            "background:%s; color:white; padding:6px 14px; border-radius:9px;"
+            "font-weight:bold; font-size:10pt;" % style.ACCENT)
+        box.addWidget(badge)
+
+        stats = QHBoxLayout()
+        stats.setSpacing(8)
+        stats.addWidget(self._stat_chip("已导入", imported, _IMP_COLOR))
+        stats.addWidget(self._stat_chip("失败", failed, _FAIL_COLOR))
+        stats.addWidget(self._stat_chip("去重", dup, _DUP_COLOR))
+        stats.addStretch(1)
+        box.addLayout(stats)
+
+        # 分组清单（imported/failed/dup/suspect）
+        items = r.get("items", []) or []
+        groups: dict[str, list] = {}
+        for it in items:
+            groups.setdefault((it.get("status") or "?"), []).append(it)
+        order = [("imported", "✓ 已导入"), ("failed", "✗ 失败 · 可重试"),
+                 ("dup", "♻ 去重跳过"), ("suspect", "❓ 疑似 · 待人工")]
+        for key, title in order:
+            rows = groups.get(key)
+            if not rows:
+                continue
+            card, clay = self._card()
+            clay.setContentsMargins(0, 0, 0, 0)
+            clay.setSpacing(0)
+            hdr = QLabel(f"{title}（{len(rows)} 篇）")
+            hdr.setStyleSheet(
+                "font-weight:bold; padding:10px 14px; color:%s;" % style.TEXT)
+            clay.addWidget(hdr)
+            for it in rows:
+                clay.addWidget(self._item_row(it, key))
+            box.addWidget(card)
+
+        # 失败 > 0 → 重试按钮（再跑一次 run_import，幂等）
+        if failed > 0:
+            rrow = QHBoxLayout()
+            retry = QPushButton("🔁  重试失败（%d）" % failed)
+            retry.setObjectName("primary")
+            retry.setCursor(Qt.PointingHandCursor)
+            retry.setEnabled(not self._running)
+            retry.clicked.connect(lambda: self._begin_import(params))
+            rrow.addWidget(retry)
+            rrow.addWidget(self._muted(
+                "引擎台账只记成功、去重跳过已导入，重试只补失败项（幂等）。"), 1)
+            box.addLayout(rrow)
+            self._action_btns.append(retry)
+
+        coll = r.get("collection") or {}
+        foot = self._muted(
+            "真实导入完成 · collection key=%s · journal=%s · 已写 Zotero + 台账。"
+            % (coll.get("key", "—"), r.get("journal", params.get("journal", "—"))))
+        foot.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        box.addWidget(foot)
+
     def _stat_chip(self, label: str, num, color: str) -> QFrame:
         f = QFrame()
         f.setObjectName("card")
@@ -454,13 +661,8 @@ class HarvestPage(QWidget):
         rl.setContentsMargins(14, 8, 14, 8)
         rl.setSpacing(10)
 
-        if status == "new":
-            fg, bg = _NEW_COLOR, _NEW_BG
-        elif status == "dup":
-            fg, bg = _DUP_COLOR, _DUP_BG
-        else:
-            fg, bg = _SUS_COLOR, _SUS_BG
-        pill = QLabel(_PILL_TEXT.get(status, status))
+        fg, bg, pill_text = _STATUS_STYLE.get(status, (style.TEXT, style.CARD_BG, status))
+        pill = QLabel(pill_text)
         pill.setFixedWidth(54)
         pill.setAlignment(Qt.AlignCenter)
         pill.setStyleSheet(

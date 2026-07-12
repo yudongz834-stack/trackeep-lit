@@ -73,3 +73,15 @@ def all_journals(data: dict[str, list[str]] | None = None) -> list[str]:
     for cat in CATEGORIES:
         out.extend(data.get(cat, []))
     return out
+
+
+def category_of(journal: str, data: dict[str, list[str]] | None = None) -> str | None:
+    """反查该刊所属分类（按 CATEGORIES 顺序，命中即返）。无 → None。
+
+    Slice 3 受控建 collection 用：该刊 collection 不存在时，按其分类确定父 collection。
+    """
+    data = data if data is not None else load()
+    for cat in CATEGORIES:
+        if journal in data.get(cat, []):
+            return cat
+    return None
