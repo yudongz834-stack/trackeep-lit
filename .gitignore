@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .glm-dispatch.log
 *.output
+# PyInstaller 打包产物（机甲文献.spec 源文件保留入库，dist/build 太大不入库）
+build/
+dist/
