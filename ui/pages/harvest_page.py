@@ -1,53 +1,35 @@
 # -*- coding: utf-8 -*-
-"""采集台 —— 核心页（Slice 1）。
+"""采集台 —— 核心页（Slice 2）。
 
-照 prototype-reference.html 的流程翻成 Qt 控件。Slice 1 范围：
-- 左：分类期刊树（静态胸外 10 本，J Thorac Oncol 默认选中）
-- 检索配置 chips：Article/Review/Editorial/Letter + 仅要有摘要（Slice 1 只存 UI 状态，
-  不写回 journal-overrides.json；Editorial/Letter 才真透传引擎 -Include*）
-- 采集最新（-ReldateDays 60，PubMed edat）；回填历史留占位禁用
-- 「检索」→ run_async 跑 lit.engine.run_search（dry-run）→ 渲染审计页 / 报错原文
+Slice 1 落的：分类期刊树 + chips + dry-run 检索 + 审计渲染 + 三条护栏（线程不卡 UI /
+运行中禁按钮 / pubtype 至少一个）。Slice 2 在其上加四件：
+  1. 载全 74 刊（lit.journals 解析期刊来源表，5 分类分组；解析失败回退静态 10）
+  2. 检索配置写回例外表 journal-overrides.json（lit.overrides；只存与默认不同的字段，
+     原子写、保留其它刊条目）；与默认不同的刊配置区显示「例外」小标
+  3. 采集窗口从台账算（lit.ledger；有历史 → (今天-上次)+30 夹 [7,400]，首次 → 60），
+     替代 Slice 1 硬编码 60
+  4. UI 护栏两条：④ Article/Review 都没勾时灰掉「仅要有摘要」；
+     ⑧ found==0 按 taMismatch 分流（错配红字 / 无新文献提示）
 
-护栏（SPEC §7 基础三条）：①检索走 workers 线程不卡 UI ②运行中禁检索按钮 + 进度文案
-③pubtype 至少勾一个才启用检索。**Slice 1 绝不 -Execute / 任何真实 Zotero 写入。**
-
-配色只用 ui/style.py 已确认存在的常量（ACCENT/MUTED/BORDER/TEXT/CARD_BG/ACCENT_SOFT），
-不引入新 style 常量（避免与 style.py 漂移致崩）。
+仍禁 -Execute / 任何真实 Zotero 写入（真导入属 Slice 3）。配色只用 ui/style.py 既有常量。
 """
 from datetime import datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel,
-                               QPushButton, QRadioButton, QScrollArea,
-                               QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+                               QLineEdit, QPushButton, QRadioButton,
+                               QScrollArea, QTreeWidget, QTreeWidgetItem,
+                               QVBoxLayout, QWidget)
 
-from lit import engine
+from lit import engine, journals, ledger, overrides
 from ui import style
 from ui.workers import run_async
 
-# Slice 1 静态刊：胸部肿瘤与胸外科 10 本（来源 prototype-reference.html §树）。
-# 后续 slice 从 Mecha-Core 期刊来源表载全 74 本。
-_JOURNALS = [
-    "J Thorac Oncol",
-    "Ann Thorac Surg",
-    "Eur J Cardiothorac Surg",
-    "J Thorac Cardiovasc Surg",
-    "Lung Cancer",
-    "Chest",
-    "Thorax",
-    "Lancet Respir Med",
-    "Eur Respir J",
-    "Clin Lung Cancer",
-]
-DEFAULT_JOURNAL = "J Thorac Oncol"
-RELDATE_DAYS = 60   # 采集最新：近 60 天（PubMed edat）
-
-# 文献类型 chips → 引擎开关。Article/Review 是引擎默认基底（query 恒含
-# "journal article OR review AND hasabstract"，无法在 Slice 1 关掉），这里作 UI 状态；
-# Editorial/Letter 才真透传引擎 -IncludeEditorial / -IncludeLetter。
+# 文献类型 chips。Article/Review 是引擎默认基底（query 恒含
+# "journal article OR review AND hasabstract"），不可在 UI 关掉对查询的影响；这里作
+# UI 状态 + 护栏④的联动开关。Editorial/Letter 才真透传引擎 -Include*。
 _PUBTYPES = ["Article", "Review", "Editorial", "Letter"]
-_DEFAULT_CHECKED = {"Article", "Review", "Editorial"}
 _PILL_TEXT = {"new": "新增", "dup": "去重", "suspect": "疑似"}
 
 # 内联语义色（lit 专用，不上 style.py：避免改 style 引入跨页漂移）
@@ -65,12 +47,16 @@ class HarvestPage(QWidget):
         self._workers = []          # 后台检索线程引用（防回收），主窗关闭时 wait
         self._running = False
         self._search_journal = None   # 发起检索时锁定的刊名（防切刊后回执错位）
+        self._loading = False          # 程序化载配置时抑制写回（切刊 setText/toggled 不落盘）
+        self._window_days = ledger.DEFAULT_DAYS   # 当前刊算出的采集窗口（检索时用）
+
+        self._journals = journals.load()          # {分类: [刊名,...]}，失败回退静态 10
 
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # ---------- 左：期刊树 ----------
+        # ---------- 左：期刊树（5 分类） ----------
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.setRootIsDecorated(True)
@@ -79,18 +65,22 @@ class HarvestPage(QWidget):
         self.tree.setFixedWidth(248)
         self.tree.setSelectionMode(QTreeWidget.SingleSelection)
         self.tree.itemSelectionChanged.connect(self._on_journal_changed)
-        cat = QTreeWidgetItem(["胸部肿瘤与胸外科（10）"])
-        f = cat.font(0)
-        f.setBold(True)
-        cat.setFont(0, f)
-        cat.setForeground(0, QBrush(QColor(style.MUTED)))
-        cat.setFlags(cat.flags() & ~Qt.ItemIsSelectable)   # 分类节点不可选，只叶子驱动
-        for name in _JOURNALS:
-            leaf = QTreeWidgetItem([name])
-            leaf.setData(0, Qt.UserRole, name)
-            cat.addChild(leaf)
-        self.tree.addTopLevelItem(cat)
-        cat.setExpanded(True)
+        for cat in journals.CATEGORIES:
+            names = self._journals.get(cat, [])
+            if not names:                      # 兜底回退时其它分类空 → 不建空组
+                continue
+            node = QTreeWidgetItem([f"{cat}（{len(names)}）"])
+            f = node.font(0)
+            f.setBold(True)
+            node.setFont(0, f)
+            node.setForeground(0, QBrush(QColor(style.MUTED)))
+            node.setFlags(node.flags() & ~Qt.ItemIsSelectable)   # 分类节点不可选
+            for name in names:
+                leaf = QTreeWidgetItem([name])
+                leaf.setData(0, Qt.UserRole, name)
+                node.addChild(leaf)
+            self.tree.addTopLevelItem(node)
+            node.setExpanded(True)
         root.addWidget(self.tree)
 
         # ---------- 右：滚动主区 ----------
@@ -108,8 +98,8 @@ class HarvestPage(QWidget):
         title.setObjectName("pageTitle")
         lay.addWidget(title)
         lay.addWidget(self._muted(
-            "选一本刊 → 勾文献类型 → 点「检索」dry-run 预览（PubMed edat 近 %d 天 + "
-            "Zotero 全库去重）。Slice 1 不写 Zotero、不动台账。" % RELDATE_DAYS))
+            "选一本刊 → 勾文献类型 / 主题过滤 → 点「检索」dry-run 预览（PubMed edat + "
+            "Zotero 全库去重）。Slice 2 不写 Zotero、不动台账。"))
 
         lay.addWidget(self._build_config())
         self.run_status = self._muted("")
@@ -122,7 +112,7 @@ class HarvestPage(QWidget):
         lay.addLayout(self.receipt_box)
         lay.addStretch(1)
 
-        self._select_journal(DEFAULT_JOURNAL)
+        self._select_journal(journals.DEFAULT_JOURNAL)   # 触发 _on_journal_changed 载首刊配置
         self._update_search_btn()
 
     # ---------- 配置面板 ----------
@@ -130,15 +120,28 @@ class HarvestPage(QWidget):
     def _build_config(self) -> QFrame:
         panel, ply = self._card()
         ply.setContentsMargins(20, 16, 20, 18)
-        ply.addWidget(self._label("检索配置 · 该刊", "sectionTitle"))
 
+        # 标题行：检索配置 · 该刊  +  「例外」小标（该刊与默认不同时显示）
+        hdr = QHBoxLayout()
+        hdr.setSpacing(8)
+        hdr.addWidget(self._label("检索配置 · 该刊", "sectionTitle"))
+        self.exception_badge = QLabel("例外")
+        self.exception_badge.setStyleSheet(
+            "color:white; background:%s; padding:1px 8px; border-radius:7px;"
+            "font-size:9pt; font-weight:bold;" % style.ACCENT)
+        self.exception_badge.setVisible(False)
+        hdr.addWidget(self.exception_badge)
+        hdr.addStretch(1)
+        ply.addLayout(hdr)
+
+        # chips 行：Article/Review/Editorial/Letter | 仅要有摘要
         chips = QHBoxLayout()
         chips.setSpacing(8)
         self.pubtype_cbs: dict[str, QCheckBox] = {}
         for pt in _PUBTYPES:
             cb = QCheckBox(pt)
-            cb.setChecked(pt in _DEFAULT_CHECKED)
-            cb.toggled.connect(self._update_search_btn)
+            cb.setChecked(pt in ("Article", "Review"))   # 基底默认开；Editorial/Letter 由切刊载入
+            cb.toggled.connect(self._on_pubtype_toggled)
             chips.addWidget(cb)
             self.pubtype_cbs[pt] = cb
         sep = QFrame()
@@ -154,22 +157,35 @@ class HarvestPage(QWidget):
         chips.addStretch(1)
         ply.addLayout(chips)
 
+        # 主题过滤行（topicFilter → 引擎 -TopicFilter；空 = 删该字段）
+        trow = QHBoxLayout()
+        trow.addWidget(self._muted("主题过滤："))
+        self.topic_edit = QLineEdit()
+        self.topic_edit.setPlaceholderText("lung[tiab] OR esophag*[tiab] …")
+        self.topic_edit.editingFinished.connect(self._on_topic_edited)
+        trow.addWidget(self.topic_edit, 1)
+        ply.addLayout(trow)
+
         div = QFrame()
         div.setFixedHeight(1)
         div.setStyleSheet("background:%s;" % style.BORDER)
         ply.addWidget(div)
 
+        # 模式 + 采集窗口（窗口天数从台账算）
         mrow = QHBoxLayout()
-        self.rb_latest = QRadioButton("采集最新（近 %d 天 · edat）" % RELDATE_DAYS)
-        self.rb_back = QRadioButton("回填历史（Slice 2）")
+        self.rb_latest = QRadioButton("采集最新（edat）")
+        self.rb_back = QRadioButton("回填历史（Slice 3）")
         self.rb_back.setEnabled(False)
-        self.rb_back.setToolTip("Slice 2 接入：按日期范围回填历史文献。")
+        self.rb_back.setToolTip("Slice 3 接入：按日期范围回填历史文献。")
         self.rb_latest.setChecked(True)
         mrow.addWidget(self._muted("模式："))
         mrow.addWidget(self.rb_latest)
         mrow.addWidget(self.rb_back)
         mrow.addStretch(1)
         ply.addLayout(mrow)
+
+        self.window_info = self._muted("")
+        ply.addWidget(self.window_info)
 
         arow = QHBoxLayout()
         self.search_btn = QPushButton("🔍  检索")
@@ -200,8 +216,86 @@ class HarvestPage(QWidget):
                     return
 
     def _on_journal_changed(self) -> None:
-        # 选中刊物变化不影响已发起的检索（回执按 _search_journal 渲染）
+        # 分类节点不可选（flags 去掉 Selectable），这里只处理叶子选中
+        if self.current_journal() is None:
+            return
+        self._load_config_for_current()
+        self._update_window_for_current()
         self._update_search_btn()
+
+    # ---------- 配置载入 / 写回 ----------
+
+    def _load_config_for_current(self) -> None:
+        """选中刊变化 → 读例外表，把 Editorial/Letter/topic 反映到 UI（Article/Review/摘要恒默认开）。
+
+        _loading 抑制期间的 toggled / editingFinished 写回，避免切刊把旧刊状态写进新刊。
+        """
+        journal = self.current_journal()
+        if journal is None:
+            return
+        cfg = overrides.get(journal)
+        self._loading = True
+        try:
+            self.pubtype_cbs["Article"].setChecked(True)
+            self.pubtype_cbs["Review"].setChecked(True)
+            self.pubtype_cbs["Editorial"].setChecked(cfg["includeEditorial"])
+            self.pubtype_cbs["Letter"].setChecked(cfg["includeLetter"])
+            self.cb_abstract.setChecked(True)
+            self.topic_edit.setText(cfg.get("topicFilter") or "")
+        finally:
+            self._loading = False
+        self.exception_badge.setVisible(overrides.is_exception(journal))
+        self._update_abstract_enabled()
+
+    def _update_window_for_current(self) -> None:
+        """选中刊 → 从台账算采集窗口，刷新 window_info + _window_days。"""
+        journal = self.current_journal()
+        if journal is None:
+            return
+        days, last = ledger.reldate_for(journal)
+        self._window_days = days
+        if last is None:
+            self.window_info.setText("首次采集 · 近 %d 天" % days)
+        else:
+            self.window_info.setText(
+                "采集最新：上次 %s · +30天缓冲 · 近 %d 天"
+                % (last.isoformat(), days))
+
+    def _on_pubtype_toggled(self) -> None:
+        self._update_abstract_enabled()
+        self._update_search_btn()
+        if self._loading:
+            return
+        journal = self.current_journal()
+        if journal:
+            self._persist_current(journal)
+
+    def _on_topic_edited(self) -> None:
+        if self._loading:
+            return
+        journal = self.current_journal()
+        if journal:
+            self._persist_current(journal)
+
+    def _persist_current(self, journal: str) -> None:
+        """把当前 Editorial/Letter/topic 写回例外表（与默认相同则删该刊条目）。"""
+        cfg = {
+            "includeEditorial": self.pubtype_cbs["Editorial"].isChecked(),
+            "includeLetter": self.pubtype_cbs["Letter"].isChecked(),
+            "topicFilter": self.topic_edit.text().strip() or None,
+        }
+        try:
+            overrides.save(journal, cfg)
+        except OSError as e:
+            self.run_status.setText("⚠ 配置写回失败：%s" % e)
+            self.run_status.setVisible(True)
+        self.exception_badge.setVisible(overrides.is_exception(journal))
+
+    def _update_abstract_enabled(self) -> None:
+        # 护栏④：「仅要有摘要」只对 Article/Review 有意义 —— 两者都没勾 → 灰掉
+        art = self.pubtype_cbs["Article"].isChecked()
+        rev = self.pubtype_cbs["Review"].isChecked()
+        self.cb_abstract.setEnabled(art or rev)
 
     # ---------- 检索 ----------
 
@@ -221,19 +315,21 @@ class HarvestPage(QWidget):
         self._running = True
         self._update_search_btn()
         self._clear_receipt()
+        days = self._window_days
+        inc_ed = self.pubtype_cbs["Editorial"].isChecked()
+        inc_lt = self.pubtype_cbs["Letter"].isChecked()
+        topic = self.topic_edit.text().strip() or None
         self.run_status.setText(
             "⏳ 检索中… spawn zotero-import.ps1 -Journal \"%s\" -ReldateDays %d "
             "-EmitJson（约 30–60 秒，后台线程，请勿关闭）"
-            % (journal, RELDATE_DAYS))
+            % (journal, days))
         self.run_status.setVisible(True)
-
-        inc_ed = self.pubtype_cbs["Editorial"].isChecked()
-        inc_lt = self.pubtype_cbs["Letter"].isChecked()
 
         def job():
             return engine.run_search(
-                journal, reldate_days=RELDATE_DAYS,
-                include_editorial=inc_ed, include_letter=inc_lt)
+                journal, reldate_days=days,
+                include_editorial=inc_ed, include_letter=inc_lt,
+                topic_filter=topic)
 
         def done(r):
             self._running = False
@@ -308,11 +404,24 @@ class HarvestPage(QWidget):
             for it in rows:
                 clay.addWidget(self._item_row(it, key))
             box.addWidget(card)
-        if not items:
-            empty = self._muted(
-                "（未命中文献：可能确无新文，或刊名错配——核对 [TA] 拼写）")
+
+        # 护栏⑧：found==0 按 taMismatch 分流
+        if r.get("found", 0) == 0:
             card, clay = self._card()
-            clay.addWidget(empty)
+            if r.get("taMismatch"):
+                warn = QLabel("⚠ 刊名可能与 PubMed [TA] 错配，核对缩写")
+                warn.setStyleSheet(style.DANGER_TEXT)
+                warn.setWordWrap(True)
+                clay.addWidget(warn)
+            else:
+                broad = r.get("broadCount")
+                broad_str = str(broad) if broad is not None else "—"
+                clay.addWidget(self._muted(
+                    "本期无新文献（该刊 [TA] 宽检索共 %s 篇存在）" % broad_str))
+            box.addWidget(card)
+        elif not items:
+            card, clay = self._card()
+            clay.addWidget(self._muted("（未命中文献）"))
             box.addWidget(card)
 
         # 页脚：collection / journal / mode
