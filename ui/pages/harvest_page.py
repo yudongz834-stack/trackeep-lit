@@ -20,13 +20,23 @@ Slice 3 在其上加真实导入路径（护栏⑨⑪⑮⑯）：
   7. 受控建 collection（lit.zotero）：collection.exists==false 且点导入 → 受控建框
      → PI 确认才 POST 创建子 collection（护栏⑯，现实极少触发）
 
+Slice 4 在其上加回填历史（复用检索/导入流程，只换窗口参数）：
+  8. 启用「回填历史」模式：选回填 → 显示年/月 QComboBox（近 8 年 + 全年/01…12）。
+     检索/导入构 params 按模式分流：latest→reldate_days；back 全年→year；
+     back 具体月→month="YYYY-MM"。_last_params 带 mode，检索 job / 导入 job 按
+     mode 分流调引擎桥（run_search/run_import 都已支持 year/month）。
+  9. 护栏⑭ 输入校验：年份不超今年（构造时已限）、当年月份非未来；违规 → 禁检索 +
+     window_info 红字（style.DANGER_TEXT）。
+ 10. 护栏⑫ retmax 警示：found>=1000 → 审计页显橙字（style.WARN_TEXT）「命中达上限
+     1000，可能截断，建议改按月回填」（本片只告警，不做自动分月循环）。
+
 配色只用 ui/style.py 既有常量（新色为 lit 内联语义常量，沿用 Slice 2 约定）。
 """
-from datetime import datetime
+from datetime import date, datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor
-from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel,
                                QLineEdit, QMessageBox, QPushButton,
                                QRadioButton, QScrollArea, QTreeWidget,
                                QTreeWidgetItem, QVBoxLayout, QWidget)
@@ -61,6 +71,56 @@ _STATUS_STYLE = {
     "failed":   (_FAIL_COLOR, _FAIL_BG, "失败"),
 }
 
+# 回填命中上限（PubMed esearch retmax）：达此值可能截断 → 审计页告警（护栏⑫）
+_RETMAX_WARN = 1000
+
+
+def _backfill_years() -> list[int]:
+    """回填可选年份：近 8 年（当前年往前 7 年）。如 2026 → [2019..2026]。"""
+    cy = date.today().year
+    return list(range(cy - 7, cy + 1))
+
+
+def _params_window_desc(params: dict | None) -> str:
+    """从 _last_params 生成窗口描述文案（检索/导入文案 + 确认框共用）。"""
+    if not params:
+        return "—"
+    mode = params.get("mode")
+    if mode == "latest":
+        return "近 %d 天（edat）" % params.get("reldate_days", "?")
+    if mode == "back_year":
+        return "%d 全年" % params.get("year", "?")
+    if mode == "back_month":
+        return params.get("month", "—")
+    return "—"
+
+
+def _engine_kwargs(params: dict) -> dict:
+    """从 _last_params 取引擎调用关键字参数（窗口三选一 + 公共过滤项）。
+
+    run_search / run_import 同构，本函数返回的 kwargs 两者都可直接 ** 展开传。
+    """
+    common = dict(include_editorial=params["inc_ed"],
+                  include_letter=params["inc_lt"], topic_filter=params["topic"])
+    mode = params["mode"]
+    if mode == "latest":
+        common["reldate_days"] = params["reldate_days"]
+    elif mode == "back_year":
+        common["year"] = params["year"]
+    else:                                   # back_month
+        common["month"] = params["month"]
+    return common
+
+
+def _engine_search(params: dict) -> dict:
+    """按 params['mode'] 分流调 engine.run_search（dry-run，不写 Zotero）。"""
+    return engine.run_search(params["journal"], **_engine_kwargs(params))
+
+
+def _engine_import(params: dict) -> dict:
+    """按 params['mode'] 分流调 engine.run_import（-Execute 真写 Zotero + 台账）。"""
+    return engine.run_import(params["journal"], **_engine_kwargs(params))
+
 
 class HarvestPage(QWidget):
     def __init__(self):
@@ -69,8 +129,9 @@ class HarvestPage(QWidget):
         self._running = False
         self._search_journal = None   # 发起检索时锁定的刊名（防切刊后回执错位）
         self._loading = False          # 程序化载配置时抑制写回（切刊 setText/toggled 不落盘）
-        self._window_days = ledger.DEFAULT_DAYS   # 当前刊算出的采集窗口（检索时用）
-        self._last_params = None      # 检索成功时锁定的参数（journal/days/inc_ed/inc_lt/topic）—— 导入用它，不用当前 UI 态
+        self._window_days = ledger.DEFAULT_DAYS   # 当前刊算出的采集窗口（latest 模式检索时用）
+        self._latest_last = None      # 当前刊上次采集日期（latest 模式 window_info 文案用）
+        self._last_params = None      # 检索成功时锁定的参数（journal/mode/窗口/inc_ed/inc_lt/topic）—— 导入用它，不用当前 UI 态
         self._action_btns = []        # 当前回执里的动作按钮（导入/重试），_running 时整体禁用
 
         self._journals = journals.load()          # {分类: [刊名,...]}，失败回退静态 10
@@ -194,18 +255,35 @@ class HarvestPage(QWidget):
         div.setStyleSheet("background:%s;" % style.BORDER)
         ply.addWidget(div)
 
-        # 模式 + 采集窗口（窗口天数从台账算）
+        # 模式 + 窗口（采集最新 / 回填历史）
         mrow = QHBoxLayout()
+        mrow.setSpacing(8)
         self.rb_latest = QRadioButton("采集最新（edat）")
-        self.rb_back = QRadioButton("回填历史（Slice 3）")
-        self.rb_back.setEnabled(False)
-        self.rb_back.setToolTip("Slice 3 接入：按日期范围回填历史文献。")
-        self.rb_latest.setChecked(True)
+        self.rb_back = QRadioButton("回填历史")
+        self.rb_latest.toggled.connect(self._on_mode_changed)
         mrow.addWidget(self._muted("模式："))
         mrow.addWidget(self.rb_latest)
         mrow.addWidget(self.rb_back)
+        # 回填年/月选择（默认隐藏，选回填历史才显示）
+        lb_year = self._muted("年：")
+        self.cb_year = QComboBox()
+        for y in _backfill_years():
+            self.cb_year.addItem(str(y), y)
+        self.cb_year.setCurrentIndex(self.cb_year.count() - 1)   # 默认当年
+        lb_month = self._muted("月：")
+        self.cb_month = QComboBox()
+        self.cb_month.addItem("全年", None)
+        for m in range(1, 13):
+            self.cb_month.addItem("%02d" % m, "%02d" % m)
+        self.cb_year.currentIndexChanged.connect(self._on_backfill_period_changed)
+        self.cb_month.currentIndexChanged.connect(self._on_backfill_period_changed)
+        mrow.addWidget(lb_year)
+        mrow.addWidget(self.cb_year)
+        mrow.addWidget(lb_month)
+        mrow.addWidget(self.cb_month)
         mrow.addStretch(1)
         ply.addLayout(mrow)
+        self._backfill_widgets = [lb_year, self.cb_year, lb_month, self.cb_month]
 
         self.window_info = self._muted("")
         ply.addWidget(self.window_info)
@@ -219,6 +297,8 @@ class HarvestPage(QWidget):
         arow.addWidget(self._muted(
             "点一下 = spawn 引擎 + 去重预览（约 30–60 秒，dry-run，不写 Zotero）"), 1)
         ply.addLayout(arow)
+
+        self.rb_latest.setChecked(True)   # 放 search_btn 之后：触发 _on_mode_changed 需用它
         return panel
 
     # ---------- 期刊树 ----------
@@ -271,18 +351,67 @@ class HarvestPage(QWidget):
         self._update_abstract_enabled()
 
     def _update_window_for_current(self) -> None:
-        """选中刊 → 从台账算采集窗口，刷新 window_info + _window_days。"""
+        """选中刊 / 导入后 → 重算 latest 窗口天数（latest 模式检索用）+ 刷新文案。"""
         journal = self.current_journal()
         if journal is None:
             return
         days, last = ledger.reldate_for(journal)
         self._window_days = days
-        if last is None:
-            self.window_info.setText("首次采集 · 近 %d 天" % days)
+        self._latest_last = last
+        self._refresh_window_info()
+
+    # ---------- 模式 / 回填窗口 ----------
+
+    def _on_mode_changed(self) -> None:
+        """采集最新 ↔ 回填历史 切换：显示/隐藏回填年月控件 + 刷新文案 + 重算检索按钮。"""
+        is_back = self.rb_back.isChecked()
+        for w in self._backfill_widgets:
+            w.setVisible(is_back)
+        self._refresh_window_info()
+        self._update_search_btn()
+
+    def _on_backfill_period_changed(self) -> None:
+        """回填年/月选择变更 → 刷新文案（校验提示）+ 重算检索按钮。"""
+        self._refresh_window_info()
+        self._update_search_btn()
+
+    def _refresh_window_info(self) -> None:
+        """按当前模式刷新 window_info：latest 用已算的 _window_days/_latest_last；back 用年/月。"""
+        if self.rb_latest.isChecked():
+            last = self._latest_last
+            if last is None:
+                self.window_info.setText("采集最新 · 首次采集 · 近 %d 天" % self._window_days)
+            else:
+                self.window_info.setText(
+                    "采集最新：上次 %s · +30天缓冲 · 近 %d 天"
+                    % (last.isoformat(), self._window_days))
+            self.window_info.setStyleSheet("")
+            return
+        # 回填历史：先校验（当年月份非未来），通过显窗口、违规显红字
+        ok, msg = self._backfill_validation()
+        if ok:
+            self.window_info.setText("回填历史 · %s" % self._backfill_desc())
+            self.window_info.setStyleSheet("")
         else:
-            self.window_info.setText(
-                "采集最新：上次 %s · +30天缓冲 · 近 %d 天"
-                % (last.isoformat(), days))
+            self.window_info.setText("⚠ " + msg)
+            self.window_info.setStyleSheet(style.DANGER_TEXT)
+
+    def _backfill_validation(self) -> tuple[bool, str]:
+        """护栏⑭：年份不超今年（构造时已限 [近8年]）、当年月份非未来。返回 (ok, msg)。"""
+        year = self.cb_year.currentData()
+        month = self.cb_month.currentData()      # None = 全年（恒合法）
+        today = date.today()
+        if year == today.year and month is not None and int(month) > today.month:
+            return False, "%d 年 %s 月尚未到来，请改选更早的月份" % (year, month)
+        return True, ""
+
+    def _backfill_desc(self) -> str:
+        """回填窗口的人读描述（window_info / 检索文案 / 确认框共用）。"""
+        year = self.cb_year.currentData()
+        month = self.cb_month.currentData()
+        if month is None:
+            return "%d 全年" % year
+        return "%d-%s" % (year, month)
 
     def _on_pubtype_toggled(self) -> None:
         self._update_abstract_enabled()
@@ -324,7 +453,15 @@ class HarvestPage(QWidget):
 
     def _update_search_btn(self) -> None:
         any_pub = any(cb.isChecked() for cb in self.pubtype_cbs.values())
-        self.search_btn.setEnabled(any_pub and not self._running)
+        if not (any_pub and not self._running):
+            self.search_btn.setEnabled(False)
+            return
+        # 回填模式：校验通过才能检索（护栏⑭）
+        if self.rb_back.isChecked():
+            ok, _ = self._backfill_validation()
+            self.search_btn.setEnabled(ok)
+        else:
+            self.search_btn.setEnabled(True)
 
     def _start_search(self) -> None:
         if self._running:
@@ -334,34 +471,57 @@ class HarvestPage(QWidget):
             return
         if not any(cb.isChecked() for cb in self.pubtype_cbs.values()):
             return
+        # 回填模式：护栏⑭ 校验（按钮已据此禁用，这里再挡一道）
+        if self.rb_back.isChecked():
+            ok, _ = self._backfill_validation()
+            if not ok:
+                return
         self._search_journal = journal
         self._running = True
         self._update_search_btn()
         self._clear_receipt()
-        days = self._window_days
         inc_ed = self.pubtype_cbs["Editorial"].isChecked()
         inc_lt = self.pubtype_cbs["Letter"].isChecked()
         topic = self.topic_edit.text().strip() or None
-        params = {"journal": journal, "days": days,     # 锁定本次检索参数——导入用它，不用当前 UI 态
-                  "inc_ed": inc_ed, "inc_lt": inc_lt, "topic": topic}
+
+        # 按模式构窗口参数 + argv/窗口描述（_last_params 带 mode，导入按 mode 分流）
+        if self.rb_latest.isChecked():
+            params = {"journal": journal, "mode": "latest",
+                      "reldate_days": self._window_days,
+                      "inc_ed": inc_ed, "inc_lt": inc_lt, "topic": topic}
+            argv_desc = "-ReldateDays %d" % self._window_days
+            window_desc = "近 %d 天（edat）" % self._window_days
+        else:
+            year = self.cb_year.currentData()
+            month = self.cb_month.currentData()
+            if month is None:
+                params = {"journal": journal, "mode": "back_year", "year": year,
+                          "inc_ed": inc_ed, "inc_lt": inc_lt, "topic": topic}
+                argv_desc = "-Year %d" % year
+            else:
+                mon_str = "%d-%s" % (year, month)
+                params = {"journal": journal, "mode": "back_month",
+                          "year": year, "month": mon_str,
+                          "inc_ed": inc_ed, "inc_lt": inc_lt, "topic": topic}
+                argv_desc = "-Month %s" % mon_str
+            window_desc = self._backfill_desc()
+        self._last_params = None          # 清旧的，检索成功才重新锁定（防导入用上一次的窗口）
+
         self.run_status.setText(
-            "⏳ 检索中… spawn zotero-import.ps1 -Journal \"%s\" -ReldateDays %d "
-            "-EmitJson（约 30–60 秒，后台线程，请勿关闭）"
-            % (journal, days))
+            "⏳ 检索中… spawn zotero-import.ps1 -Journal \"%s\" %s "
+            "-EmitJson（%s，约 30–60 秒，后台线程，请勿关闭）"
+            % (journal, argv_desc, window_desc))
         self.run_status.setVisible(True)
 
         def job():
-            return engine.run_search(
-                journal, reldate_days=days,
-                include_editorial=inc_ed, include_letter=inc_lt,
-                topic_filter=topic)
+            return _engine_search(params)
 
         def done(r):
             self._running = False
             self._update_search_btn()
             self.run_status.setVisible(False)
             self._last_params = params          # 检索成功才锁定导入目标（失败不覆盖）
-            self._render_receipt(self._search_journal, r)
+            self._render_receipt(self._search_journal, r, params)
 
         def failed(err):
             self._running = False
@@ -381,12 +541,13 @@ class HarvestPage(QWidget):
             if w is not None:
                 w.deleteLater()
 
-    def _render_receipt(self, journal: str, r: dict) -> None:
+    def _render_receipt(self, journal: str, r: dict, params: dict | None = None) -> None:
         self._clear_receipt()
         box = self.receipt_box
 
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        badge = QLabel(f"  ✓ 预览完成 · {ts} · dry-run（未写 Zotero）  ")
+        badge = QLabel(
+            f"  ✓ 预览完成 · {_params_window_desc(params)} · {ts} · dry-run（未写 Zotero）  ")
         badge.setStyleSheet(
             "background:%s; color:white; padding:6px 14px; border-radius:9px;"
             "font-weight:bold; font-size:10pt;" % style.ACCENT)
@@ -402,6 +563,13 @@ class HarvestPage(QWidget):
         stats.addWidget(self._stat_chip("疑似", counts.get("suspect", 0), _SUS_COLOR))
         stats.addStretch(1)
         box.addLayout(stats)
+
+        # 护栏⑫：found>=retmax 上限可能截断 → 橙字告警（建议改按月回填）
+        if r.get("found", 0) >= _RETMAX_WARN:
+            trunc = QLabel("⚠ 命中达上限 %d，可能截断，建议改按月回填" % _RETMAX_WARN)
+            trunc.setStyleSheet(style.WARN_TEXT)
+            trunc.setWordWrap(True)
+            box.addWidget(trunc)
 
         # query 行
         qline = QLabel(r.get("query", "—") or "—")
@@ -499,7 +667,8 @@ class HarvestPage(QWidget):
         ans = QMessageBox.question(
             self, "确认真实导入",
             "确认真实导入 %d 篇新文献到 Zotero「%s」collection？\n"
-            "（新增 · 去重 · 可逆：可移回收站）" % (new_count, journal))
+            "窗口：%s\n（新增 · 去重 · 可逆：可移回收站）"
+            % (new_count, journal, _params_window_desc(p)))
         if ans != QMessageBox.Yes:
             return
         # 受控建 collection（护栏⑯）：检索说 collection 不存在 → 先建再导入
@@ -551,10 +720,7 @@ class HarvestPage(QWidget):
         self.run_status.setVisible(True)
 
         def job():
-            return engine.run_import(
-                params["journal"], reldate_days=params["days"],
-                include_editorial=params["inc_ed"], include_letter=params["inc_lt"],
-                topic_filter=params["topic"])
+            return _engine_import(params)
 
         def done(ri):
             self._running = False
@@ -636,8 +802,9 @@ class HarvestPage(QWidget):
 
         coll = r.get("collection") or {}
         foot = self._muted(
-            "真实导入完成 · collection key=%s · journal=%s · 已写 Zotero + 台账。"
-            % (coll.get("key", "—"), r.get("journal", params.get("journal", "—"))))
+            "真实导入完成 · 窗口 %s · collection key=%s · journal=%s · 已写 Zotero + 台账。"
+            % (_params_window_desc(params), coll.get("key", "—"),
+               r.get("journal", params.get("journal", "—"))))
         foot.setTextInteractionFlags(Qt.TextSelectableByMouse)
         box.addWidget(foot)
 
