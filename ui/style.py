@@ -51,6 +51,28 @@ QListWidget#nav::item:selected {{
     font-weight: bold;
 }}
 
+/* ---- 采集策略页：分类主列表（比顶层 nav 轻，贴主题不用默认蓝选中） ---- */
+QListWidget#catList {{
+    background: {CARD_BG};
+    border: none;
+    border-right: 1px solid {BORDER};
+    outline: none;
+    padding-top: 6px;
+}}
+QListWidget#catList::item {{
+    height: 40px;
+    padding-left: 14px;
+    border-left: 3px solid transparent;
+    color: #55514A;
+}}
+QListWidget#catList::item:hover {{ background: {ACCENT_SOFT}; }}
+QListWidget#catList::item:selected {{
+    background: {ACCENT_SOFT};
+    border-left: 3px solid {ACCENT};
+    color: {ACCENT_DARK};
+    font-weight: bold;
+}}
+
 /* ---- 卡片 ---- */
 QFrame#card {{
     background: {CARD_BG};
