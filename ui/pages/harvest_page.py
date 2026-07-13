@@ -34,10 +34,10 @@ Slice 4 在其上加回填历史（复用检索/导入流程，只换窗口参�
 """
 from datetime import date, datetime
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel,
-                               QLineEdit, QMessageBox, QPushButton,
+                               QLineEdit, QMessageBox, QProgressBar, QPushButton,
                                QRadioButton, QScrollArea, QTreeWidget,
                                QTreeWidgetItem, QVBoxLayout, QWidget)
 
@@ -134,6 +134,14 @@ class HarvestPage(QWidget):
         self._last_params = None      # 检索成功时锁定的参数（journal/mode/窗口/inc_ed/inc_lt/topic）—— 导入用它，不用当前 UI 态
         self._action_btns = []        # 当前回执里的动作按钮（导入/重试），_running 时整体禁用
 
+        # 运行态 UI（醒目横幅 + 走马灯进度条 + 秒数跳动，证明后台没卡死）
+        self._elapsed = 0             # 当前运行已用秒数（_elapsed_timer 每秒 +1）
+        self._run_verb = "检索"       # 运行动作名（检索/导入），横幅文案用
+        self._run_detail = ""         # 运行副文案（窗口描述），秒表跳动时保留
+        self._elapsed_timer = QTimer(self)
+        self._elapsed_timer.setInterval(1000)
+        self._elapsed_timer.timeout.connect(self._tick_elapsed)
+
         self._journals = journals.load()          # {分类: [刊名,...]}，失败回退静态 10
 
         root = QHBoxLayout(self)
@@ -185,11 +193,19 @@ class HarvestPage(QWidget):
             "选一本刊 → 勾文献类型 / 主题过滤 → 点「检索」dry-run 预览（PubMed edat + "
             "Zotero 全库去重）。Slice 2 不写 Zotero、不动台账。"))
 
-        lay.addWidget(self._build_config())
+        self._config_panel = self._build_config()   # 存引用：运行时整体冻结（视觉锁定）
+        lay.addWidget(self._config_panel)
         self.run_status = self._muted("")
         self.run_status.setWordWrap(True)
         self.run_status.setVisible(False)
         lay.addWidget(self.run_status)
+        # 走马灯进度条（不定长 range(0,0)）：运行时显示 = 明确「正在跑」信号
+        self.run_progress = QProgressBar()
+        self.run_progress.setRange(0, 0)
+        self.run_progress.setTextVisible(False)
+        self.run_progress.setFixedHeight(6)
+        self.run_progress.setVisible(False)
+        lay.addWidget(self.run_progress)
 
         self.receipt_box = QVBoxLayout()
         self.receipt_box.setSpacing(10)
@@ -449,6 +465,43 @@ class HarvestPage(QWidget):
         rev = self.pubtype_cbs["Review"].isChecked()
         self.cb_abstract.setEnabled(art or rev)
 
+    # ---------- 运行态 UI（横幅 + 进度条 + 秒表 + 冻结） ----------
+
+    def _begin_running_ui(self, verb: str, detail: str) -> None:
+        """进入运行态：醒目珊瑚横幅 + 走马灯进度条 + 秒数跳动 + 冻结期刊树/配置区。
+
+        verb=检索/导入；detail=窗口描述（如「近 30 天（edat），约 30–60 秒」）。
+        灭弹窗后，这块是唯一「正在跑」信号 —— 三重可视化证明后台没卡死。
+        """
+        self._run_verb = verb
+        self._run_detail = detail
+        self._elapsed = 0
+        self.run_status.setStyleSheet(
+            "background:%s; color:white; padding:8px 14px; border-radius:9px;"
+            "font-weight:bold;" % style.ACCENT)
+        self.run_status.setText("⏳ 正在%s… 已用 0s · %s · 请勿关闭窗口" % (verb, detail))
+        self.run_status.setVisible(True)
+        self.run_progress.setVisible(True)
+        self.tree.setEnabled(False)          # 冻结期刊树（运行中锁定目标）
+        self._config_panel.setEnabled(False)  # 冻结配置区（防运行中误改）
+        self._elapsed_timer.start()
+
+    def _end_running_ui(self) -> None:
+        """退出运行态：停秒表 + 收进度条 + 解冻树/配置。done 与 failed 都必须调。
+
+        run_status 文案/样式由调用方善后（成功→隐藏；失败→红字）。"""
+        self._elapsed_timer.stop()
+        self.run_progress.setVisible(False)
+        self.tree.setEnabled(True)
+        self._config_panel.setEnabled(True)
+
+    def _tick_elapsed(self) -> None:
+        """每秒刷新横幅秒数（保留动作名 + 副文案），让 PI 看到进度在动、没冻死。"""
+        self._elapsed += 1
+        self.run_status.setText(
+            "⏳ 正在%s… 已用 %ds · %s · 请勿关闭窗口"
+            % (self._run_verb, self._elapsed, self._run_detail))
+
     # ---------- 检索 ----------
 
     def _update_search_btn(self) -> None:
@@ -507,17 +560,14 @@ class HarvestPage(QWidget):
             window_desc = self._backfill_desc()
         self._last_params = None          # 清旧的，检索成功才重新锁定（防导入用上一次的窗口）
 
-        self.run_status.setText(
-            "⏳ 检索中… spawn zotero-import.ps1 -Journal \"%s\" %s "
-            "-EmitJson（%s，约 30–60 秒，后台线程，请勿关闭）"
-            % (journal, argv_desc, window_desc))
-        self.run_status.setVisible(True)
+        self._begin_running_ui("检索", "%s，约 30–60 秒" % window_desc)
 
         def job():
             return _engine_search(params)
 
         def done(r):
             self._running = False
+            self._end_running_ui()
             self._update_search_btn()
             self.run_status.setVisible(False)
             self._last_params = params          # 检索成功才锁定导入目标（失败不覆盖）
@@ -525,7 +575,9 @@ class HarvestPage(QWidget):
 
         def failed(err):
             self._running = False
+            self._end_running_ui()
             self._update_search_btn()
+            self.run_status.setStyleSheet(style.DANGER_TEXT)
             self.run_status.setText("❌ 检索失败：" + err)
             self.run_status.setVisible(True)
 
@@ -715,15 +767,14 @@ class HarvestPage(QWidget):
         self._running = True
         self._update_search_btn()                # 禁检索按钮
         self._set_action_btns_enabled(False)     # 禁导入/重试按钮
-        self.run_status.setText(
-            "⏳ 导入中… 真写 Zotero，请勿关闭（约 1–3 分钟，后台线程，-Execute）")
-        self.run_status.setVisible(True)
+        self._begin_running_ui("导入", "真写 Zotero，约 1–3 分钟")
 
         def job():
             return _engine_import(params)
 
         def done(ri):
             self._running = False
+            self._end_running_ui()
             self._update_search_btn()
             self.run_status.setVisible(False)
             # 护栏⑪：导入成功 → 台账已被引擎更新 → 重读刷新采集窗口（仅当还停在该刊）
@@ -733,8 +784,10 @@ class HarvestPage(QWidget):
 
         def failed(err):
             self._running = False
+            self._end_running_ui()
             self._update_search_btn()
             self._set_action_btns_enabled(True)
+            self.run_status.setStyleSheet(style.DANGER_TEXT)
             self.run_status.setText("❌ 导入失败：" + err)
             self.run_status.setVisible(True)
 

@@ -15,6 +15,11 @@ from lit import config
 
 _PREFIX = "MECHA_JSON "
 
+# GUI（pythonw 无控制台）spawn 子进程时，Windows 会给子进程新建一个控制台窗——
+# 就是点「检索」弹出的 PowerShell 窗。CREATE_NO_WINDOW 抑制它，引擎静默后台运行。
+# getattr 兜底：非 Windows 无此 flag 时取 0（不影响开发跨平台跑测）。
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
 
 def run_search(journal, *, reldate_days=None, month=None, year=None,
                include_editorial=False, include_letter=False,
@@ -60,6 +65,12 @@ def _run_engine(journal, *, reldate_days=None, month=None, year=None,
 
     execute=False（默认）= dry-run；execute=True = 末尾追加 `-Execute` 真写。
     """
+    # 护栏：spawn 前预检引擎脚本在不在——缺就给人话，别让 powershell 抛天书「找不到文件」
+    if not config.ENGINE_PATH.exists():
+        raise RuntimeError(
+            "引擎脚本未找到：%s\n（检查 Mecha-Core 是否就位、路径是否正确）"
+            % config.ENGINE_PATH)
+
     argv = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
             "-File", str(config.ENGINE_PATH), "-Journal", str(journal)]
 
@@ -83,8 +94,16 @@ def _run_engine(journal, *, reldate_days=None, month=None, year=None,
     if execute:
         argv.append("-Execute")   # 真写 Zotero + 台账（仅 run_import）
 
-    cp = subprocess.run(argv, capture_output=True, text=True,
-                        encoding="utf-8", errors="replace", timeout=timeout)
+    # 护栏：spawn 静默运行（无弹窗）+ 超时/找不到 PowerShell 转人话，别抛原始异常串
+    try:
+        cp = subprocess.run(argv, capture_output=True, text=True,
+                            encoding="utf-8", errors="replace", timeout=timeout,
+                            creationflags=_NO_WINDOW)
+    except FileNotFoundError:
+        raise RuntimeError("未找到 PowerShell，无法运行引擎（检查系统 PATH）。")
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            "引擎超时（>%d 秒）——可能 PubMed 或网络较慢，请稍后重试。" % timeout)
     if cp.returncode != 0:
         raise RuntimeError(
             f"引擎退出码 {cp.returncode}\n--- stderr ---\n{cp.stderr.strip()[-2000:]}")
