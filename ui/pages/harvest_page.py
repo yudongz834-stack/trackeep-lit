@@ -41,7 +41,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel
                                QRadioButton, QScrollArea, QTreeWidget,
                                QTreeWidgetItem, QVBoxLayout, QWidget)
 
-from lit import engine, journals, ledger, overrides, zotero
+from lit import deepseek, engine, journals, ledger, overrides, strategy, zotero
 from ui import style
 from ui.workers import run_async
 
@@ -132,7 +132,9 @@ class HarvestPage(QWidget):
         self._window_days = ledger.DEFAULT_DAYS   # 当前刊算出的采集窗口（latest 模式检索时用）
         self._latest_last = None      # 当前刊上次采集日期（latest 模式 window_info 文案用）
         self._last_params = None      # 检索成功时锁定的参数（journal/mode/窗口/inc_ed/inc_lt/topic）—— 导入用它，不用当前 UI 态
-        self._action_btns = []        # 当前回执里的动作按钮（导入/重试），_running 时整体禁用
+        self._last_result = None      # 检索成功时的引擎结果 r（AI 复筛/重渲用，不重新检索）
+        self._ai_verdicts = None      # DeepSeek 复筛判决 {pmid: {keep,reason}}；None=未筛（6b-1 advisory）
+        self._action_btns = []        # 当前回执里的动作按钮（导入/重试/AI复筛），_running 时整体禁用
 
         # 运行态 UI（醒目横幅 + 走马灯进度条 + 秒数跳动，证明后台没卡死）
         self._elapsed = 0             # 当前运行已用秒数（_elapsed_timer 每秒 +1）
@@ -571,6 +573,8 @@ class HarvestPage(QWidget):
             self._update_search_btn()
             self.run_status.setVisible(False)
             self._last_params = params          # 检索成功才锁定导入目标（失败不覆盖）
+            self._last_result = r               # 锁定结果供 AI 复筛/重渲复用（不重检索）
+            self._ai_verdicts = None            # 新检索清旧 AI 判决
             self._render_receipt(self._search_journal, r, params)
 
         def failed(err):
@@ -587,11 +591,23 @@ class HarvestPage(QWidget):
 
     def _clear_receipt(self) -> None:
         self._action_btns = []           # 旧回执的动作按钮随 widget 一并销毁，清引用
-        while self.receipt_box.count():
-            it = self.receipt_box.takeAt(0)
+        self._clear_layout(self.receipt_box)
+
+    @staticmethod
+    def _clear_layout(layout) -> None:
+        """递归清空布局：直属 widget 销毁，嵌套布局（stats/irow/arow 等）内的 widget
+        也一并递归销毁——否则嵌套布局里的按钮/药丸只被 takeAt 摘下、仍挂 body 累积泄漏
+        （新卡片不透明重绘遮住了它，视觉masked但控件在涨）。"""
+        while layout.count():
+            it = layout.takeAt(0)
             w = it.widget()
             if w is not None:
                 w.deleteLater()
+            else:
+                sub = it.layout()
+                if sub is not None:
+                    HarvestPage._clear_layout(sub)
+                    sub.deleteLater()
 
     def _render_receipt(self, journal: str, r: dict, params: dict | None = None) -> None:
         self._clear_receipt()
@@ -630,6 +646,10 @@ class HarvestPage(QWidget):
         qline.setTextInteractionFlags(Qt.TextSelectableByMouse)
         box.addWidget(qline)
 
+        # AI 复筛判决（6b-1 advisory）：仅标注、不拦截导入；ai_on 决定是否出「复筛」按钮
+        ai_on = strategy.resolve(journal)["deepseek_enabled"]
+        verdicts = self._ai_verdicts or {}
+
         # 分组清单
         items = r.get("items", []) or []
         groups: dict[str, list] = {}
@@ -644,12 +664,20 @@ class HarvestPage(QWidget):
             card, clay = self._card()
             clay.setContentsMargins(0, 0, 0, 0)
             clay.setSpacing(0)
-            hdr = QLabel(f"{title}（{len(rows)} 篇）")
+            # new 组 + 已有 AI 判决 → 表头附「🤖 AI 建议留 X / 滤 Y」
+            hdr_text = f"{title}（{len(rows)} 篇）"
+            if key == "new" and verdicts:
+                kept = sum(1 for it in rows
+                           if (verdicts.get(str(it.get("pmid"))) or {}).get("keep"))
+                hdr_text = ("🆕 新增（%d 篇 · 🤖 AI 建议留 %d / 滤 %d）"
+                            % (len(rows), kept, len(rows) - kept))
+            hdr = QLabel(hdr_text)
             hdr.setStyleSheet(
                 "font-weight:bold; padding:10px 14px; color:%s;" % style.TEXT)
             clay.addWidget(hdr)
             for it in rows:
-                clay.addWidget(self._item_row(it, key))
+                v = verdicts.get(str(it.get("pmid"))) if key == "new" else None
+                clay.addWidget(self._item_row(it, key, verdict=v))
             box.addWidget(card)
 
         # 导入按钮（仅 new>0 显示）：确认框 → 受控建 collection（不存在时）→ run_import
@@ -666,6 +694,25 @@ class HarvestPage(QWidget):
                 "真实写库（新增 · 去重 · 可逆：可移回收站）。点击后先确认。"), 1)
             box.addLayout(irow)
             self._action_btns.append(imp)
+
+        # 🤖 DeepSeek 复筛（6b-1 advisory）：仅该刊分类开了 DeepSeek 且有 new 才出
+        if ai_on and new_count > 0:
+            arow = QHBoxLayout()
+            if not verdicts:
+                aibtn = QPushButton("🤖  DeepSeek 复筛（预览判决）")
+                aibtn.setCursor(Qt.PointingHandCursor)
+                aibtn.setEnabled(not self._running)
+                aibtn.clicked.connect(self._start_ai_filter)
+                arow.addWidget(aibtn)
+                arow.addWidget(self._muted(
+                    "按分类判据逐篇判「主体是否相关」（约 10–30 秒）。仅供参考，本版不拦截导入。"), 1)
+                self._action_btns.append(aibtn)
+            else:
+                note = self._muted(
+                    "🤖 AI 判决仅供参考 —— 本版**不拦截导入**（导入仍导入全部新增）。"
+                    "判据准不准可在「采集策略」页按分类调整。")
+                arow.addWidget(note, 1)
+            box.addLayout(arow)
 
         # 护栏⑧：found==0 按 taMismatch 分流
         if r.get("found", 0) == 0:
@@ -699,9 +746,53 @@ class HarvestPage(QWidget):
     # ---------- 导入（Slice 3）----------
 
     def _set_action_btns_enabled(self, on: bool) -> None:
-        """批量切当前回执里的动作按钮（导入/重试）可用态——_running 时整体禁用。"""
+        """批量切当前回执里的动作按钮（导入/重试/AI复筛）可用态——_running 时整体禁用。"""
         for b in self._action_btns:
             b.setEnabled(on)
+
+    def _start_ai_filter(self) -> None:
+        """🤖 DeepSeek 复筛（6b-1 advisory）：对检索结果的 new 候选按分类判据判 keep/drop。
+
+        结果只标注在审计页、**不拦截导入**。用检索时锁定的 _last_params['journal'] +
+        _last_result（不重新检索）；_running 时直接返回（单飞）。判据准不准由 PI 在
+        「采集策略」页调，本处只照判据执行。
+        """
+        if self._running:
+            return
+        r, p = self._last_result, self._last_params
+        if not r or not p:
+            return
+        journal = p["journal"]
+        new_items = [it for it in (r.get("items") or []) if it.get("status") == "new"]
+        if not new_items:
+            return
+        criteria = strategy.resolve(journal)["deepseek_criteria"]
+        self._running = True
+        self._update_search_btn()
+        self._set_action_btns_enabled(False)
+        self._begin_running_ui("AI 复筛", "DeepSeek V4 Flash 逐篇判，约 10–30 秒")
+
+        def job():
+            return deepseek.classify(new_items, criteria)
+
+        def done(verdicts):
+            self._running = False
+            self._end_running_ui()
+            self._update_search_btn()
+            self.run_status.setVisible(False)
+            self._ai_verdicts = verdicts
+            self._render_receipt(journal, r, p)     # 重渲：new 组带上 AI 留/滤标注
+
+        def failed(err):
+            self._running = False
+            self._end_running_ui()
+            self._update_search_btn()
+            self._set_action_btns_enabled(True)
+            self.run_status.setStyleSheet(style.DANGER_TEXT)
+            self.run_status.setText("❌ AI 复筛失败：" + err)
+            self.run_status.setVisible(True)
+
+        run_async(self, job, done=done, failed=failed)
 
     def _on_import_clicked(self, r: dict) -> None:
         """导入按钮：确认框 → 受控建 collection（不存在时）→ run_import 线程。
@@ -875,7 +966,7 @@ class HarvestPage(QWidget):
         l.addWidget(lb2)
         return f
 
-    def _item_row(self, it: dict, status: str) -> QFrame:
+    def _item_row(self, it: dict, status: str, verdict: dict | None = None) -> QFrame:
         row = QFrame()
         rl = QHBoxLayout(row)
         rl.setContentsMargins(14, 8, 14, 8)
@@ -905,10 +996,29 @@ class HarvestPage(QWidget):
         if it.get("dupSrc"):
             tip.append(f"重复来源: {it['dupSrc']}")
         tip.append(f"状态: {status}")
+        if verdict is not None:
+            tip.append("AI: %s · %s" % ("建议留" if verdict.get("keep") else "建议滤",
+                                        verdict.get("reason") or "—"))
         row.setToolTip("\n".join(tip))
 
         rl.addWidget(pill)
         rl.addWidget(title, 1)
+        # AI 复筛判决（6b-1 advisory）：右侧 AI 药丸 + ≤20字理由，仅标注不拦截
+        if verdict is not None:
+            keep = verdict.get("keep")
+            reason = QLabel(verdict.get("reason") or "")
+            reason.setStyleSheet("color:%s; font-size:9pt;" % style.MUTED)
+            reason.setWordWrap(True)
+            reason.setMaximumWidth(180)
+            ai_fg, ai_bg = (_NEW_COLOR, _NEW_BG) if keep else (_FAIL_COLOR, _FAIL_BG)
+            ai_pill = QLabel("🤖留" if keep else "🤖滤")
+            ai_pill.setFixedWidth(48)
+            ai_pill.setAlignment(Qt.AlignCenter)
+            ai_pill.setStyleSheet(
+                "color:%s; background:%s; border-radius:6px; padding:3px 0;"
+                "font-weight:bold; font-size:9pt;" % (ai_fg, ai_bg))
+            rl.addWidget(reason)
+            rl.addWidget(ai_pill)
         return row
 
     # ---------- 小部件工厂 ----------
