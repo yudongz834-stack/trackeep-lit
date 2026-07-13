@@ -1,81 +1,49 @@
 # -*- coding: utf-8 -*-
-"""采集策略页 —— 按分类的采集策略总控（Slice 6a）。
+"""分类采集策略表单（可复用件）——按分类配 pubtype / PubMed 主题过滤 / DeepSeek 判据。
 
-左列 5 分类（journals.CATEGORIES），右表单随选中分类载入 / 写回该分类策略
-（strategy.json）：Editorial/Letter pubtype 开关、PubMed 主题检索式（topicFilter）、
-DeepSeek 语义复筛判据（deepseek；本片只存判据字符串、不执行，执行属 6b）。
+原 strategy_page.py 的表单部分提取成独立 widget：**不含左侧分类列表**（分类选择由
+采集台左树驱动，外部调 `load(cat)` 切分类）。改动去抖自动存 strategy.json（原子写、
+保留 version 与其它分类）。写 strategy.json、不碰 journal-overrides.json（单刊例外在
+采集台「本刊例外」区）。
 
-- Article/Review 是引擎查询恒含基底（不可去），表单里作只读展示（勾选+禁用）。
-- 切分类用 _loading 抑制写回（仿 harvest_page）；任一控件变更去抖存盘（原子写、
-  保留 version 与其它分类）。写失败显提示不崩。
-- 本页只写 strategy.json，绝不碰 journal-overrides.json（单刊例外仍在采集台配）。
-
-配色只用 ui/style.py 既有常量；小部件工厂（_muted/_label/_card）对齐 harvest_page。
+配色只用 ui/style.py 常量；小部件工厂对齐 harvest_page。
 """
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (QCheckBox, QFrame, QHBoxLayout, QLabel, QLineEdit,
-                               QListWidget, QListWidgetItem, QPlainTextEdit,
-                               QScrollArea, QVBoxLayout, QWidget)
+                               QPlainTextEdit, QVBoxLayout, QWidget)
 
 from lit import journals, strategy
 from ui import style
 
-_SAVE_DEBOUNCE_MS = 400      # 文本框 textChanged 频繁触发，聚一次再原子写
+_SAVE_DEBOUNCE_MS = 400      # 文本框频繁触发，聚一次再原子写
 
 
-class StrategyPage(QWidget):
+class CategoryPolicyForm(QWidget):
+    """单分类策略表单。外部 `load(cat)` 切分类；改动去抖自动存。"""
+
     def __init__(self):
         super().__init__()
-        self._workers = []          # 主窗关闭时 wait（本页无后台线程，留空占位对齐其它页）
-        self._loading = False        # 程序化载策略时抑制写回（切分类 setChecked/setText 不落盘）
-        self._current_cat = None     # 当前选中分类（_save 用）
+        self._loading = False        # 程序化载入时抑制写回
+        self._current_cat = None
+        self._journals = journals.load()      # 算各分类刊数（标题用）
 
-        self._journals = journals.load()          # {分类: [刊名,...]}，算各分类刊数
-
-        # 去抖存盘定时器（连续编辑只聚一次写）
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)
         self._save_timer.setInterval(_SAVE_DEBOUNCE_MS)
         self._save_timer.timeout.connect(self._flush_save)
 
-        root = QHBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
 
-        # ---------- 左：分类列表（5 分类） ----------
-        self.cat_list = QListWidget()
-        self.cat_list.setObjectName("catList")
-        self.cat_list.setFixedWidth(248)
-        for cat in journals.CATEGORIES:
-            n = len(self._journals.get(cat, []))
-            QListWidgetItem("%s（%d）" % (cat, n), self.cat_list)
-        self.cat_list.setCurrentRow(0)
-        root.addWidget(self.cat_list)
-
-        # ---------- 右：滚动表单 ----------
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        root.addWidget(scroll, 1)
-        body = QWidget()
-        scroll.setWidget(body)
-        lay = QVBoxLayout(body)
-        lay.setContentsMargins(26, 22, 30, 18)
-        lay.setSpacing(12)
-
-        title = QLabel("🎛️  采集策略")
-        title.setObjectName("pageTitle")
-        lay.addWidget(title)
+        self.title = QLabel("")
+        self.title.setObjectName("pageTitle")
+        lay.addWidget(self.title)
         lay.addWidget(self._muted(
-            "按 5 大分类分别配采集策略（文献类型 / PubMed 主题过滤 / DeepSeek 语义筛判据），"
-            "改动自动存 strategy.json。单刊例外仍在采集台配，此处不碰。"))
-
+            "按分类配采集策略，改动自动存。Article / Review 是引擎恒含基底（只读展示）；"
+            "单刊例外在采集台选中期刊后的「本刊例外」里配。"))
         lay.addWidget(self._build_form())
         lay.addStretch(1)
-
-        # 首次载入：连信号 + 载第 0 分类策略
-        self.cat_list.currentRowChanged.connect(self._on_cat_changed)
-        self._on_cat_changed(self.cat_list.currentRow())
 
     # ---------- 表单 ----------
 
@@ -83,20 +51,14 @@ class StrategyPage(QWidget):
         panel, ply = self._card()
         ply.setContentsMargins(20, 16, 20, 18)
 
-        self.cat_title = QLabel("")
-        self.cat_title.setObjectName("sectionTitle")
-        ply.addWidget(self.cat_title)
-        ply.addWidget(self._muted(
-            "Article / Review 是引擎查询恒含的基底（不可去），此处只读展示。"
-            "Editorial / Letter、主题过滤、DeepSeek 判据按分类配置。"))
-
-        # 文献类型行：Article/Review（只读基底）+ Editorial/Letter（可改）
+        # 文献类型：Article/Review 只读基底 + Editorial/Letter 可改
         pt = QHBoxLayout()
         pt.setSpacing(12)
+        pt.addWidget(self._label("文献类型", "sectionTitle"))
         for base in ("Article", "Review"):
             cb = QCheckBox(base)
             cb.setChecked(True)
-            cb.setEnabled(False)          # 引擎恒含基底，展示用不可改
+            cb.setEnabled(False)
             pt.addWidget(cb)
         sep = QFrame()
         sep.setFixedWidth(1)
@@ -114,7 +76,9 @@ class StrategyPage(QWidget):
         pt.addStretch(1)
         ply.addLayout(pt)
 
-        # PubMed 主题过滤行
+        div1 = QFrame(); div1.setFixedHeight(1); div1.setStyleSheet("background:%s;" % style.BORDER)
+        ply.addWidget(div1)
+
         ply.addWidget(self._label("PubMed 主题过滤", "sectionTitle"))
         self.cb_topic = QCheckBox("启用主题过滤（PubMed 检索式层）")
         self.cb_topic.toggled.connect(self._on_topic_toggled)
@@ -124,38 +88,33 @@ class StrategyPage(QWidget):
         self.edit_topic.editingFinished.connect(self._on_field_changed)
         ply.addWidget(self.edit_topic)
 
-        # DeepSeek 语义筛行
+        div2 = QFrame(); div2.setFixedHeight(1); div2.setStyleSheet("background:%s;" % style.BORDER)
+        ply.addWidget(div2)
+
         ply.addWidget(self._label("DeepSeek 语义复筛", "sectionTitle"))
         self.cb_deepseek = QCheckBox("启用 DeepSeek V4 Flash 语义复筛（按标题+摘要逐篇判留/滤）")
         self.cb_deepseek.toggled.connect(self._on_deepseek_toggled)
         ply.addWidget(self.cb_deepseek)
         self.edit_deepseek = QPlainTextEdit()
-        self.edit_deepseek.setFixedHeight(64)     # 2–3 行高
+        self.edit_deepseek.setFixedHeight(64)
         self.edit_deepseek.setPlaceholderText("研究主体真正聚焦肺癌/胸部肿瘤，而非泛癌顺带提及")
         self.edit_deepseek.textChanged.connect(self._on_field_changed)
         ply.addWidget(self.edit_deepseek)
 
-        # 小结行
         self.summary = self._muted("")
         ply.addWidget(self.summary)
         return panel
 
-    # ---------- 分类切换 / 载入 ----------
+    # ---------- 载入 / 写回 ----------
 
-    def _on_cat_changed(self, row: int) -> None:
-        if row < 0 or row >= len(journals.CATEGORIES):
-            return
-        # 切分类前先把待写的旧分类落盘，防丢（控件的值还是旧分类、_current_cat 未变）
-        if self._save_timer.isActive():
+    def load(self, cat: str) -> None:
+        """外部（采集台左树选中分类）调：切到该分类，把策略反映到控件。"""
+        if self._save_timer.isActive():       # 切走前先落盘上一分类的待写
             self._save_timer.stop()
             self._flush_save()
-        cat = journals.CATEGORIES[row]
         self._current_cat = cat
-        self.cat_title.setText("%s（%d 刊）" % (cat, len(self._journals.get(cat, []))))
-        self._load(cat)
-
-    def _load(self, cat: str) -> None:
-        """选中分类变化 → 读 strategy，把策略反映到控件（_loading 抑制写回）。"""
+        n = len(self._journals.get(cat, []))
+        self.title.setText("🎛  %s（%d 刊）策略" % (cat, n))
         p = strategy.get_category(cat)
         self._loading = True
         try:
@@ -171,7 +130,11 @@ class StrategyPage(QWidget):
             self._loading = False
         self._refresh_summary(p)
 
-    # ---------- 写回 ----------
+    def flush_pending(self) -> None:
+        """外部切走本表单前调，确保待写落盘（防丢）。"""
+        if self._save_timer.isActive():
+            self._save_timer.stop()
+            self._flush_save()
 
     def _on_topic_toggled(self, on: bool) -> None:
         self.edit_topic.setEnabled(on)
@@ -182,10 +145,9 @@ class StrategyPage(QWidget):
         self._on_field_changed()
 
     def _on_field_changed(self) -> None:
-        """任一控件变更 → 去抖存盘（_loading 期间不触发）。"""
         if self._loading:
             return
-        self._save_timer.start()       # 重启计时器：连续编辑只聚一次
+        self._save_timer.start()
 
     def _flush_save(self) -> None:
         cat = self._current_cat
@@ -194,14 +156,10 @@ class StrategyPage(QWidget):
         policy = {
             "editorial": self.cb_editorial.isChecked(),
             "letter": self.cb_letter.isChecked(),
-            "topicFilter": {
-                "enabled": self.cb_topic.isChecked(),
-                "terms": self.edit_topic.text(),
-            },
-            "deepseek": {
-                "enabled": self.cb_deepseek.isChecked(),
-                "criteria": self.edit_deepseek.toPlainText(),
-            },
+            "topicFilter": {"enabled": self.cb_topic.isChecked(),
+                            "terms": self.edit_topic.text()},
+            "deepseek": {"enabled": self.cb_deepseek.isChecked(),
+                         "criteria": self.edit_deepseek.toPlainText()},
         }
         try:
             strategy.save_category(cat, policy)
@@ -226,10 +184,10 @@ class StrategyPage(QWidget):
         if p["letter"]:
             ed.append("Letter")
         extra = ("（含 " + " / ".join(ed) + "）") if ed else ""
-        self.summary.setText("当前分类策略：%s%s" % (mode, extra))
-        self.summary.setStyleSheet("")    # 清掉可能的错误红字样式
+        self.summary.setText("当前分类策略：%s%s · 改动自动存 strategy.json" % (mode, extra))
+        self.summary.setStyleSheet("")
 
-    # ---------- 小部件工厂（对齐 harvest_page） ----------
+    # ---------- 小部件工厂 ----------
 
     @staticmethod
     def _muted(text: str) -> QLabel:

@@ -9,14 +9,12 @@ from lit import config
 from ui.pages.harvest_page import HarvestPage
 from ui.pages.help_page import HelpPage
 from ui.pages.settings_page import SettingsPage
-from ui.pages.strategy_page import StrategyPage
 
 ICON_PATH = config.ROOT / "app.ico"   # 开发=项目根；打包成品=exe 旁边
 
 # 页面导航单一真相源：短名 → 导航标签（含图标）。增删页面 / 改顺序只动这里。
 _PAGES = [
     ("采集台", "📡  采集台"),
-    ("采集策略", "🎛️  采集策略"),
     ("设置", "⚙️  设置"),
     ("使用说明", "📖  使用说明"),
 ]
@@ -56,7 +54,6 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.pages = [
             HarvestPage(),
-            StrategyPage(),
             SettingsPage(),
             HelpPage(),
         ]
