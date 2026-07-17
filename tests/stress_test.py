@@ -276,6 +276,9 @@ def search_mash():
         ok = _drain(harvest, 5)
         assert ok, f"round {rnd}: 检索 worker 未在 5s 内收尾"
         assert not harvest._running, f"round {rnd}: 收尾后 _running 应归位"
+        # drain 后终值断言（主驾加固）：全部 worker 已收尾、记录必齐——晚到的重复 spawn 无处可藏
+        n_final = len(_search_calls())
+        assert n_final == 1, f"round {rnd}: drain 后 run_search 终值 {n_final}（应 1，疑晚到重复 spawn）"
 
 
 check("INV-09: 检索连点 ×%d → run_search 恰 1 次/轮" % ROUNDS, search_mash)
@@ -312,6 +315,8 @@ def import_mash():
         ok = _drain(harvest, 5)
         assert ok, f"round {rnd}: 导入 worker 未在 5s 内收尾"
         assert not harvest._running
+        n_final = len(_import_calls())
+        assert n_final == 1, f"round {rnd}: drain 后 run_import 终值 {n_final}（应 1，疑晚到重复 spawn）"
 
 
 check("INV-09: 导入连点 ×%d → run_import 恰 1 次/轮" % ROUNDS, import_mash)

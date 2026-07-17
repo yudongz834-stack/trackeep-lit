@@ -19,7 +19,9 @@ class FuncWorker(QThread):
     def run(self) -> None:
         try:
             self.done.emit(self._fn(*self._args, **self._kwargs))
-        except Exception as e:
+        except BaseException as e:
+            # 兜 BaseException（KeyboardInterrupt/SystemExit 不被 except Exception 捕获）：
+            # 仍发 failed 信号让 UI 复位 _running，否则线程收尾但界面永卡；不 re-raise。
             self.failed.emit(f"{type(e).__name__}: {e}")
 
 

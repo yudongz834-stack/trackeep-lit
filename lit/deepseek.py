@@ -79,16 +79,29 @@ def _deepseek_judge(items, abstracts, criteria, *, timeout):
                  "anthropic-version": "2023-06-01"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw = resp.read().decode("utf-8", "replace")
-    data = json.loads(raw)
+    # 顶层非 JSON（如网关 HTML 错误页）→ 转人话 RuntimeError，不抛原始 JSONDecodeError
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        raise RuntimeError("DeepSeek 返回无法解析（顶层非 JSON，疑似网关错误页）。") from None
     text = "".join(b.get("text", "") for b in data.get("content", [])
                    if b.get("type") == "text")
     m = re.search(r"\[.*\]", text, re.S)
     if not m:
         raise RuntimeError("DeepSeek 返回无法解析（未见 JSON 数组）。")
+    # 正则命中的 [...] 内部非法 JSON → 同上转人话 RuntimeError
+    try:
+        parsed = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        raise RuntimeError("DeepSeek 返回无法解析（JSON 数组内部格式非法）。") from None
     verdicts = {}
-    for v in json.loads(m.group(0)):
+    for v in parsed:
         pmid = idx2pmid.get(v.get("n"))
         if pmid:
-            verdicts[pmid] = {"keep": bool(v.get("keep")),
+            # keep 类型归一：bool 照原值；其它（字符串等）仅显式 "false" 才滤，
+            # 歧义值保守留——advisory 语义下宁多看不错杀（旧 bool("false")=True 误留）
+            k = v.get("keep")
+            keep = k if isinstance(k, bool) else str(k).strip().lower() != "false"
+            verdicts[pmid] = {"keep": keep,
                               "reason": (v.get("reason") or "")[:40]}
     return verdicts

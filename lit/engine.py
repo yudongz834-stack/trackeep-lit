@@ -119,4 +119,11 @@ def _run_engine(journal, *, reldate_days=None, month=None, year=None,
     if line is None:
         tail = cp.stdout.strip()[-500:]
         raise RuntimeError(f"stdout 未找到 TRACKEEP_JSON 行。\n--- stdout 末尾 ---\n{tail}")
-    return json.loads(line[len(_PREFIX):])
+    # 前缀命中但后跟非法 JSON（脏回执）→ 转人话 RuntimeError，不抛原始 JSONDecodeError（INV-03）
+    payload = line[len(_PREFIX):]
+    try:
+        return json.loads(payload)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(
+            "TRACKEEP_JSON 行不是合法 JSON：%s\n--- 片段 ---\n%s"
+            % (e, payload[:200])) from None

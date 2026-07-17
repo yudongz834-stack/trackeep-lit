@@ -637,6 +637,14 @@ class HarvestPage(QWidget):
     def _render_receipt(self, journal: str, r: dict, params: dict | None = None) -> None:
         self._clear_receipt()
         box = self.receipt_box
+        # 脏回执兜底：r 非 dict（list/None/str 等）→ 渲染一条人话错误，不抛 AttributeError
+        if not isinstance(r, dict):
+            err = QLabel("⚠ 引擎回执格式异常，无法渲染（期望对象，收到 %s）。"
+                         % type(r).__name__)
+            err.setStyleSheet(style.DANGER_TEXT)
+            err.setWordWrap(True)
+            box.addWidget(err)
+            return
 
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         badge = QLabel(
@@ -658,7 +666,12 @@ class HarvestPage(QWidget):
         box.addLayout(stats)
 
         # 护栏⑫：found>=retmax 上限可能截断 → 橙字告警（建议改按月回填）
-        if r.get("found", 0) >= _RETMAX_WARN:
+        # found 非 int（脏回执）安全降级：转不了就视为不触发告警，避免 TypeError；显示仍照原值
+        try:
+            _found_warn = int(r.get("found", 0))
+        except (TypeError, ValueError):
+            _found_warn = -1
+        if _found_warn >= _RETMAX_WARN:
             trunc = QLabel("⚠ 命中达上限 %d，可能截断，建议改按月回填" % _RETMAX_WARN)
             trunc.setStyleSheet(style.WARN_TEXT)
             trunc.setWordWrap(True)
@@ -758,8 +771,10 @@ class HarvestPage(QWidget):
             clay.addWidget(self._muted("（未命中文献）"))
             box.addWidget(card)
 
-        # 页脚：collection / journal / mode
-        coll = r.get("collection", {}) or {}
+        # 页脚：collection / journal / mode（collection 非 dict 时兜 {}，走「未知」路径）
+        coll = r.get("collection")
+        if not isinstance(coll, dict):
+            coll = {}
         foot = self._muted(
             "collection key=%s（%s）· journal=%s · mode=%s · dry-run 预览：未写 Zotero、"
             "未动台账。真实导入属 Slice 3。"
@@ -913,6 +928,14 @@ class HarvestPage(QWidget):
         """导入回执：✓ 已导入 X · 失败 Y · 去重 Z + 按 status 分组清单 + 失败重试。"""
         self._clear_receipt()
         box = self.receipt_box
+        # 脏回执兜底：r 非 dict（list/None/str 等）→ 渲染一条人话错误，不抛 AttributeError
+        if not isinstance(r, dict):
+            err = QLabel("⚠ 引擎回执格式异常，无法渲染（期望对象，收到 %s）。"
+                         % type(r).__name__)
+            err.setStyleSheet(style.DANGER_TEXT)
+            err.setWordWrap(True)
+            box.addWidget(err)
+            return
         counts = r.get("counts") or {}
         imported = counts.get("imported", 0) or 0
         failed = counts.get("failed", 0) or 0
@@ -969,7 +992,9 @@ class HarvestPage(QWidget):
             box.addLayout(rrow)
             self._action_btns.append(retry)
 
-        coll = r.get("collection") or {}
+        coll = r.get("collection")
+        if not isinstance(coll, dict):
+            coll = {}
         foot = self._muted(
             "真实导入完成 · 窗口 %s · collection key=%s · journal=%s · 已写 Zotero + 台账。"
             % (_params_window_desc(params), coll.get("key", "—"),

@@ -528,6 +528,27 @@ if _harvest is not None:
     _no_crash("render(import): payload 为 list", lambda: _harvest._render_import_receipt(_P, ["x"]))
 
 
+# ============================ 7. FuncWorker BaseException 兜底（防 _running 永不复位） ============================
+# job 抛 SystemExit（BaseException 子类，不被 except Exception 捕获）→ run 应仍发 failed 信号、
+# 线程正常收尾；否则 done/failed 均不发、_running 永不复位、UI 永卡。复用上面 render 节的 _app。
+if _app is not None:
+    from ui.workers import FuncWorker  # noqa: E402
+
+    def _se_job():
+        raise SystemExit("boom")
+
+    _fw = FuncWorker(_se_job)
+    _fw_state = {"failed": None}
+    _fw.failed.connect(lambda msg: _fw_state.__setitem__("failed", msg))
+    _fw.start()
+    _fw.wait(5000)
+    _app.processEvents()
+    check("workers: job 抛 SystemExit → failed 信号发射 + 线程收尾",
+          _fw_state["failed"] is not None and "SystemExit" in _fw_state["failed"]
+          and not _fw.isRunning(),
+          "(failed=%r isRunning=%s)" % (_fw_state["failed"], _fw.isRunning()))
+
+
 # ============================ 收尾 ============================
 
 shutil.rmtree(_TMPDIR, ignore_errors=True)
