@@ -1,4 +1,4 @@
-' 机甲文献 启动器：双击即开，不弹黑色命令行窗口
+' Trackeep Lit 启动器：双击即开，不弹黑色命令行窗口
 Dim fso, sh, root
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set sh = CreateObject("WScript.Shell")

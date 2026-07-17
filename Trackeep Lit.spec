@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-# 机甲文献 PyInstaller 打包规格（对齐 mecha-quant/build/MechaQuant.spec）。
+# Trackeep Lit PyInstaller 打包规格（对齐 mecha-quant/build/MechaQuant.spec）。
 # PySide6 的 Qt plugins / 二进制由 PyInstaller 内置 hook 自动收集（同机已验证可打包 PySide6）。
 # 运行时外部读取（zotero-import.ps1 / .mecha/*.json / 期刊表 / zotero.env）全是绝对路径，不打进 exe。
 # 本项目无 app.ico → 用默认图标（icon=[]）。
@@ -26,7 +26,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='机甲文献',
+    name='Trackeep Lit',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -46,5 +46,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='机甲文献',
+    name='Trackeep Lit',
 )
