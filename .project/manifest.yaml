@@ -1,0 +1,62 @@
+# Trackeep Lit — 机器可读清单（manifest = 实然）
+#
+# 三分工：policy=应然 / manifest=实然 / evidence=史实（CI run artifacts，仓库内不存副本）。
+# 门禁与测试状态字段此后【仅由 CI 或可信自动系统回填】，agent 不得手改为通过（母法 10.1/C.5）。
+# 与 policy/exceptions 重叠的信息以主文件为准，本文件只引用不复制。
+
+project: trackeep-lit
+version: 0.2.0
+standard_version: v1.1.2
+updated: 2026-07-18
+
+lifecycle:
+  current_stage: "5.4-5.6 v0.2.0 施工与复核（品牌重构 + 生产规范落地 + 测试两件套 + CI 门禁）"
+  this_change_stage: "5.2→5.6 立项定级至发布（本轮把已验收 Slice 施工品升为规范治下正式项目）"
+
+# 本次启用的门禁清单。状态统一 pending-ci：文件已落成、CI 首跑前不视为已通过。
+# ⚠️ 此后仅由 CI 证据回填；agent 手改 status 为 passed 一律无效。
+gates:
+  - { id: governance,   status: pending-ci, via: "job:governance（B0=0 / 例外未过期 / 五件套 yaml 可解析）" }
+  - { id: tests,        status: pending-ci, via: ".github/workflows/quality-gates.yml job:tests", note: "smoke + gui，ubuntu offscreen + TRACKEEP_CI 联网跳过" }
+  - { id: secret-scan,  status: pending-ci, via: "job:secret-scan（gitleaks-action@v2）" }
+  - { id: evidence,     status: pending-ci, via: "job:evidence（汇总 sha/时间/统计/跳过计数/产物哈希/lock_hash → evidence-<sha>）" }
+  - { id: b0_block,     status: pending-ci, via: "governance job 校验 open_defects.b0==0 + 任一 job 红=工作流红=发布阻断" }
+  # 例外门禁（不在 CI 强制，记录在案）
+  - { id: branch_protection, status: exception, ref: EX-01 }
+
+open_defects:
+  b0: 0
+  b1: []
+  note: "如实按当前状态填；新缺陷由后续会话/CI 回流更新"
+
+# 待办 backlog（目标窗口为预估，非承诺）
+backlog:
+  - { id: BL-01, item: 属性/模糊测试（MECHA_JSON 解析 / 台账日期 / resolve 合并契约）, target: v0.3, ref: [policy.R1-06, policy.generative_property_fuzz] }
+  - { id: BL-02, item: UI 随机事件风暴脚本（连点/序列）, target: v0.3, ref: [policy.ui_event_storm, EX-02] }
+  - { id: BL-03, item: "PyInstaller 打包收尾（原 Slice 5 挂起件：待 PI 拍板 pyinstaller 装法/复用策略）", target: 待 PI, ref: "Trackeep Lit.spec 已就位" }
+  - { id: BL-04, item: "6b-2：DeepSeek 复筛 advisory→真拦截（导入门控 + 人工捞回交互）", target: 下轮功能, ref: [INV-10 届时按 6.3 修订] }
+  - { id: BL-05, item: INV 证据缺口逐条补自动断言（各 INV backlog 项）, target: 滚动, ref: [invariants.yaml] }
+  - { id: BL-06, item: 依赖漏洞/许可证扫描（GATE-06 补齐）, target: 下个发布周期, ref: [policy.GATE-06] }
+
+resolved: []
+
+# 审批记录
+approvals:
+  - date: "2026-07-18"
+    by: PI
+    decisions:
+      - "分级拍板：S1 / R1 / C1（判级三问见 PROJECT-CONTRACT §1；R2 论点已暴露，PI 裁 R1）"
+      - "品牌改名：mecha-lit/机甲文献 → Trackeep Lit（目录 D:\\trackeep-lit / 仓名 trackeep-lit）"
+      - "建 GitHub 私有仓 + CI 四门禁（照搬 Trackeep Quant 方子）"
+      - "本轮范围：先落规范再续功能（6b-2/打包排后）"
+      - "测试缺省值调整与例外 EX-01/02/03（照搬 Trackeep Quant 同款理由）随上述决策批准"
+
+# 真相源分工登记
+sources_of_truth:
+  policy: .project/policy.yaml           # 应然
+  manifest: .project/manifest.yaml       # 实然（本文件）
+  evidence: "GitHub Actions run artifacts（仓库内不存副本——避免 CI 推回循环；对母法 C.5 evidence/ 布局的登记适配，同 Trackeep Quant）"
+  invariants: .project/invariants.yaml
+  vulnerable_scenarios: .project/vulnerable-scenarios.yaml
+  exceptions: .project/exceptions.yaml
+  contract: PROJECT-CONTRACT.md

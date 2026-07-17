@@ -1,0 +1,66 @@
+# Trackeep Lit — 应启用义务清单（policy = 应然）
+#
+# 分级（PI 2026-07-18 拍板）：S1 + R1 + C1。详见 PROJECT-CONTRACT.md。
+# 本文件由母法 4.8 缺省义务矩阵 + 10.3 机器门禁算出，不改母法条款、只标注本项目落地状态。
+# 与母法出入一律以母法为准。
+#
+# 状态取值：enabled（机制已就位，证据或待 CI 回填）/ backlog（已认领待排期）/ exception（见 exceptions.yaml）。
+# 凡标 enabled 的门禁，其「通过」证据只能由 CI 回填（见 manifest.yaml），agent 不得手改。
+
+project: trackeep-lit
+tier: { S: S1, R: R1, C: C1 }
+standard_version: v1.1.2
+generated: 2026-07-18
+
+obligations:
+
+  # ---------- 4.8 S1（个人长期使用单机软件）----------
+  - { id: S1-01, source: "4.8 S1", status: enabled,  item: 项目目标与验收标准,       via: PROJECT-CONTRACT.md + README }
+  - { id: S1-02, source: "4.8 S1", status: enabled,  item: 真实启动与核心流程测试,   via: tests/smoke_test.py + tests/gui_test.py 两件套（本轮落地） }
+  - { id: S1-03, source: "4.8 S1", status: enabled,  item: 数据保存/重启/恢复验证,   via: INV-07 配置原子写 + 台账只读（INV-06）+ 导入可逆（Zotero 回收站） }
+  - { id: S1-04, source: "4.8 S1", status: enabled,  item: 基本使用说明,             via: README.md + 应用内「📖 使用说明」页 }
+  - { id: S1-05, source: "4.8 S1", status: enabled,  item: 核心证据保留,             via: CI evidence job（pending-ci） }
+
+  # ---------- 4.8 R1 ----------
+  - { id: R1-01, source: "4.8 R1", status: enabled,  item: 备份或恢复路径,           via: App 本体零自有数据——文献库在 Zotero 云端（回收站可逆）；台账/例外表/策略表在 Mecha-Core（Baidu 同步盘 + Mirror 承载备份）；仓本体 GitHub。故独立备份演练不适用（一句话理由，母法 2.4） }
+  - { id: R1-02, source: "4.8 R1", status: enabled,  item: 关键回归测试,             via: smoke + gui 两件套（每改动必跑 + CI 每推必跑） }
+  - { id: R1-03, source: "4.8 R1", status: backlog,  item: 数据一致性检查,           via: 引擎幂等去重 + counts 如实分列（INV-04/05）已就位；审计页↔引擎 JSON 一致性自动断言待补（BL-05） }
+  - { id: R1-04, source: "4.8 R1", status: exception, item: 分支保护和自动测试,      ref: EX-01（分支保护：GitHub Free 不可用）；自动测试 enabled（CI tests job，pending-ci） }
+  - { id: R1-05, source: "7.6",    status: enabled,  item: 脆弱场景登记表,           via: vulnerable-scenarios.yaml（10 条） }
+  - { id: R1-06, source: "7.3",    status: backlog,  item: 核心数据路径生成式测试,   via: 属性/模糊测试（MECHA_JSON 解析 / 台账日期 / resolve 合并）目标 v0.3（BL-01） }
+
+  # ---------- 4.8 C1（自用）----------
+  - { id: C1-01, source: "4.8 C1", status: enabled,  item: 长期维护基本说明,         via: README.md + 阶段日志.md }
+  - { id: C1-02, source: "4.8 C1", status: enabled,  item: 数据导出和恢复方式,       via: 数据主体在 Zotero（其自身导出/备份机制）；本 App 配置为可携 JSON }
+
+  # ---------- 10.3 机器门禁（12 项）----------
+  - { id: GATE-01, source: "10.3-1",  status: exception, item: 稳定分支保护,              ref: EX-01 }
+  - { id: GATE-02, source: "10.3-2",  status: exception, item: 禁止直推和 force-push,     ref: EX-01 }
+  - { id: GATE-03, source: "10.3-3",  status: enabled,   item: CI 证据+产物哈希,          via: quality-gates.yml evidence job（pending-ci） }
+  - { id: GATE-04, source: "10.3-4",  status: enabled,   item: B0 阻断发布,               via: governance job 校验 manifest open_defects.b0==0（pending-ci） }
+  - { id: GATE-05, source: "10.3-5",  status: enabled,   item: 密钥与敏感信息扫描,        via: gitleaks-action（pending-ci） }
+  - { id: GATE-06, source: "10.3-6",  status: backlog,   item: 依赖锁定/漏洞/许可证检查,  via: requirements-lock.txt 本轮生成（锁定）；漏洞/许可证扫描待加（BL-06） }
+  - { id: GATE-07, source: "10.3-7",  status: "n/a",     item: 迁移与回滚证据检查,        reason: 无自有数据库/Schema，无迁移面 }
+  - { id: GATE-08, source: "10.3-8",  status: backlog,   item: 分级与验收标准缺失阻断施工, via: PROJECT-CONTRACT 已成文；机器自动阻断待加 }
+  - { id: GATE-09, source: "10.3-9",  status: backlog,   item: 预算和失败熔断,            via: CI 不执行预算熔断；由编排/运行环境层承担（PROJECT-CONTRACT §4），诚实标 backlog }
+  - { id: GATE-10, source: "10.3-10", status: enabled,   item: 发布版本与代码提交可追溯,  via: git + evidence sha（pending-ci） }
+  - { id: GATE-11, source: "10.3-11", status: "n/a",     item: 分级网络出口控制与审计,    reason: S1 本地单机；App 出口仅 PubMed/Zotero/DeepSeek 三个固定域（代码硬编码），无生产凭证环境 }
+  - { id: GATE-12, source: "10.3-12", status: enabled,   item: 紧急修复延后门禁到期追踪,  via: governance job 校验 exceptions 日期型 expires 未过期（pending-ci） }
+
+# ---------- 测试缺省值调整（低于稳定优先档处，逐条记理由；照搬 Trackeep Quant 方子，PI 2026-07-18 随分级决策批准）----------
+test_defaults:
+  concurrency_repeat:
+    default_per_master: 50
+    this_project: 10
+    status: exception
+    reason: S1/C1 单用户桌面工具；并发面仅限后台线程（单飞锁互斥）；受 CI 时长约束
+    approval: "PI 2026-07-18"
+  cadence:
+    full_regression: { default: 每夜, this_project: CI 每推 + 每改动本地两件套, reason: 个人项目、笔记本非常开机, approval: "PI 2026-07-18", ref: EX-03 }
+    nightly_concurrency_500: { default: 每夜≥500 次, this_project: 不适用, reason: 无服务端常驻、无高并发面, approval: "PI 2026-07-18" }
+    weekly_soak_8h: { default: 每周≥8h soak, this_project: 不适用, reason: 非长驻服务（用完即关的桌面工具）, approval: "PI 2026-07-18" }
+    backup_restore_drill: { default: 每月或每发布周期, this_project: 不适用, reason: App 零自有数据存储（见 R1-01），无可演练的自有备份面, approval: "PI 2026-07-18" }
+  generative_property_fuzz: { status: backlog, target: v0.3, ref: BL-01 }
+  mutation_testing: { status: "n/a", reason: R1 项目非母法 7.7 强制面（R2 以上才要求周期性变异测试） }
+  ui_event_storm: { status: backlog, target: v0.3, ref: [EX-02, BL-02] }
+  dirty_dataset: { status: enabled, via: tests 内合成脏样本（BOM/半截 JSON/空文件/畸形回执），本轮随两件套落地 }

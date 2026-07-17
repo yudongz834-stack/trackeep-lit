@@ -1,0 +1,76 @@
+# Trackeep Lit — 脆弱场景登记表（母法 7.6 的活文档）
+#
+# 来源=历史事故 + 边界。入表场景自动升档：纳入回归 / 故障注入 / 对抗测试范围。
+# 场景出表须质量责任方批准并记理由。每条：场景 / 来源 / 现有护栏 / 升档要求 / 验证方式。
+
+scenarios:
+
+  - id: VS-01
+    scenario: PowerShell 写的 JSON 带 UTF-8 BOM，普通 utf-8 读静默失败（返回空→窗口算错）
+    source: "历史事故 Slice 2（2026-07-13）：台账 BOM 静默 bug——json 解析失败被吞、窗口永远按首采 60 天算"
+    guardrail: 台账 / 例外表一律 utf-8-sig 读（lit/ledger.py:22 / lit/overrides.py:30）
+    upgrade: 一切读「引擎/PowerShell 写的文件」必须 utf-8-sig；BOM 样本进脏数据集、每次门禁过
+    verification: smoke 脏数据节（BOM / 半截 JSON / 空文件样本）——本轮测试两件套落地
+
+  - id: VS-02
+    scenario: PubMed E-utilities 免 key 限流 / 慢响应（引擎 30–60 秒常态，慢时超时）
+    source: 边界（外部依赖）
+    guardrail: engine timeout（dry-run 180s / 导入 300s）+ 超时转人话（lit/engine.py:104-106）；检索走后台线程不卡 UI
+    upgrade: 超时报错后锚点不动、可直接重试；不得因超时把部分结果渲染成完整结果
+    verification: smoke 断言 TimeoutExpired → RuntimeError 人话；台账不被 App 触碰（INV-06）
+
+  - id: VS-03
+    scenario: 回填历史命中 ≥1000（PubMed esearch retmax）静默截断
+    source: "历史设计（Slice 4）：全年回填大刊必然撞上限"
+    guardrail: _RETMAX_WARN 告警（harvest_page.py:70-71 / 660）+ README 提示改按月
+    upgrade: 告警文案属护栏本体，回归测试必须覆盖；未来自动分月循环属新功能（进 backlog 不顺手做）
+    verification: gui 测试合成 found=1000 回执断言告警（INV-11）
+
+  - id: VS-04
+    scenario: pythonw（无控制台）spawn 引擎弹 PowerShell 黑窗 / spawn 环境异常
+    source: "历史事故（2026-07-13 运行加固）：点检索弹 PS 窗"
+    guardrail: CREATE_NO_WINDOW（lit/engine.py:18-21）+ spawn 前引擎路径预检人话（engine.py:69-72）
+    upgrade: spawn 参数变动须回归两件套；打包（frozen）态 spawn 路径差异纳入打包后验证
+    verification: smoke 断言 creationflags 含 CREATE_NO_WINDOW + 引擎缺失时人话报错
+
+  - id: VS-05
+    scenario: 导入中途失败 / 部分导入（网络断 / Zotero API 错 / 进程崩溃）
+    source: 边界（真实写库路径）
+    guardrail: 引擎按条 POST、counts 如实分列（INV-04）；重试=重新完整跑幂等补齐（INV-05）；崩溃后重跑自动恢复（护栏⑩）
+    upgrade: 失败注入（模拟部分 failed 的 JSON 回执）纳入每次门禁
+    verification: gui 测试合成 failed>0 回执断言重试路径
+
+  - id: VS-06
+    scenario: 检索后切刊 / 改配置再点导入 → 导入错对象
+    source: "历史设计护栏（Slice 3）"
+    guardrail: 导入用检索成功时锁定的 _last_params，不读当前 UI 态（harvest_page.py:130 / 588 / 600）
+    upgrade: 此交互属回归必测；_last_params 语义变动须质量复核
+    verification: gui 测试断言检索后改选刊、导入仍用锁定参数
+
+  - id: VS-07
+    scenario: Qt 嵌套布局清理不彻底 → 控件泄漏 / 旧回执残影
+    source: "历史事故 6b-1（2026-07-13）：_clear_receipt 嵌套布局控件泄漏"
+    guardrail: _clear_layout 递归清理（harvest_page.py:617-636）
+    upgrade: 反复检索→清空→再渲染循环纳入 gui 回归
+    verification: gui 测试多轮渲染断言无残留子控件
+
+  - id: VS-08
+    scenario: DeepSeek 复筛链路失败（无 token / 网络 / 返回非 JSON）
+    source: 边界（外部 LLM）
+    guardrail: 缺 token / 解析失败转人话 RuntimeError（lit/deepseek.py:56-59 / 86-87）；advisory 失败不影响导入（INV-10）
+    upgrade: 复筛失败必须不污染审计页已有判决渲染；6b-2 门控化时本条升档为拦截路径测试
+    verification: smoke 断言无 token 时 classify 抛人话错误
+
+  - id: VS-09
+    scenario: Zotero collection 不存在 → 受控建（静默建库=红线）
+    source: 边界（受控写路径，现实 74 刊已存在、极少触发）
+    guardrail: 护栏⑯——停下、显示拟建名/父级、确认后才 POST（harvest_page.py:849；lit/zotero.py 仅受控建用）
+    upgrade: 受控建路径永不静默；对话框文案与实际 POST 参数一致性纳入审查
+    verification: gui 测试断言 exists=false 时出确认框、取消则不 POST（mock zotero）
+
+  - id: VS-10
+    scenario: 双开 App（两个进程同时导入同一刊）
+    source: 边界（单飞锁只管单进程内）
+    guardrail: 引擎全库去重幂等兜底（重复条目被 dup 跳过）；台账 batches 追加式
+    upgrade: 双实例并发导入属未验证边界——登记不假装已覆盖；验证前不宣称支持双开
+    verification: backlog（双实例测试；引擎侧幂等为主要防线）

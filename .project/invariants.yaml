@@ -1,0 +1,96 @@
+# Trackeep Lit — 系统不变量主清单（invariants = 测试断言的主真相源）
+#
+# 来源：母法 6.4 的项目版本。每条含不变量、护栏（结构性机制 + 代码位置）、证据（自动化验证）。
+# 证据一律指向 tests/ 里真实存在的检查；尚无自动断言的诚实标 backlog 并登记进 manifest 待办。
+# 不许虚构证据。Agent 可加严（补 evidence），删改须质量复核批准（母法 C.3）。
+
+invariants:
+
+  - id: INV-01
+    name: dry-run 零副作用
+    invariant: 检索预览路径绝不写 Zotero、绝不动台账——run_search 永不携带 -Execute
+    guardrail: engine.run_search 固定 execute=False，argv 仅 run_import 才追加 -Execute（lit/engine.py:34-37 / 94-95）
+    evidence:
+      status: backlog
+      note: 待 smoke 断言 run_search 构造的 argv 不含 -Execute（mock spawn 截获 argv）
+    backlog_target: 本轮测试两件套
+
+  - id: INV-02
+    name: 真实写库仅经用户确认触发
+    invariant: 写 Zotero（导入 / 建 collection）只能由用户点「导入」+ 确认框触发，程序任何路径不得静默真写
+    guardrail: 导入按钮 → QMessageBox 确认 → _begin_import（ui/pages/harvest_page.py:822-846）；collection 不存在时受控建框、确认才 POST（harvest_page.py:849，护栏⑯）
+    evidence:
+      status: backlog
+      note: 待 gui 测试断言未确认时不调 engine.run_import / zotero.create_collection
+
+  - id: INV-03
+    name: 失败不显示为成功
+    invariant: 引擎非零退出、超时、stdout 无 MECHA_JSON、网络失败必须报错并人话显示，绝不渲染成成功回执
+    guardrail: engine._run_engine 逐类转 RuntimeError（lit/engine.py:98-121）；页面 failed 回调显示错误原文（harvest_page.py:605 / 901）
+    evidence:
+      status: backlog
+      note: 待 smoke 断言各失败注入（非零退出 / 无 MECHA_JSON / 超时）均抛 RuntimeError
+
+  - id: INV-04
+    name: 部分成功不谎报全部成功
+    invariant: 导入回执必须如实分列 imported / failed / dup；failed>0 必须提供「重试失败」且不得显示为全部成功
+    guardrail: 引擎 JSON counts 分列 + _render_import_receipt 按 status 分组渲染（harvest_page.py:912）
+    evidence:
+      status: backlog
+      note: 待 gui 测试用合成 counts（failed>0）断言回执文案与重试按钮出现
+
+  - id: INV-05
+    name: 重复导入幂等
+    invariant: 同参数重复导入 / 失败重试不得产生重复 Zotero 条目
+    guardrail: 导入=引擎重新完整跑（esearch+efetch+去重+POST），不复用预览 items（lit/engine.py:44-53）；引擎全库去重按 DOI/PMID
+    evidence:
+      status: backlog
+      note: 结构在引擎侧（Slice 3 首次真实导入曾人工验证幂等）；App 侧待 smoke 断言 run_import 与 run_search 同构不带缓存 items
+
+  - id: INV-06
+    name: 台账锚点只归引擎前移
+    invariant: App 对采集台账只读（算窗口），绝不写台账；锚点只在引擎导入 POST 成功后前移
+    guardrail: ledger.py 仅 read_text 无任何写路径（lit/ledger.py:20-30）；台账文件归引擎所有
+    evidence:
+      status: backlog
+      note: 待 smoke 静态断言 lit.ledger 模块无写 API（且台账损坏/缺失时优雅回退 60 天首采窗口）
+
+  - id: INV-07
+    name: 配置写入原子且不伤及无辜
+    invariant: journal-overrides.json / strategy.json 写入任何时刻文件要么旧完整要么新完整；改一刊/一分类不得丢其它条目
+    guardrail: overrides._atomic_write（mkstemp+os.replace，lit/overrides.py:84-98）；strategy._atomic_write（lit/strategy.py:121-131）；读取 utf-8-sig 兼容 BOM（overrides.py:30 / ledger.py:22）
+    evidence:
+      status: backlog
+      note: 待 smoke 往返断言：改一刊→其它刊原值在；写中断（模拟）→原文件完整；BOM 文件可读
+
+  - id: INV-08
+    name: 凭证不进日志 / git / 异常文本
+    invariant: Zotero API key、DEEPSEEK_TOKEN 只进请求头；绝不 print、不落日志、不进异常字符串、不进版本库
+    guardrail: zotero._request token 仅 add_header、异常文本只含 HTTP 码（lit/zotero.py:41-61）；deepseek 同范式（lit/deepseek.py:56-79）；凭证文件在 ~/.config，仓外
+    evidence:
+      - static: CI secret-scan（gitleaks）扫全历史（pending-ci）
+      - note: 待 smoke 断言 zotero/deepseek 异常文本不含 token 值
+
+  - id: INV-09
+    name: 单飞——运行中互斥
+    invariant: 检索 / 导入 / AI 复筛任一在跑时，其余动作按钮与树切换必须禁用；同一进程同刻至多一个引擎子进程
+    guardrail: _begin_running_ui 统一禁用（harvest_page.py:498-516）；_on_import_clicked / _start_ai_filter 入口 _running 直接返回（harvest_page.py:781-782 / 826）
+    evidence:
+      status: backlog
+      note: 待 gui 测试断言 running 态下按钮 disabled + 二次触发不再 spawn
+
+  - id: INV-10
+    name: AI 复筛 advisory 不拦截导入（6b-1 语义）
+    invariant: DeepSeek 判决只标注在审计页，导入范围不受其影响（导入仍导入全部新增）
+    guardrail: 判决仅 verdict 渲染（harvest_page.py:674 / 737），导入路径不读 verdicts
+    evidence:
+      status: backlog
+      note: 6b-2 升级为真拦截时，本条按母法 6.3 变更流程修订（非删除）
+
+  - id: INV-11
+    name: 命中上限不静默截断
+    invariant: found ≥ retmax 上限（1000）必须显式告警（建议按月回填），不得静默丢数据
+    guardrail: _RETMAX_WARN=1000 + 审计页橙字告警（harvest_page.py:70-71 / 660，护栏⑫）
+    evidence:
+      status: backlog
+      note: 待 gui 测试用合成 found=1000 回执断言告警文案出现

@@ -1,0 +1,47 @@
+# Trackeep Lit — 例外主文件（母法 10.4）
+#
+# 每条记录：违反条款 / 原因 / 当前风险 / 补偿措施 / 批准人 / 到期条件。
+# 到期后自动恢复为阻断项。例外不绕过母法 3.5 红线。
+
+exceptions:
+
+  - id: EX-01
+    violated_clause: "母法 10.3-1 / 10.3-2（稳定分支保护 + 禁止直推与 force-push）"
+    reason: GitHub Free 私有仓不支持受保护分支规则与禁直推门禁
+    current_risk: 中——主分支可被直推 / 误 force-push，无服务器侧硬拦
+    mitigation:
+      - CI 每推必跑（quality-gates.yml），红灯即发布阻断
+      - 单执行体纪律：本项目代码只有 AI 改，不 force-push main
+      - 改完即 commit+push，保持 main 线性可追溯
+    approver: "PI 2026-07-18（照搬 Trackeep Quant EX-01 同款，随「建 GitHub CI」决策）"
+    expires: condition
+    expires_when: 转为 public 仓库，或升级 GitHub 付费计划启用分支保护
+    applicable_versions: "v0.x（GitHub Free 私有仓期间）"
+    followup_task: "n/a（依赖外部：GitHub 付费计划，非开发待办）"
+
+  - id: EX-02
+    violated_clause: "母法 A.2 UI 交互稳定性（事件风暴每候选版本 ≥30min + 连点竞态）"
+    reason: UI 随机事件风暴脚本尚未落地；当前以确定性交互回归（gui 两件套）替代
+    current_risk: 低-中——连点竞态 / 序列滥用类缺陷覆盖不足；已有单飞锁结构护栏（INV-09）
+    mitigation:
+      - gui_test 覆盖页面构建 + 关键交互 + 单飞禁用态断言（本轮落地）
+      - 产生副作用的入口（导入 / 复筛）有 _running 直接返回护栏
+    approver: "PI 2026-07-18（暂缓，照搬 Trackeep Quant EX-03 同款）"
+    expires: condition
+    expires_when: UI 随机事件风暴脚本落地（manifest 待办 BL-02，目标 v0.3）
+    applicable_versions: "v0.2.x（至事件风暴脚本落地）"
+    followup_task: BL-02
+
+  - id: EX-03
+    violated_clause: "母法 A.2 节律（每夜全量回归 + 并发≥500 + 每周 soak ≥8h）"
+    reason: S1/C1 个人单机工具、笔记本非常开机、无服务端常驻；每夜/每周节律物理上不可稳定执行
+    current_risk: 低——回归覆盖由每次改动两件套 + CI 每推必跑承载
+    mitigation:
+      - 每次改动本地跑 smoke + gui 两件套（CLAUDE.md 修改纪律）
+      - CI 每 push 全量跑两件套（比每发布周期更频）
+      - 无自有数据存储：状态在 Zotero 云端 + Mecha-Core 同步盘（备份恢复演练不适用，理由见 policy R1-01）
+    approver: "PI 2026-07-18（照搬 Trackeep Quant EX-04 同款理由）"
+    expires: condition
+    expires_when: 项目升级为多用户 / 常驻服务（S2+/C2+）时重新评估节律
+    applicable_versions: "v0.x"
+    followup_task: "n/a"
