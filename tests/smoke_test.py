@@ -120,9 +120,15 @@ check("INV-01: 窗口参数 reldate→-ReldateDays",
 check("VS-04: kwargs 含 creationflags",
       "creationflags" in kwargs_search)
 _no_win = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-check("VS-04: creationflags 含 CREATE_NO_WINDOW 位（灭 PowerShell 弹窗）",
-      _no_win and (kwargs_search.get("creationflags", 0) & _no_win) == _no_win,
-      "(flag=0x%x)" % kwargs_search.get("creationflags", 0))
+if sys.platform == "win32":
+    check("VS-04: creationflags 含 CREATE_NO_WINDOW 位（灭 PowerShell 弹窗）",
+          _no_win and (kwargs_search.get("creationflags", 0) & _no_win) == _no_win,
+          "(flag=0x%x)" % kwargs_search.get("creationflags", 0))
+else:
+    # 非 Windows（CI ubuntu）无 CREATE_NO_WINDOW：产品用 getattr 兜底 0，是正确降级
+    check("VS-04: 非 Windows 平台 creationflags 兜底 0（getattr 降级）",
+          kwargs_search.get("creationflags", 0) == 0,
+          "(flag=%r)" % kwargs_search.get("creationflags", 0))
 
 # --- 窗口参数分流（年/月）---
 fake = _FakeSpawn(payload={"found": 0})
