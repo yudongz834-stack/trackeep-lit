@@ -37,7 +37,7 @@ def classify(items, criteria, *, timeout=180):
 def _fetch_abstracts(pmids, *, timeout):
     """efetch 抓每个 PMID 的摘要正文 → {pmid: abstract}。网络失败抛 URLError。"""
     q = urllib.parse.urlencode({"db": "pubmed", "retmode": "xml",
-                                "id": ",".join(pmids), "tool": "mecha-lit"})
+                                "id": ",".join(pmids), "tool": "trackeep-lit"})
     req = urllib.request.Request(_EUTILS + "/efetch.fcgi?" + q)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         xml = resp.read()

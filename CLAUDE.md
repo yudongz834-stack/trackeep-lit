@@ -30,7 +30,7 @@ PI 的医学文献桌面进料端：选刊 → PubMed 检索 → Zotero 去重�
 4. **Qt 嵌套布局清理走递归 `_clear_layout`**——`_clear_receipt` 曾控件泄漏留残影（6b-1 附修，VS-07）。
 5. **导入用检索时锁定的 `_last_params`**，不读当前 UI 态——防切刊/改配置后导入错对象（Slice 3 设计，VS-06）。
 6. **导入 = 引擎重新完整跑**（不复用预览 items）——天然满足「导入前必是最新检索+去重」+ 崩溃后重跑自动补齐（护栏⑤⑥⑩）。
-7. **`tool="mecha-lit"`（NCBI 标识）与 schema `mecha-lit/import-result@1` 是 wire 契约**——品牌改名不迁移它们（2026-07-18 拍板）。
+7. **`tool="trackeep-lit"`（NCBI 标识）与 schema `trackeep-lit/import-result@1` 是 wire 契约**——2026-07-18 PI 拍板 wire 层随品牌全迁（引擎唯一消费方=本 App，两端原子切换）。
 
 ## 外部依赖（都不在本仓，指针）
 

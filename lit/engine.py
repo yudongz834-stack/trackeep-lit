@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""后端桥：spawn zotero-import.ps1，从 stdout 取 `MECHA_JSON ` 前缀行并 json.loads。
+"""后端桥：spawn zotero-import.ps1，从 stdout 取 `TRACKEEP_JSON ` 前缀行并 json.loads。
 
 两个入口同构、共用 `_run_engine`：
   - `run_search`（dry-run）：只读 PubMed + 遍历 Zotero 去重预览，**绝不加 -Execute**，
@@ -13,7 +13,7 @@ import subprocess
 
 from lit import config
 
-_PREFIX = "MECHA_JSON "
+_PREFIX = "TRACKEEP_JSON "
 
 # GUI（pythonw 无控制台）spawn 子进程时，Windows 会给子进程新建一个控制台窗——
 # 就是点「检索」弹出的 PowerShell 窗。CREATE_NO_WINDOW 抑制它，引擎静默后台运行。
@@ -24,7 +24,7 @@ _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 def run_search(journal, *, reldate_days=None, month=None, year=None,
                include_editorial=False, include_letter=False,
                topic_filter=None, timeout=180) -> dict:
-    """spawn 引擎 dry-run，返回 MECHA_JSON 解析出的 dict。
+    """spawn 引擎 dry-run，返回 TRACKEEP_JSON 解析出的 dict。
 
     检索窗三选一：reldate_days(int) / month("YYYY-MM") / year(int)。引擎自身会校验
     「须且只须指定一个」；这里先在 Python 侧挡一道，给出更清晰的错误。
@@ -40,7 +40,7 @@ def run_search(journal, *, reldate_days=None, month=None, year=None,
 def run_import(journal, *, reldate_days=None, month=None, year=None,
                include_editorial=False, include_letter=False,
                topic_filter=None, timeout=300) -> dict:
-    """spawn 引擎真实导入（-Execute），返回 MECHA_JSON 解析出的 dict。
+    """spawn 引擎真实导入（-Execute），返回 TRACKEEP_JSON 解析出的 dict。
 
     与 run_search 同构参数，但 argv **追加 `-Execute`**（真写 Zotero + 台账），
     timeout=300（比 dry-run 多 POST 每条，给更宽）。
@@ -61,7 +61,7 @@ def run_import(journal, *, reldate_days=None, month=None, year=None,
 def _run_engine(journal, *, reldate_days=None, month=None, year=None,
                 include_editorial=False, include_letter=False,
                 topic_filter=None, execute=False, timeout=180) -> dict:
-    """run_search / run_import 的共用实现：组 argv + spawn + 解析 MECHA_JSON。
+    """run_search / run_import 的共用实现：组 argv + spawn + 解析 TRACKEEP_JSON。
 
     execute=False（默认）= dry-run；execute=True = 末尾追加 `-Execute` 真写。
     """
@@ -108,7 +108,7 @@ def _run_engine(journal, *, reldate_days=None, month=None, year=None,
         raise RuntimeError(
             f"引擎退出码 {cp.returncode}\n--- stderr ---\n{cp.stderr.strip()[-2000:]}")
 
-    # 解析：取以 `MECHA_JSON ` 开头的那行（PowerShell stdout 可能有 BOM / 混合换行，
+    # 解析：取以 `TRACKEEP_JSON ` 开头的那行（PowerShell stdout 可能有 BOM / 混合换行，
     # 逐行 strip + 去 BOM 再判前缀）。
     line = None
     for ln in cp.stdout.splitlines():
@@ -118,5 +118,5 @@ def _run_engine(journal, *, reldate_days=None, month=None, year=None,
             break
     if line is None:
         tail = cp.stdout.strip()[-500:]
-        raise RuntimeError(f"stdout 未找到 MECHA_JSON 行。\n--- stdout 末尾 ---\n{tail}")
+        raise RuntimeError(f"stdout 未找到 TRACKEEP_JSON 行。\n--- stdout 末尾 ---\n{tail}")
     return json.loads(line[len(_PREFIX):])

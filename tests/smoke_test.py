@@ -61,7 +61,7 @@ class _FakeSpawn:
 
     run_search / run_import 不该真起进程——这里把 engine.subprocess.run 换成可控桩，
     既能验 argv 构造（dry-run 不带 -Execute / 导入带 -Execute / CREATE_NO_WINDOW），
-    也能注入失败（非零退出 / 无 MECHA_JSON / 超时 / 找不到 PowerShell）。
+    也能注入失败（非零退出 / 无 TRACKEEP_JSON / 超时 / 找不到 PowerShell）。
     """
 
     def __init__(self, stdout="", returncode=0, stderr="",
@@ -71,9 +71,9 @@ class _FakeSpawn:
         self.returncode = returncode
         self.stderr = stderr
         self.raise_exc = raise_exc
-        # payload：直接合成 MECHA_JSON 行（优先于 stdout）
+        # payload：直接合成 TRACKEEP_JSON 行（优先于 stdout）
         if payload is not None:
-            self.stdout = "一些噪声行\nMECHA_JSON %s\n收尾噪声" % json.dumps(payload, ensure_ascii=False)
+            self.stdout = "一些噪声行\nTRACKEEP_JSON %s\n收尾噪声" % json.dumps(payload, ensure_ascii=False)
 
     def __call__(self, argv, **kwargs):
         self.calls.append((list(argv), dict(kwargs)))
@@ -140,13 +140,13 @@ with _Patch(config, "ENGINE_PATH", _EXISTING_ENGINE), \
     assert "-Year" in fake.calls[-1][0]
 check("窗口分流: month→-Month / year→-Year 均进 argv", True)
 
-# --- MECHA_JSON 解析（BOM + 杂行干扰）---
-fake = _FakeSpawn(stdout="﻿PowerShell 启动噪声\n进度 1/3\nMECHA_JSON "
+# --- TRACKEEP_JSON 解析（BOM + 杂行干扰）---
+fake = _FakeSpawn(stdout="﻿PowerShell 启动噪声\n进度 1/3\nTRACKEEP_JSON "
                          '{"found": 7, "counts": {"new": 2}}\n尾噪声')
 with _Patch(config, "ENGINE_PATH", _EXISTING_ENGINE), \
         _Patch(engine.subprocess, "run", fake):
     r = engine.run_search("J Thorac Oncol", reldate_days=30)
-check("MECHA_JSON 解析: BOM 前缀 + 杂行干扰仍取到正确行",
+check("TRACKEEP_JSON 解析: BOM 前缀 + 杂行干扰仍取到正确行",
       r.get("found") == 7 and r.get("counts", {}).get("new") == 2)
 
 # --- INV-03：失败注入逐类（绝不渲染成成功）---
@@ -165,7 +165,7 @@ def _expect_runtime(fake, needle, label):
             check("INV-03: %s → RuntimeError" % label, False, "(没抛异常！)")
 
 _expect_runtime(_FakeSpawn(returncode=42), "42", "非零退出码")
-_expect_runtime(_FakeSpawn(stdout="只有噪声，没有 JSON 行"), "MECHA_JSON", "stdout 无 MECHA_JSON")
+_expect_runtime(_FakeSpawn(stdout="只有噪声，没有 JSON 行"), "TRACKEEP_JSON", "stdout 无 TRACKEEP_JSON")
 _expect_runtime(_FakeSpawn(raise_exc=subprocess.TimeoutExpired(cmd=["powershell"], timeout=180)),
                 "超时", "TimeoutExpired")
 _expect_runtime(_FakeSpawn(raise_exc=FileNotFoundError(2, "找不到 powershell")),
