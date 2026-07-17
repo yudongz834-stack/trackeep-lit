@@ -39,7 +39,7 @@ invariants:
     evidence:
       - check: "INV-04（failed>0 出重试 / failed=0 无重试）"
         file: tests/gui_test.py
-      gap: counts 与 items 实际条数不一致时按 counts 显示（对抗软观察，BL-07 登记；引擎自家输出受控、风险低）
+      - gap: counts 与 items 实际条数不一致时按 counts 显示（对抗软观察，BL-07 登记；引擎自家输出受控、风险低）
 
   - id: INV-05
     name: 重复导入幂等
@@ -48,7 +48,7 @@ invariants:
     evidence:
       - check: "INV-01 组已覆盖 App 侧同构（run_import=同参重跑、不带缓存 items）"
         file: tests/smoke_test.py
-      gap: 引擎侧端到端幂等无自动化（Slice 3 首次真实导入人工验证过；重验需真实 -Execute，属 PI 界面动作）
+      - gap: 引擎侧端到端幂等无自动化（Slice 3 首次真实导入人工验证过；重验需真实 -Execute，属 PI 界面动作）
 
   - id: INV-06
     name: 台账锚点只归引擎前移
