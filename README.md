@@ -4,7 +4,7 @@
 选刊 → PubMed 检索 → Zotero 全库去重预览 → 一键导入。
 调用 Mecha-Core 的 `zotero-import.ps1` 引擎干活，自身只管界面与编排。
 
-治理入口：[AGENTS.md](./AGENTS.md)（规范流程 + 红线）· [PROJECT-CONTRACT.md](./PROJECT-CONTRACT.md)（合同，S1/R1/C1）·
+治理入口：[AGENTS.md](./AGENTS.md)（规范流程 + 红线）· [PROJECT-CONTRACT.md](./PROJECT-CONTRACT.md)（合同，S1/R2/C1）·
 [CLAUDE.md](./CLAUDE.md)（项目纪律）· [阶段日志.md](./阶段日志.md)（当前状态）。
 
 ## 怎么跑

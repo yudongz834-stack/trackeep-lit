@@ -8,7 +8,7 @@
 # 凡标 enabled 的门禁，其「通过」证据只能由 CI 回填（见 manifest.yaml），agent 不得手改。
 
 project: trackeep-lit
-tier: { S: S1, R: R1, C: C1 }
+tier: { S: S1, R: R2, C: C1 }   # R1→R2：PI 2026-07-18 拍板升级（文献库=重要数据资产+持写凭证）
 standard_version: v1.1.2
 generated: 2026-07-18
 
@@ -28,6 +28,17 @@ obligations:
   - { id: R1-04, source: "4.8 R1", status: exception, item: 分支保护和自动测试,      ref: EX-01（分支保护：GitHub Free 不可用）；自动测试 enabled（CI tests job，pending-ci） }
   - { id: R1-05, source: "7.6",    status: enabled,  item: 脆弱场景登记表,           via: vulnerable-scenarios.yaml（10 条） }
   - { id: R1-06, source: "7.3",    status: enabled,  item: 核心数据路径生成式测试,   via: tests/property_test.py（5 属性 ×≥500 例：resolve 合并/TRACKEEP_JSON 解析/overrides·strategy 往返/ledger 窗口；seed 可复现，BL-01 已落地 2026-07-18） }
+
+  # ---------- 4.8 R2（PI 2026-07-18 升级新增；R2 含 R1，上段保留生效）----------
+  - { id: R2-01, source: "4.8 R2", status: enabled,  item: 独立复核,                 via: 每候选版本一轮隔离上下文复核（2026-07-18 对抗轮=首次实践；条件允许异构模型） }
+  - { id: R2-02, source: "4.8 R2", status: "n/a",    item: 迁移和回滚演练,           reason: 无自有 Schema/数据库；配置原子写 + Zotero 回收站为回滚面 }
+  - { id: R2-03, source: "4.8 R2", status: enabled,  item: 故障注入,                 via: smoke 失败注入（超时/断网/非零退出/坏输出）+ adversarial 畸形注入，CI 每推跑 }
+  - { id: R2-04, source: "7.5",    status: enabled,  item: 独立设计的对抗性测试,     via: tests/adversarial_test.py（独立上下文 GLM-B 设计，47 项常驻 CI）+ 每候选版本追加新变体（合同 §1） }
+  - { id: R2-05, source: "7.7",    status: backlog,  item: 变异测试,                 via: 首轮排下个发布周期（核心模块 lit/ 数据层，杀灭率<70% 逐个分析），ref: BL-08 }
+  - { id: R2-06, source: "4.8 R2", status: enabled,  item: 安全和隐私检查,           via: CI secret-scan（gitleaks 全历史）+ INV-08（凭证不进日志/异常/git） }
+  - { id: R2-07, source: "4.8 R2", status: enabled,  item: 事故响应计划,             via: 合同 §5 应急预授权 + §1 R2 义务落点（9.2 七步） }
+  - { id: R2-08, source: "4.8 R2", status: enabled,  item: 更完整的证据包,           via: CI evidence job（sha/时间/五套统计/seeds/产物哈希/lock_hash） }
+  - { id: R2-09, source: "6.2",    status: enabled,  item: 需求追踪（轻量自动化）,   via: INV/VS/BL/EX 编号贯穿 commit/测试断言/五件套清单，git 历史即追踪链 }
 
   # ---------- 4.8 C1（自用）----------
   - { id: C1-01, source: "4.8 C1", status: enabled,  item: 长期维护基本说明,         via: README.md + 阶段日志.md }

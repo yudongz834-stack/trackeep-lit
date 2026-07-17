@@ -14,8 +14,9 @@ exceptions:
       - 单执行体纪律：本项目代码只有 AI 改，不 force-push main
       - 改完即 commit+push，保持 main 线性可追溯
     approver: "PI 2026-07-18（照搬 Trackeep Quant EX-01 同款，随「建 GitHub CI」决策）"
+    evidence: "2026-07-18 实测：classic branch protection 与 rulesets 双路 API 均 403「Upgrade to GitHub Pro or make this repository public」——付费墙确证，非未尝试"
     expires: condition
-    expires_when: 转为 public 仓库，或升级 GitHub 付费计划启用分支保护
+    expires_when: 转为 public 仓库，或升级 GitHub 付费计划启用分支保护（约 $4/月，待 PI 拍板——升级即自动到期补设）
     applicable_versions: "v0.x（GitHub Free 私有仓期间）"
     followup_task: "n/a（依赖外部：GitHub 付费计划，非开发待办）"
 

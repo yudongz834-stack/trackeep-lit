@@ -33,13 +33,14 @@ open_defects:
 backlog:
   - { id: BL-02, item: "UI 随机事件风暴脚本（真随机序列；连点/竞态已由 stress_test 覆盖）", target: v0.3, ref: [policy.ui_event_storm, EX-02] }
   - { id: BL-07, item: "对抗软观察两条：①counts 与 items 不一致按 counts 显示（回执一致性显式断言）②未知 status 的 item 被静默丢弃（建议显示为「其他」组）", target: v0.3, ref: [invariants.INV-04.gap] }
-  - { id: BL-03, item: "PyInstaller 打包收尾（原 Slice 5 挂起件：待 PI 拍板 pyinstaller 装法/复用策略）", target: 待 PI, ref: "Trackeep Lit.spec 已就位" }
+  - { id: BL-08, item: "变异测试首轮（核心模块 lit/ 数据层；杀灭率<70% 逐个分析存活变异体）", target: 下个发布周期, ref: [policy.R2-05] }
   - { id: BL-04, item: "6b-2：DeepSeek 复筛 advisory→真拦截（导入门控 + 人工捞回交互）", target: 下轮功能, ref: [INV-10 届时按 6.3 修订] }
   - { id: BL-05, item: INV 证据缺口逐条补自动断言（各 INV backlog 项）, target: 滚动, ref: [invariants.yaml] }
   - { id: BL-06, item: 依赖漏洞/许可证扫描（GATE-06 补齐）, target: 下个发布周期, ref: [policy.GATE-06] }
 
 resolved:
   - { id: BL-01, item: 属性/模糊测试, resolved_by: "tests/property_test.py（5 属性 ×≥500 例，seed 可复现）", date: 2026-07-18 }
+  - { id: BL-03, item: PyInstaller 打包收尾, resolved_by: "PI 授权绕过安装钩子（先查现成：系统/quant venv 均 6.21.0）→ 钉版装 lit venv → Trackeep Lit.spec 打包 onedir 112MB → frozen selftest exit 0；PyInstaller 属构建工具不入 requirements-lock（CI 不需）", date: 2026-07-18 }
   - { id: DEFECT-ROUND-1, item: "对抗测试暴露 11 硬缺陷 + FuncWorker BaseException 加固（VS-11）",
       resolved_by: "GLM 修复轮（lit/engine.py / lit/deepseek.py / ui/pages/harvest_page.py / ui/workers.py），adversarial_test 35/46→47/47 转绿；主驾独立复现核证 3 条关键缺陷后定级 B2 批量修复",
       date: 2026-07-18 }
@@ -49,7 +50,11 @@ approvals:
   - date: "2026-07-18"
     by: PI
     decisions:
-      - "分级拍板：S1 / R1 / C1（判级三问见 PROJECT-CONTRACT §1；R2 论点已暴露，PI 裁 R1）"
+      - "【第二批】分级升级 R1→R2（采纳先前暴露的 R2 论点：文献库=重要数据资产+持写凭证）；R2 义务落点见合同 §1 + policy R2 段"
+      - "【第二批】授权绕过安装钩子（先查现成再装）→ PyInstaller 6.21.0 钉版入 lit venv，打包收尾 BL-03 关闭（frozen selftest exit 0）"
+      - "【第二批】分支保护指令→实测 Free 私有仓付费墙（EX-01 补证据；升 Pro 待 PI 拍板）"
+      - "【第二批】仓名单 K 核实：GitHub 实名 trackeep-lit 已符合，无需改"
+      - "分级拍板：S1 / R1 / C1（判级三问见 PROJECT-CONTRACT §1；R2 论点已暴露，PI 裁 R1）——当日被第二批升级取代"
       - "品牌改名：mecha-lit/机甲文献 → Trackeep Lit（目录 D:\\trackeep-lit / 仓名 trackeep-lit）"
       - "建 GitHub 私有仓 + CI 四门禁（照搬 Trackeep Quant 方子）"
       - "本轮范围：先落规范再续功能（6b-2/打包排后）"
