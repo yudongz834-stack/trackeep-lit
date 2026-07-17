@@ -27,7 +27,7 @@ obligations:
   - { id: R1-03, source: "4.8 R1", status: backlog,  item: 数据一致性检查,           via: 引擎幂等去重 + counts 如实分列（INV-04/05）已就位；审计页↔引擎 JSON 一致性自动断言待补（BL-05） }
   - { id: R1-04, source: "4.8 R1", status: exception, item: 分支保护和自动测试,      ref: EX-01（分支保护：GitHub Free 不可用）；自动测试 enabled（CI tests job，pending-ci） }
   - { id: R1-05, source: "7.6",    status: enabled,  item: 脆弱场景登记表,           via: vulnerable-scenarios.yaml（10 条） }
-  - { id: R1-06, source: "7.3",    status: backlog,  item: 核心数据路径生成式测试,   via: 属性/模糊测试（MECHA_JSON 解析 / 台账日期 / resolve 合并）目标 v0.3（BL-01） }
+  - { id: R1-06, source: "7.3",    status: enabled,  item: 核心数据路径生成式测试,   via: tests/property_test.py（5 属性 ×≥500 例：resolve 合并/TRACKEEP_JSON 解析/overrides·strategy 往返/ledger 窗口；seed 可复现，BL-01 已落地 2026-07-18） }
 
   # ---------- 4.8 C1（自用）----------
   - { id: C1-01, source: "4.8 C1", status: enabled,  item: 长期维护基本说明,         via: README.md + 阶段日志.md }
@@ -51,16 +51,16 @@ obligations:
 test_defaults:
   concurrency_repeat:
     default_per_master: 50
-    this_project: 10
-    status: exception
-    reason: S1/C1 单用户桌面工具；并发面仅限后台线程（单飞锁互斥）；受 CI 时长约束
-    approval: "PI 2026-07-18"
+    this_project: 50
+    status: enabled
+    note: "2026-07-18 升档回母法档（tests/stress_test.py 连点/竞态 ≥50 轮/场景 + 随机时序抖动，seed 入证据）；原 ≥10 例外注销（加严不需批准）"
   cadence:
     full_regression: { default: 每夜, this_project: CI 每推 + 每改动本地两件套, reason: 个人项目、笔记本非常开机, approval: "PI 2026-07-18", ref: EX-03 }
     nightly_concurrency_500: { default: 每夜≥500 次, this_project: 不适用, reason: 无服务端常驻、无高并发面, approval: "PI 2026-07-18" }
     weekly_soak_8h: { default: 每周≥8h soak, this_project: 不适用, reason: 非长驻服务（用完即关的桌面工具）, approval: "PI 2026-07-18" }
     backup_restore_drill: { default: 每月或每发布周期, this_project: 不适用, reason: App 零自有数据存储（见 R1-01），无可演练的自有备份面, approval: "PI 2026-07-18" }
-  generative_property_fuzz: { status: backlog, target: v0.3, ref: BL-01 }
+  generative_property_fuzz: { status: enabled, via: tests/property_test.py（BL-01 已落地 2026-07-18） }
+  adversarial_testing: { status: enabled, via: tests/adversarial_test.py（47 项对抗畸形输入；R1 非强制、PI 2026-07-18 点名加严）, note: 每候选版本随 CI 每推必跑 }
   mutation_testing: { status: "n/a", reason: R1 项目非母法 7.7 强制面（R2 以上才要求周期性变异测试） }
   ui_event_storm: { status: backlog, target: v0.3, ref: [EX-02, BL-02] }
   dirty_dataset: { status: enabled, via: tests 内合成脏样本（BOM/半截 JSON/空文件/畸形回执），本轮随两件套落地 }

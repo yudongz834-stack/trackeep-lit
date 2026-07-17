@@ -111,6 +111,34 @@ jobs:
           python tests/gui_test.py 2>&1 | tee gui.log
           grep -qE '[0-9]+/[0-9]+ 项通过' gui.log
 
+      - name: Run stress_test (offscreen, 竞态/连点 50 轮, seed 记录)
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+          TRACKEEP_SELFTEST: "1"
+          TRACKEEP_CI: "1"
+        run: |
+          python tests/stress_test.py 2>&1 | tee stress.log
+          grep -qE '[0-9]+/[0-9]+ 项通过' stress.log
+
+      - name: Run adversarial_test (对抗畸形输入)
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+          TRACKEEP_SELFTEST: "1"
+          TRACKEEP_CI: "1"
+        run: |
+          python tests/adversarial_test.py 2>&1 | tee adversarial.log
+          grep -qE '[0-9]+/[0-9]+ 项通过' adversarial.log
+
+      - name: Run property_test (属性/fuzz ≥500 例/属性, seed 记录)
+        shell: bash
+        env:
+          TRACKEEP_CI: "1"
+        run: |
+          python tests/property_test.py 2>&1 | tee property.log
+          grep -qE '[0-9]+/[0-9]+ 项通过' property.log
+
       - name: Write test-summary.json
         run: |
           python - <<'PY'
@@ -122,13 +150,18 @@ jobs:
           summary = {
               "smoke_pass": grab("smoke.log", r'(\d+/\d+ 项通过)'),
               "gui_pass": grab("gui.log", r'(\d+/\d+ 项通过)'),
+              "stress_pass": grab("stress.log", r'(\d+/\d+ 项通过)'),
+              "adversarial_pass": grab("adversarial.log", r'(\d+/\d+ 项通过)'),
+              "property_pass": grab("property.log", r'(\d+/\d+ 项通过)'),
+              "stress_seed": grab("stress.log", r'seed=(\d+)'),
+              "property_seed": grab("property.log", r'seed=(\d+)'),
               "ci_skips": grab("gui.log", r'跳过 (\d+) 次'),
           }
           Path("test-summary.json").write_text(json.dumps(summary, ensure_ascii=False), encoding="utf-8")
           print(json.dumps(summary, ensure_ascii=False))
           # 相等门禁：通过数必须等于总数（部分通过≠通过，母法 8.6 / INV-04 的 CI 版）
           import sys
-          for key in ("smoke_pass", "gui_pass"):
+          for key in ("smoke_pass", "gui_pass", "stress_pass", "adversarial_pass", "property_pass"):
               m = re.match(r'(\d+)/(\d+)', summary[key])
               if not m or m.group(1) != m.group(2):
                   print(f"::error::{key} 未全过: {summary[key]}")
@@ -143,6 +176,9 @@ jobs:
             test-summary.json
             smoke.log
             gui.log
+            stress.log
+            adversarial.log
+            property.log
           if-no-files-found: error
 
   secret-scan:
@@ -186,8 +222,9 @@ jobs:
               "timestamp_utc": datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z",
               "python_version": sh("python3 --version"),
               "repeat_policy": {
-                  "deterministic_single_run": "smoke/gui 用合成数据 + 全 mock，单跑确定性（PROJECT-CONTRACT §7）",
-                  "concurrency_ge10": "并发类重复≥10 次，属性测试落地后启用（PROJECT-CONTRACT §7 调整，BL-01）",
+                  "deterministic_single_run": "smoke/gui 合成数据 + 全 mock，单跑确定性（PROJECT-CONTRACT §7）",
+                  "concurrency_rounds": "stress 连点/竞态 ≥50 轮/场景 + 随机时序抖动（seed 入 summary）",
+                  "generative": "property ≥500 例/属性（seed 入 summary，PROPERTY_SEED 可复现）",
               },
               "ci_skips": summary.get("ci_skips", "?"),
               "lock_hash": hashlib.sha256(
@@ -195,6 +232,11 @@ jobs:
               "tests": {
                   "smoke_pass": summary.get("smoke_pass", "?"),
                   "gui_pass": summary.get("gui_pass", "?"),
+                  "stress_pass": summary.get("stress_pass", "?"),
+                  "adversarial_pass": summary.get("adversarial_pass", "?"),
+                  "property_pass": summary.get("property_pass", "?"),
+                  "seeds": {"stress": summary.get("stress_seed", "?"),
+                            "property": summary.get("property_seed", "?")},
                   "ci_skips": summary.get("ci_skips", "?"),
                   "secret_scan": "passed (job green)",
               },

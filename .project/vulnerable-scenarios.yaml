@@ -68,6 +68,19 @@ scenarios:
     upgrade: 受控建路径永不静默；对话框文案与实际 POST 参数一致性纳入审查
     verification: gui 测试断言 exists=false 时出确认框、取消则不 POST（mock zotero）
 
+  - id: VS-11
+    scenario: 畸形引擎回执 / 畸形 LLM 返回未兜底（渲染崩溃、原始异常上抛、语义误判）
+    source: "对抗测试 2026-07-18（GLM-B 独立上下文）：11 处硬缺陷——engine 非法 JSON 抛原始
+      JSONDecodeError、deepseek 顶层/内层非 JSON 未转人话、keep 字符串 'false' 误判 True、
+      harvest found 非 int TypeError、payload/collection 非 dict AttributeError、
+      FuncWorker 不接 BaseException 致 UI 永卡（GLM-A 相邻观察）。同日修复"
+    guardrail: engine/deepseek 解析失败一律转人话 RuntimeError；harvest 渲染入口 isinstance
+      守卫 + found 安全转换 + collection 兜 {}；deepseek keep 类型归一（仅显式 false 才滤）；
+      FuncWorker 兜 BaseException 发 failed
+    upgrade: 已修复缺陷触发路径入表（母法 7.6）——tests/adversarial_test.py 全量为其回归床，
+      每次门禁必过；未来新增外部输入解析点（新 API/新格式）默认先写对抗变体再接
+    verification: tests/adversarial_test.py（47 项，含 FuncWorker BaseException 专项）
+
   - id: VS-10
     scenario: 双开 App（两个进程同时导入同一刊）
     source: 边界（单飞锁只管单进程内）

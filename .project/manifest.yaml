@@ -17,7 +17,7 @@ lifecycle:
 # ⚠️ 此后仅由 CI 证据回填；agent 手改 status 为 passed 一律无效。
 gates:
   - { id: governance,   status: pending-ci, via: "job:governance（B0=0 / 例外未过期 / 五件套 yaml 可解析）" }
-  - { id: tests,        status: pending-ci, via: ".github/workflows/quality-gates.yml job:tests", note: "smoke + gui，ubuntu offscreen + TRACKEEP_CI 联网跳过" }
+  - { id: tests,        status: pending-ci, via: ".github/workflows/quality-gates.yml job:tests", note: "五套：smoke + gui + stress + adversarial + property（ubuntu offscreen + TRACKEEP_CI 联网跳过，seed 入证据）" }
   - { id: secret-scan,  status: pending-ci, via: "job:secret-scan（gitleaks-action@v2）" }
   - { id: evidence,     status: pending-ci, via: "job:evidence（汇总 sha/时间/统计/跳过计数/产物哈希/lock_hash → evidence-<sha>）" }
   - { id: b0_block,     status: pending-ci, via: "governance job 校验 open_defects.b0==0 + 任一 job 红=工作流红=发布阻断" }
@@ -31,14 +31,18 @@ open_defects:
 
 # 待办 backlog（目标窗口为预估，非承诺）
 backlog:
-  - { id: BL-01, item: 属性/模糊测试（MECHA_JSON 解析 / 台账日期 / resolve 合并契约）, target: v0.3, ref: [policy.R1-06, policy.generative_property_fuzz] }
-  - { id: BL-02, item: UI 随机事件风暴脚本（连点/序列）, target: v0.3, ref: [policy.ui_event_storm, EX-02] }
+  - { id: BL-02, item: "UI 随机事件风暴脚本（真随机序列；连点/竞态已由 stress_test 覆盖）", target: v0.3, ref: [policy.ui_event_storm, EX-02] }
+  - { id: BL-07, item: "对抗软观察两条：①counts 与 items 不一致按 counts 显示（回执一致性显式断言）②未知 status 的 item 被静默丢弃（建议显示为「其他」组）", target: v0.3, ref: [invariants.INV-04.gap] }
   - { id: BL-03, item: "PyInstaller 打包收尾（原 Slice 5 挂起件：待 PI 拍板 pyinstaller 装法/复用策略）", target: 待 PI, ref: "Trackeep Lit.spec 已就位" }
   - { id: BL-04, item: "6b-2：DeepSeek 复筛 advisory→真拦截（导入门控 + 人工捞回交互）", target: 下轮功能, ref: [INV-10 届时按 6.3 修订] }
   - { id: BL-05, item: INV 证据缺口逐条补自动断言（各 INV backlog 项）, target: 滚动, ref: [invariants.yaml] }
   - { id: BL-06, item: 依赖漏洞/许可证扫描（GATE-06 补齐）, target: 下个发布周期, ref: [policy.GATE-06] }
 
-resolved: []
+resolved:
+  - { id: BL-01, item: 属性/模糊测试, resolved_by: "tests/property_test.py（5 属性 ×≥500 例，seed 可复现）", date: 2026-07-18 }
+  - { id: DEFECT-ROUND-1, item: "对抗测试暴露 11 硬缺陷 + FuncWorker BaseException 加固（VS-11）",
+      resolved_by: "GLM 修复轮（lit/engine.py / lit/deepseek.py / ui/pages/harvest_page.py / ui/workers.py），adversarial_test 35/46→47/47 转绿；主驾独立复现核证 3 条关键缺陷后定级 B2 批量修复",
+      date: 2026-07-18 }
 
 # 审批记录
 approvals:
