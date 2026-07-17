@@ -34,7 +34,7 @@ obligations:
   - { id: R2-02, source: "4.8 R2", status: "n/a",    item: 迁移和回滚演练,           reason: 无自有 Schema/数据库；配置原子写 + Zotero 回收站为回滚面 }
   - { id: R2-03, source: "4.8 R2", status: enabled,  item: 故障注入,                 via: smoke 失败注入（超时/断网/非零退出/坏输出）+ adversarial 畸形注入，CI 每推跑 }
   - { id: R2-04, source: "7.5",    status: enabled,  item: 独立设计的对抗性测试,     via: tests/adversarial_test.py（独立上下文 GLM-B 设计，47 项常驻 CI）+ 每候选版本追加新变体（合同 §1） }
-  - { id: R2-05, source: "7.7",    status: backlog,  item: 变异测试,                 via: 首轮排下个发布周期（核心模块 lit/ 数据层，杀灭率<70% 逐个分析），ref: BL-08 }
+  - { id: R2-05, source: "7.7",    status: backlog,  item: 变异测试,                 via: "首轮排下个发布周期（核心模块 lit/ 数据层，杀灭率<70% 逐个分析存活变异体）", ref: BL-08 }
   - { id: R2-06, source: "4.8 R2", status: enabled,  item: 安全和隐私检查,           via: CI secret-scan（gitleaks 全历史）+ INV-08（凭证不进日志/异常/git） }
   - { id: R2-07, source: "4.8 R2", status: enabled,  item: 事故响应计划,             via: 合同 §5 应急预授权 + §1 R2 义务落点（9.2 七步） }
   - { id: R2-08, source: "4.8 R2", status: enabled,  item: 更完整的证据包,           via: CI evidence job（sha/时间/五套统计/seeds/产物哈希/lock_hash） }
