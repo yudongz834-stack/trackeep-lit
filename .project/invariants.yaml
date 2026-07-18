@@ -90,12 +90,27 @@ invariants:
         file: tests/stress_test.py
 
   - id: INV-10
-    name: AI 复筛 advisory 不拦截导入（6b-1 语义）
-    invariant: DeepSeek 判决只标注在审计页，导入范围不受其影响（导入仍导入全部新增）
-    guardrail: 判决仅 verdict 渲染（harvest_page.py:674 / 737），导入路径不读 verdicts
+    name: AI 复筛门控导入（6b-2 语义；6b-1 advisory 已按母法 6.3 修订）
+    invariant: >
+      AI-enabled 刊：AI 判滤（keep=False）且未捞回的 PMID 经引擎 -ExcludePmids 不导入（默认剔除，
+      PI 可逐条/全部捞回）；AI-disabled 分类（流病/医学AI）：不门控、照旧全导；AI-enabled 刊未跑
+      复筛前导入锁死（弹窗提醒）。不记账：被滤篇从不 POST、不进台账，下次检索可重现重判。
+    guardrail: >
+      _on_import_clicked 门控校验（deepseek_enabled 且 _ai_verdicts is None → information 弹窗 + return 锁死）；
+      _compute_exclude_pmids（keep=False − _recovered，脏 pmid 安全跳过）透传 engine.run_import(exclude_pmids=)
+      → argv `-ExcludePmids`；引擎 section 6 标 Status='excluded' 跳 POST、不写台账；新检索/重跑复筛清 _recovered；
+      空参数=全导（向后兼容 6b-1）
     evidence:
-      status: backlog
-      note: 导入路径不读 verdicts 尚无显式断言（代码审查为据）；6b-2 升级真拦截时本条按母法 6.3 修订并落新断言
+      - check: "6b-2 门控组：AI-enabled 未跑复筛点导入→弹窗+run_import 零调用（锁死）；跑完→exclude_pmids==判滤且未捞回；捞回一条→其 pmid 不排除；AI-disabled→不弹窗直导 exclude 空；excluded 分组渲染不静默丢"
+        file: tests/gui_test.py
+      - check: "run_import 传 exclude_pmids→argv 含 -ExcludePmids；空/不传→argv 不含；run_search 永不含"
+        file: tests/smoke_test.py
+      - check: "excluded 畸形回执渲染不崩 + _compute_exclude_pmids 对缺/畸形 verdicts 健壮不抛"
+        file: tests/adversarial_test.py
+    change_process: >
+      母法 6.3 变更：6b-1 advisory（不拦截）→ 6b-2 门控，PI 2026-07-19 拍板三决策（门控 A / 未跑锁死 / 不记账，
+      见 manifest BL-04 locked_spec）；引擎加 -ExcludePmids 参数属 Mecha-Core 改动（PI 批准，备份
+      archives/zotero-import.ps1.bak-20260719-pre-exclude-pmids，diff 最小、空参数向后兼容）
 
   - id: INV-11
     name: 命中上限不静默截断

@@ -57,6 +57,8 @@ _IMP_COLOR = style.ACCENT            # 已导入：同新增（imported = 已入
 _IMP_BG = style.ACCENT_SOFT
 _FAIL_COLOR = "#C92A2A"              # 失败：危险红
 _FAIL_BG = "#FFF0F0"
+_EX_COLOR = "#6B5B95"                # AI 过滤：雾紫（暖底上的冷点缀，区别于去重灰 / 失败红）
+_EX_BG = "#ECE9F5"
 
 # status → (前景色, 底色, 药丸文字)。_item_row 与两个回执的分组清单共用。
 _STATUS_STYLE = {
@@ -65,6 +67,7 @@ _STATUS_STYLE = {
     "dup":      (_DUP_COLOR,  _DUP_BG,  "去重"),
     "suspect":  (_SUS_COLOR,  _SUS_BG,  "疑似"),
     "failed":   (_FAIL_COLOR, _FAIL_BG, "失败"),
+    "excluded": (_EX_COLOR,   _EX_BG,   "已过滤"),
 }
 
 # 回填命中上限（PubMed esearch retmax）：达此值可能截断 → 审计页告警（护栏⑫）
@@ -113,9 +116,13 @@ def _engine_search(params: dict) -> dict:
     return engine.run_search(params["journal"], **_engine_kwargs(params))
 
 
-def _engine_import(params: dict) -> dict:
-    """按 params['mode'] 分流调 engine.run_import（-Execute 真写 Zotero + 台账）。"""
-    return engine.run_import(params["journal"], **_engine_kwargs(params))
+def _engine_import(params: dict, exclude_pmids=None) -> dict:
+    """按 params['mode'] 分流调 engine.run_import（-Execute 真写 Zotero + 台账）。
+
+    exclude_pmids（6b-2）：AI 判滤且未捞回的 PMID，透传引擎 -ExcludePmids 跳过、不 POST。
+    """
+    return engine.run_import(params["journal"], exclude_pmids=exclude_pmids,
+                             **_engine_kwargs(params))
 
 
 class HarvestPage(QWidget):
@@ -130,7 +137,8 @@ class HarvestPage(QWidget):
         self._last_params = None      # 检索成功时锁定的参数（journal/mode/窗口/inc_ed/inc_lt/topic）—— 导入用它，不用当前 UI 态
         self._last_result = None      # 检索成功时的引擎结果 r（AI 复筛/重渲用，不重新检索）
         self._ai_verdicts = None      # DeepSeek 复筛判决 {pmid: {keep,reason}}；None=未筛（6b-1 advisory）
-        self._action_btns = []        # 当前回执里的动作按钮（导入/重试/AI复筛），_running 时整体禁用
+        self._recovered = set()       # 6b-2 捞回集合：AI 判滤但 PI 手动捞回的 PMID（导入时不排除）
+        self._action_btns = []        # 当前回执里的动作按钮（导入/重试/AI复筛/捞回），_running 时整体禁用
 
         # 运行态 UI（醒目横幅 + 走马灯进度条 + 秒数跳动，证明后台没卡死）
         self._elapsed = 0             # 当前运行已用秒数（_elapsed_timer 每秒 +1）
@@ -600,6 +608,7 @@ class HarvestPage(QWidget):
             self._last_params = params          # 检索成功才锁定导入目标（失败不覆盖）
             self._last_result = r               # 锁定结果供 AI 复筛/重渲复用（不重检索）
             self._ai_verdicts = None            # 新检索清旧 AI 判决
+            self._recovered = set()             # 新检索清旧捞回（判决已失效，捞回不跨检索）
             self._render_receipt(self._search_journal, r, params)
 
         def failed(err):
@@ -733,9 +742,11 @@ class HarvestPage(QWidget):
         qline.setTextInteractionFlags(Qt.TextSelectableByMouse)
         box.addWidget(qline)
 
-        # AI 复筛判决（6b-1 advisory）：仅标注、不拦截导入；ai_on 决定是否出「复筛」按钮
+        # AI 复筛判决：6b-2 真门控（AI-enabled 刊 + 已有 verdicts → 判滤的默认不导入、可捞回）；
+        # 6b-1 advisory（仅标注）已是历史。ai_on 决定是否出「复筛」按钮 + 是否门控。
         ai_on = strategy.resolve(journal)["deepseek_enabled"]
         verdicts = self._ai_verdicts or {}
+        gating = ai_on and bool(verdicts)   # 门控生效条件（决定捞回 UI / 导入排除）
 
         # 分组清单（items/groups 已于上方 counts 处算出）
         order = [("new", "🆕 新增 · 将导入"), ("dup", "♻ 去重跳过 · 已在库"),
@@ -747,20 +758,43 @@ class HarvestPage(QWidget):
             card, clay = self._card()
             clay.setContentsMargins(0, 0, 0, 0)
             clay.setSpacing(0)
-            # new 组 + 已有 AI 判决 → 表头附「🤖 AI 建议留 X / 滤 Y」
+            # new 组表头：门控时附「将导入 X / AI 建议留 Y / 滤 Z」+ 全部捞回；否则仅判决统计
             hdr_text = f"{title}（{len(rows)} 篇）"
+            on_recover = None                  # 默认不给捞回按钮（非门控 / 非 new 组）
             if key == "new" and verdicts:
                 kept = sum(1 for it in rows
                            if (verdicts.get(str(it.get("pmid"))) or {}).get("keep"))
-                hdr_text = ("🆕 新增（%d 篇 · 🤖 AI 建议留 %d / 滤 %d）"
-                            % (len(rows), kept, len(rows) - kept))
+                filtered = len(rows) - kept
+                recovered = sum(1 for it in rows
+                                if str(it.get("pmid") or "") in self._recovered)
+                if gating and filtered > 0:
+                    # 门控生效：表头亮「将导入」数（keep=True + 已捞回）+ 全部捞回入口
+                    hdr_text = ("🆕 新增（%d 篇 · 将导入 %d · 🤖 AI 建议留 %d / 滤 %d）"
+                                % (len(rows), kept + recovered, kept, filtered))
+                    on_recover = self._toggle_recover
+                else:
+                    hdr_text = ("🆕 新增（%d 篇 · 🤖 AI 建议留 %d / 滤 %d）"
+                                % (len(rows), kept, filtered))
             hdr = QLabel(hdr_text)
             hdr.setStyleSheet(
                 "font-weight:bold; padding:10px 14px; color:%s;" % style.TEXT)
             clay.addWidget(hdr)
+            # 门控 + 有滤项 → 表头下放「↩ 全部捞回」+ 说明（捞回操作都进 _action_btns 随单飞禁用）
+            if key == "new" and on_recover is not None:
+                rrow = QHBoxLayout()
+                rrow.setContentsMargins(14, 0, 14, 6)
+                rec_all = QPushButton("↩ 全部捞回（%d）" % filtered)
+                rec_all.setCursor(Qt.PointingHandCursor)
+                rec_all.setEnabled(not self._running)
+                rec_all.clicked.connect(lambda checked=False: self._recover_all())
+                rrow.addWidget(rec_all)
+                rrow.addWidget(self._muted(
+                    "AI 判滤的篇目默认不导入；可逐条 ↩ 捞回或全部捞回。"), 1)
+                clay.addLayout(rrow)
+                self._action_btns.append(rec_all)
             for it in rows:
                 v = verdicts.get(str(it.get("pmid"))) if key == "new" else None
-                clay.addWidget(self._item_row(it, key, verdict=v))
+                clay.addWidget(self._item_row(it, key, verdict=v, on_recover=on_recover))
             box.addWidget(card)
 
         # BL-07②：剩余分组（未知 status / 缺 status 等）合并渲染「其他」卡，不静默丢
@@ -776,12 +810,17 @@ class HarvestPage(QWidget):
             imp.setEnabled(not self._running)
             imp.clicked.connect(lambda: self._on_import_clicked(r))
             irow.addWidget(imp)
-            irow.addWidget(self._muted(
-                "真实写库（新增 · 去重 · 可逆：可移回收站）。点击后先确认。"), 1)
+            if gating:
+                _will, _filt, _rec = self._gate_breakdown(r)
+                hint = ("真实写库（仅导入 AI 判留 %d + 已捞回 %d，滤 %d · 可逆：可移回收站）。"
+                        "点击后先确认。" % (_will - _rec, _rec, _filt))
+            else:
+                hint = "真实写库（新增 · 去重 · 可逆：可移回收站）。点击后先确认。"
+            irow.addWidget(self._muted(hint), 1)
             box.addLayout(irow)
             self._action_btns.append(imp)
 
-        # 🤖 DeepSeek 复筛（6b-1 advisory）：仅该刊分类开了 DeepSeek 且有 new 才出
+        # 🤖 DeepSeek 复筛：AI-enabled 刊且有 new 才出。未跑 → 复筛按钮；已跑 → 门控说明。
         if ai_on and new_count > 0:
             arow = QHBoxLayout()
             if not verdicts:
@@ -791,12 +830,13 @@ class HarvestPage(QWidget):
                 aibtn.clicked.connect(self._start_ai_filter)
                 arow.addWidget(aibtn)
                 arow.addWidget(self._muted(
-                    "按分类判据逐篇判「主体是否相关」（约 10–30 秒）。仅供参考，本版不拦截导入。"), 1)
+                    "按分类判据逐篇判「主体是否相关」（约 10–30 秒）。"
+                    "本刊已开 AI 复筛，须先跑完才能导入（判滤的默认不导入、可捞回）。"), 1)
                 self._action_btns.append(aibtn)
             else:
                 note = self._muted(
-                    "🤖 AI 判决仅供参考 —— 本版**不拦截导入**（导入仍导入全部新增）。"
-                    "判据准不准可点上方「调整本类策略」或选左树分类节点调整。")
+                    "🤖 AI 判滤的篇目默认不导入；可在上方逐条 ↩ 捞回或全部捞回。"
+                    "导入按当前判决门控。判据准不准可点上方「调整本类策略」或选左树分类节点调整。")
                 arow.addWidget(note, 1)
             box.addLayout(arow)
 
@@ -869,6 +909,7 @@ class HarvestPage(QWidget):
             self._update_search_btn()
             self.run_status.setVisible(False)
             self._ai_verdicts = verdicts
+            self._recovered = set()             # 新判决清旧捞回（上一轮捞回基于旧判决，失效）
             self._render_receipt(journal, r, p)     # 重渲：new 组带上 AI 留/滤标注
 
         def failed(err):
@@ -883,10 +924,14 @@ class HarvestPage(QWidget):
         run_async(self, job, done=done, failed=failed)
 
     def _on_import_clicked(self, r: dict) -> None:
-        """导入按钮：确认框 → 受控建 collection（不存在时）→ run_import 线程。
+        """导入按钮：AI 门控校验 → 算排除集 → 确认框 → 受控建 collection → run_import 线程。
 
         用 _last_params（检索时锁定的 journal/days/配置），不用当前 UI 态——防检索后
         切了刊/改了配置却导入错对象。_running 时直接返回（护栏⑮ 单飞）。
+
+        6b-2 真门控（decision②）：AI-enabled 刊若没跑复筛（_ai_verdicts is None）→ 弹提醒
+        + 锁死导入（return）。AI-disabled 刊不受限、照旧全导。导入时算 exclude_pmids
+        （decision①：keep=False 且未捞回的 PMID）透传引擎 -ExcludePmids 跳过。
         """
         if self._running:
             return
@@ -894,12 +939,26 @@ class HarvestPage(QWidget):
         if not p:
             return
         journal = p["journal"]
-        new_count = (r.get("counts") or {}).get("new", 0)
-        ans = QMessageBox.question(
-            self, "确认真实导入",
-            "确认真实导入 %d 篇新文献到 Zotero「%s」collection？\n"
-            "窗口：%s\n（新增 · 去重 · 可逆：可移回收站）"
-            % (new_count, journal, _params_window_desc(p)))
+        # decision②：AI-enabled 刊必须先跑完复筛才解锁导入
+        if strategy.resolve(journal)["deepseek_enabled"] and self._ai_verdicts is None:
+            QMessageBox.information(
+                self, "请先完成 AI 复筛",
+                "本刊已开启 AI 复筛，请先点『🤖 DeepSeek 复筛』完成分析，再导入。")
+            return
+        exclude_pmids = self._compute_exclude_pmids()
+        will_import, filtered, recovered = self._gate_breakdown(r)
+        # 确认框文案：门控时带将导入 / 过滤 / 捞回明细，否则原 6b-1 文案
+        if filtered or recovered:
+            confirm = ("确认真实导入 %d 篇到 Zotero「%s」collection？\n"
+                       "窗口：%s\n（AI 过滤 %d · 已捞回 %d · 可逆：可移回收站）"
+                       % (will_import, journal, _params_window_desc(p),
+                          filtered, recovered))
+        else:
+            new_count = (r.get("counts") or {}).get("new", 0)
+            confirm = ("确认真实导入 %d 篇新文献到 Zotero「%s」collection？\n"
+                       "窗口：%s\n（新增 · 去重 · 可逆：可移回收站）"
+                       % (new_count, journal, _params_window_desc(p)))
+        ans = QMessageBox.question(self, "确认真实导入", confirm)
         if ans != QMessageBox.Yes:
             return
         # 受控建 collection（护栏⑯）：检索说 collection 不存在 → 先建再导入
@@ -907,7 +966,7 @@ class HarvestPage(QWidget):
         if not coll.get("exists"):
             if not self._ensure_collection(journal):
                 return          # 用户取消建 / 分类未找到 / 建失败 → 放弃导入
-        self._begin_import(p)
+        self._begin_import(p, exclude_pmids)
 
     def _ensure_collection(self, journal: str) -> bool:
         """collection 不存在时弹受控建框；Yes → POST 真建；No / 分类未找到 / 失败 → False。
@@ -941,15 +1000,92 @@ class HarvestPage(QWidget):
             return False
         return True
 
-    def _begin_import(self, params: dict) -> None:
-        """发起导入：禁按钮 + 进度文案 + run_async 跑 run_import；done 渲导入回执。"""
+    def _compute_exclude_pmids(self) -> set:
+        """门控排除集（decision①）：AI-enabled 刊 + 有 verdicts → keep=False 且未捞回的 PMID。
+
+        空（AI-disabled / 无 verdicts）= 全导（向后兼容 6b-1）。导入时透传引擎 -ExcludePmids。
+        对缺 / 畸形 pmid 的 item 安全跳过（不抛）。
+        """
+        p, r = self._last_params, self._last_result
+        if not p or not strategy.resolve(p["journal"])["deepseek_enabled"]:
+            return set()
+        verdicts = self._ai_verdicts
+        if not isinstance(verdicts, dict) or not verdicts:
+            return set()
+        exclude = set()
+        for it in (r.get("items") or []):
+            if it.get("status") != "new":
+                continue
+            pmid = str(it.get("pmid") or "")
+            if not pmid:
+                continue
+            v = verdicts.get(pmid) or {}
+            if not v.get("keep") and pmid not in self._recovered:
+                exclude.add(pmid)
+        return exclude
+
+    def _gate_breakdown(self, r: dict) -> tuple[int, int, int]:
+        """门控计数 (will_import, filtered, recovered) 供文案 / 头标。
+
+        非门控（AI-disabled / 无 verdicts）→ (new_count, 0, 0)。对脏 items 安全（不抛）。
+        """
+        new_count = (r.get("counts") or {}).get("new", 0)
+        p = self._last_params
+        if not p or not strategy.resolve(p["journal"])["deepseek_enabled"]:
+            return new_count, 0, 0
+        verdicts = self._ai_verdicts
+        if not isinstance(verdicts, dict) or not verdicts:
+            return new_count, 0, 0
+        filtered = recovered = 0
+        for it in (r.get("items") or []):
+            if it.get("status") != "new":
+                continue
+            pmid = str(it.get("pmid") or "")
+            if not (verdicts.get(pmid) or {}).get("keep"):
+                if pmid in self._recovered:
+                    recovered += 1
+                else:
+                    filtered += 1
+        return new_count - filtered, filtered, recovered
+
+    def _toggle_recover(self, pmid: str) -> None:
+        """逐条捞回 / 取消捞回：翻转 pmid 在 _recovered 中的归属，重渲 new 组门控态。"""
+        if pmid in self._recovered:
+            self._recovered.discard(pmid)
+        else:
+            self._recovered.add(pmid)
+        self._rerender_last()
+
+    def _recover_all(self) -> None:
+        """全部捞回：把当前 new 组里所有 keep=False 的 PMID 塞进 _recovered，重渲。"""
+        r = self._last_result
+        verdicts = self._ai_verdicts or {}
+        for it in (r.get("items") or []):
+            if it.get("status") == "new":
+                pmid = str(it.get("pmid") or "")
+                if pmid and not (verdicts.get(pmid) or {}).get("keep"):
+                    self._recovered.add(pmid)
+        self._rerender_last()
+
+    def _rerender_last(self) -> None:
+        """用 _last_result + _last_params 重渲检索回执（捞回操作后刷新门控 UI）。"""
+        r, p = self._last_result, self._last_params
+        if r and p:
+            self._render_receipt(p["journal"], r, p)
+
+    def _begin_import(self, params: dict, exclude_pmids=None) -> None:
+        """发起导入：禁按钮 + 进度文案 + run_async 跑 run_import；done 渲导入回执。
+
+        exclude_pmids（6b-2）：AI 判滤且未捞回的 PMID 集合，透传引擎 -ExcludePmids 跳过。
+        重试失败时重算（_ai_verdicts / _recovered 仍在场），保证重跑与首次同口径排除。
+        """
         self._running = True
         self._update_search_btn()                # 禁检索按钮
         self._set_action_btns_enabled(False)     # 禁导入/重试按钮
         self._begin_running_ui("导入", "真写 Zotero，约 1–3 分钟")
 
         def job():
-            return _engine_import(params)
+            return _engine_import(params, exclude_pmids)
 
         def done(ri):
             self._running = False
@@ -988,6 +1124,7 @@ class HarvestPage(QWidget):
         imported = counts.get("imported", 0) or 0
         failed = counts.get("failed", 0) or 0
         dup = counts.get("dup", 0) or 0
+        excluded = counts.get("excluded", 0) or 0   # 6b-2：AI 门控过滤（不 POST、不进台账）
         # counts/分组实数对比（BL-07①②）前置
         items = r.get("items", []) or []
         groups: dict[str, list] = {}
@@ -995,7 +1132,10 @@ class HarvestPage(QWidget):
             groups.setdefault((it.get("status") or "?"), []).append(it)
 
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        badge = QLabel(f"  ✓ 已导入 {imported} · 失败 {failed} · 去重 {dup} · {ts}  ")
+        badge_text = f"  ✓ 已导入 {imported} · 失败 {failed} · 去重 {dup}"
+        if excluded:
+            badge_text += f" · AI 过滤 {excluded}"
+        badge = QLabel(badge_text + f"  · {ts}  ")
         badge.setStyleSheet(
             "background:%s; color:white; padding:6px 14px; border-radius:9px;"
             "font-weight:bold; font-size:10pt;" % style.ACCENT)
@@ -1006,14 +1146,18 @@ class HarvestPage(QWidget):
         stats.addWidget(self._stat_chip("已导入", imported, _IMP_COLOR))
         stats.addWidget(self._stat_chip("失败", failed, _FAIL_COLOR))
         stats.addWidget(self._stat_chip("去重", dup, _DUP_COLOR))
+        if excluded:
+            stats.addWidget(self._stat_chip("AI 过滤", excluded, _EX_COLOR))
         stats.addStretch(1)
         box.addLayout(stats)
 
-        # BL-07①：counts 与清单实数逐键对比（imported/failed/dup 三键），不一致 → 橙字警示
-        self._render_counts_warn(box, counts, groups, ("imported", "failed", "dup"))
+        # BL-07①：counts 与清单实数逐键对比，不一致 → 橙字警示
+        self._render_counts_warn(box, counts, groups,
+                                 ("imported", "failed", "dup", "excluded"))
 
-        # 分组清单（imported/failed/dup/suspect；items/groups 已于上方 counts 处算出）
-        order = [("imported", "✓ 已导入"), ("failed", "✗ 失败 · 可重试"),
+        # 分组清单（imported/excluded/failed/dup/suspect；items/groups 已于上方 counts 处算出）
+        order = [("imported", "✓ 已导入"), ("excluded", "🚫 AI 已过滤 · 未导入"),
+                 ("failed", "✗ 失败 · 可重试"),
                  ("dup", "♻ 去重跳过"), ("suspect", "❓ 疑似 · 待人工")]
         for key, title in order:
             rows = groups.get(key)
@@ -1031,7 +1175,8 @@ class HarvestPage(QWidget):
             box.addWidget(card)
 
         # BL-07②：剩余分组（未知 status / 缺 status 等）合并渲染「其他」卡，不静默丢
-        self._render_other_group(box, groups, {"imported", "failed", "dup", "suspect"})
+        self._render_other_group(box, groups,
+                                 {"imported", "excluded", "failed", "dup", "suspect"})
 
         # 失败 > 0 → 重试按钮（再跑一次 run_import，幂等）
         if failed > 0:
@@ -1040,7 +1185,7 @@ class HarvestPage(QWidget):
             retry.setObjectName("primary")
             retry.setCursor(Qt.PointingHandCursor)
             retry.setEnabled(not self._running)
-            retry.clicked.connect(lambda: self._begin_import(params))
+            retry.clicked.connect(lambda: self._begin_import(params, self._compute_exclude_pmids()))
             rrow.addWidget(retry)
             rrow.addWidget(self._muted(
                 "引擎台账只记成功、去重跳过已导入，重试只补失败项（幂等）。"), 1)
@@ -1071,7 +1216,8 @@ class HarvestPage(QWidget):
         l.addWidget(lb2)
         return f
 
-    def _item_row(self, it: dict, status: str, verdict: dict | None = None) -> QFrame:
+    def _item_row(self, it: dict, status: str, verdict: dict | None = None,
+                  on_recover=None) -> QFrame:
         row = QFrame()
         rl = QHBoxLayout(row)
         rl.setContentsMargins(14, 8, 14, 8)
@@ -1101,16 +1247,22 @@ class HarvestPage(QWidget):
         if it.get("dupSrc"):
             tip.append(f"重复来源: {it['dupSrc']}")
         tip.append(f"状态: {status}")
+        keep = None
         if verdict is not None:
-            tip.append("AI: %s · %s" % ("建议留" if verdict.get("keep") else "建议滤",
+            keep = verdict.get("keep")
+            tip.append("AI: %s · %s" % ("建议留" if keep else "建议滤",
                                         verdict.get("reason") or "—"))
+        # 6b-2 门控态：keep=False（AI 判滤）+ 已捞回标记（_recovered），写入 tooltip
+        pmid = str(it.get("pmid") or "")
+        is_recovered = bool(pmid) and pmid in self._recovered
+        if keep is False and is_recovered:
+            tip.append("捞回：是（PI 手动捞回，将导入）")
         row.setToolTip("\n".join(tip))
 
         rl.addWidget(pill)
         rl.addWidget(title, 1)
-        # AI 复筛判决（6b-1 advisory）：右侧 AI 药丸 + ≤20字理由，仅标注不拦截
+        # AI 复筛判决：右侧 AI 药丸 + ≤20字理由
         if verdict is not None:
-            keep = verdict.get("keep")
             reason = QLabel(verdict.get("reason") or "")
             reason.setStyleSheet("color:%s; font-size:9pt;" % style.MUTED)
             reason.setWordWrap(True)
@@ -1124,6 +1276,20 @@ class HarvestPage(QWidget):
                 "font-weight:bold; font-size:9pt;" % (ai_fg, ai_bg))
             rl.addWidget(reason)
             rl.addWidget(ai_pill)
+        # 6b-2 门控捞回：on_recover 提供回调 + keep=False 的 new 项 → 给捞回 / 已捞回按钮；
+        # 未捞回的弱化（标题删除线 + 灰字，表「被剔除、未导入」）。按钮进 _action_btns 随单飞禁用。
+        if on_recover is not None and keep is False and pmid:
+            if not is_recovered:
+                f = title.font()
+                f.setStrikeOut(True)
+                title.setFont(f)
+                title.setStyleSheet("color:%s;" % style.MUTED)
+            rec_btn = QPushButton("已捞回" if is_recovered else "↩ 捞回")
+            rec_btn.setCursor(Qt.PointingHandCursor)
+            rec_btn.setEnabled(not self._running)
+            rec_btn.clicked.connect(lambda checked=False, p=pmid: on_recover(p))
+            self._action_btns.append(rec_btn)
+            rl.addWidget(rec_btn)
         return row
 
     # ---------- 小部件工厂 ----------

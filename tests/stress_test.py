@@ -563,10 +563,15 @@ def random_event_storm():
                         if not harvest._running:
                             import_clicks_nr += 1
                         orig_q = _patch_question(rng.choice([QMessageBox.Yes, QMessageBox.No]))
+                        # 6b-2 门控：AI-enabled 刊未跑 AI 就导入 → 弹 information（模态，
+                        # offscreen 会阻塞）→ 一并桩掉自动 Ok，让锁死路径不卡死风暴
+                        orig_info = QMessageBox.information
+                        QMessageBox.information = lambda *a, **k: QMessageBox.Ok
                         try:
                             impbtns[0].click()
                         finally:
                             QMessageBox.question = orig_q
+                            QMessageBox.information = orig_info
                 # jitter 无显式分支：仅下方 processEvents + 抖动
                 app.processEvents()
                 time.sleep(rng.uniform(0, 0.005))

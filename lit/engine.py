@@ -39,7 +39,7 @@ def run_search(journal, *, reldate_days=None, month=None, year=None,
 
 def run_import(journal, *, reldate_days=None, month=None, year=None,
                include_editorial=False, include_letter=False,
-               topic_filter=None, timeout=300) -> dict:
+               topic_filter=None, exclude_pmids=None, timeout=300) -> dict:
     """spawn 引擎真实导入（-Execute），返回 TRACKEEP_JSON 解析出的 dict。
 
     与 run_search 同构参数，但 argv **追加 `-Execute`**（真写 Zotero + 台账），
@@ -49,21 +49,27 @@ def run_import(journal, *, reldate_days=None, month=None, year=None,
     **不复用 dry-run 预览的 items**——天然满足「导入前必是最新检索 + 去重、无过期清单」
     （护栏⑤⑥），也让崩溃后重跑能自动补齐（台账只记成功 + 去重跳过已导入，护栏⑩）。
 
+    exclude_pmids（6b-2 真门控）：可迭代 PMID（如 {'123','456'}）；非空 → argv 追加
+    `-ExcludePmids a,b`，引擎 -Execute 时把这些 new 候选标 'excluded' 跳过、不 POST、
+    不进台账。None/空 = 不加该 argv（全导，向后兼容 6b-1）。
+
     返回同 schema：executed=true、counts.imported / counts.failed 有值、
-    items[].status 含 imported / failed。
+    items[].status 含 imported / failed / excluded。
     """
     return _run_engine(journal, reldate_days=reldate_days, month=month, year=year,
                        include_editorial=include_editorial,
                        include_letter=include_letter,
-                       topic_filter=topic_filter, execute=True, timeout=timeout)
+                       topic_filter=topic_filter, execute=True,
+                       exclude_pmids=exclude_pmids, timeout=timeout)
 
 
 def _run_engine(journal, *, reldate_days=None, month=None, year=None,
                 include_editorial=False, include_letter=False,
-                topic_filter=None, execute=False, timeout=180) -> dict:
+                topic_filter=None, execute=False, exclude_pmids=None, timeout=180) -> dict:
     """run_search / run_import 的共用实现：组 argv + spawn + 解析 TRACKEEP_JSON。
 
     execute=False（默认）= dry-run；execute=True = 末尾追加 `-Execute` 真写。
+    exclude_pmids 仅 execute=True 时有意义（dry-run 不导入、不参与门控）。
     """
     # 护栏：spawn 前预检引擎脚本在不在——缺就给人话，别让 powershell 抛天书「找不到文件」
     if not config.ENGINE_PATH.exists():
@@ -93,6 +99,9 @@ def _run_engine(journal, *, reldate_days=None, month=None, year=None,
     argv.append("-EmitJson")
     if execute:
         argv.append("-Execute")   # 真写 Zotero + 台账（仅 run_import）
+        # 6b-2 真门控：AI 判滤且未捞回的 PMID 传引擎跳过（空/None 不加，向后兼容）
+        if exclude_pmids:
+            argv += ["-ExcludePmids", ",".join(str(p) for p in exclude_pmids)]
 
     # 护栏：spawn 静默运行（无弹窗）+ 超时/找不到 PowerShell 转人话，别抛原始异常串
     try:

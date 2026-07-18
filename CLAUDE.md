@@ -36,7 +36,7 @@ PI 的医学文献桌面进料端：选刊 → PubMed 检索 → Zotero 去重�
 
 | 资源 | 用途 | 归属 |
 |---|---|---|
-| `Mecha-Core/scripts/zotero-import.ps1` | 检索/导入引擎 | 只读 spawn |
+| `Mecha-Core/scripts/zotero-import.ps1` | 检索/导入引擎 | 只读 spawn（**例外**：6b-2 起本 App 拥有 `-ExcludePmids` 参数，PI 2026-07-19 批准，备份 `archives/zotero-import.ps1.bak-20260719-pre-exclude-pmids`；改引擎仍须 PI 拍板+备份） |
 | `Mecha-Core/.mecha/journal-overrides.json` | 单刊例外表 | 本仓可写（原子写） |
 | `Mecha-Core/.mecha/strategy.json` | 分类采集策略 | 本仓可写（原子写） |
 | `Mecha-Core/.mecha/zotero-import-ledger.json` | 采集台账 | **只读**（引擎写） |

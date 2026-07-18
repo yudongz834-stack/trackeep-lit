@@ -116,6 +116,36 @@ check("INV-01: 两入口都带 -Journal 与刊名",
 check("INV-01: 窗口参数 reldate→-ReldateDays",
       "-ReldateDays" in argv_search and "30" in argv_search)
 
+# --- 6b-2：run_import 的 exclude_pmids → -ExcludePmids argv（向后兼容 + 门控）---
+fake = _FakeSpawn(payload={"found": 0})
+with _Patch(config, "ENGINE_PATH", _EXISTING_ENGINE), \
+        _Patch(engine.subprocess, "run", fake):
+    # 传 exclude_pmids → argv 含 -ExcludePmids "a,b"（仅 -Execute 路径有意义）
+    engine.run_import("J Thorac Oncol", reldate_days=30, exclude_pmids=["a", "b"])
+    argv_excl = fake.calls[-1][0]
+    # 不传 / None → argv 不含 -ExcludePmids（向后兼容 6b-1）
+    engine.run_import("J Thorac Oncol", reldate_days=30)
+    argv_noexcl = fake.calls[-1][0]
+    engine.run_import("J Thorac Oncol", reldate_days=30, exclude_pmids=None)
+    argv_none = fake.calls[-1][0]
+    engine.run_import("J Thorac Oncol", reldate_days=30, exclude_pmids=set())
+    argv_empty = fake.calls[-1][0]
+    # run_search 永不含 -ExcludePmids（dry-run 不导入、不门控）
+    engine.run_search("J Thorac Oncol", reldate_days=30)
+    argv_search_nx = fake.calls[-1][0]
+check("6b-2: run_import(exclude_pmids) → argv 含 -ExcludePmids",
+      "-ExcludePmids" in argv_excl, "(argv=%s)" % argv_excl)
+check("6b-2: exclude 值为逗号拼接",
+      "a,b" in argv_excl, "(值=%s)" % [a for i, a in enumerate(argv_excl) if i and argv_excl[i-1] == '-ExcludePmids'])
+check("6b-2: run_import 不传 exclude → argv 不含 -ExcludePmids（向后兼容）",
+      "-ExcludePmids" not in argv_noexcl)
+check("6b-2: run_import(exclude=None) → argv 不含 -ExcludePmids",
+      "-ExcludePmids" not in argv_none)
+check("6b-2: run_import(exclude=set()) → argv 不含 -ExcludePmids（空集不门控）",
+      "-ExcludePmids" not in argv_empty)
+check("6b-2: run_search 永不含 -ExcludePmids（dry-run 无门控）",
+      "-ExcludePmids" not in argv_search_nx)
+
 # --- VS-04：spawn 含 CREATE_NO_WINDOW ---
 check("VS-04: kwargs 含 creationflags",
       "creationflags" in kwargs_search)

@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 APP_NAME = "Trackeep Lit"
-VERSION = "0.2.0"  # v0.2 品牌重构（原中文名→Trackeep Lit）+ 生产规范落地
+VERSION = "0.3.0"  # v0.3 6b-2 DeepSeek 复筛真门控导入（advisory→门控+捞回，引擎加 -ExcludePmids）
 
 # 打包成品（PyInstaller frozen）= exe 所在文件夹；开发态 = 项目根（lit/ 的上两级）。
 # 与 gui.py 的 ROOT 同源，使 ui.main_window.ICON_PATH 在两种态下都指向 app.ico。

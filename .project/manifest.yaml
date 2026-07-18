@@ -5,13 +5,13 @@
 # 与 policy/exceptions 重叠的信息以主文件为准，本文件只引用不复制。
 
 project: trackeep-lit
-version: 0.2.0
+version: 0.3.0
 standard_version: v1.1.2
-updated: 2026-07-18
+updated: 2026-07-19
 
 lifecycle:
-  current_stage: "5.6 v0.2.0 硬化轮（BL-07 回执一致性/其他组 + BL-02 UI 事件风暴 + BL-08 变异测试机制及首跑，R2 义务补齐）"
-  this_change_stage: "5.4-5.6 缺陷修复+测试加固（对抗软观察加固 + 随机事件风暴 + 变异测试落地；功能面仍冻结，6b-2 出原型待 PI）"
+  current_stage: "5.4-5.6 v0.3.0 6b-2 DeepSeek 复筛真门控（advisory→门控+捞回，引擎加 -ExcludePmids；GLM 施工/主驾审核，148 项全绿）"
+  this_change_stage: "新功能：6b-2 真门控导入（INV-10 按母法 6.3 修订；引擎红线改动经 PI 批准+备份）。待 PI 真导入验收 + strategy.json 事故恢复"
 
 # 本次启用的门禁清单。状态统一 pending-ci：文件已落成、CI 首跑前不视为已通过。
 # ⚠️ 此后仅由 CI 证据回填；agent 手改 status 为 passed 一律无效。
@@ -31,11 +31,12 @@ open_defects:
 # 待办 backlog（目标窗口为预估，非承诺）
 backlog:
   - { id: BL-08b, item: "变异测试存活变异体逐个分析（首轮杀灭率 40.9%<70%，policy R2-05）：329 存活主要聚 zotero.py(85,rare POST 路)+deepseek.py(102,网络路)——判'真弱点补断言'还是'纯逻辑镜像/难到达可接受'；每弱点回流 lit/ 定向单测", target: 下个发布周期, ref: [policy.R2-05] }
-  - { id: BL-04, item: "6b-2：DeepSeek 复筛 advisory→真拦截（导入门控 + 人工捞回交互）", target: 本轮功能（PI 2026-07-19 拍板可开工）, ref: [INV-10 施工时按 6.3 修订],
-      locked_spec: "PI 2026-07-19 三决策全定：①门控默认强度=A（AI 判滤默认不导入、可逐条/全部捞回，底部实时显示将导入数）②AI 未跑就点导入=弹窗提醒+导入锁死（AI-enabled 刊必须先跑完复筛才解锁导入；AI-disabled 分类=流病/AI 照旧全导）③被滤篇=不记账（引擎台账只记 POST 成功；采集最新模式下被滤篇随日期窗口自然滑出、回填模式重跑才重现；判据调优后自动翻案，不动 INV-10 导入范围根本语义、只 UI 默认剔除+PI 捞回兜底）" }
   - { id: BL-05, item: INV 证据缺口逐条补自动断言（各 INV backlog 项）, target: 滚动, ref: [invariants.yaml] }
 
 resolved:
+  - { id: BL-04, item: "6b-2：DeepSeek 复筛 advisory→真门控导入（导入门控 + 人工捞回）",
+      resolved_by: "引擎加 -ExcludePmids（Mecha-Core 红线改动，PI 2026-07-19 批准，备份 archives/zotero-import.ps1.bak-20260719-pre-exclude-pmids，diff 最小、空参数向后兼容）+ lit/engine.py 透传 + harvest_page 门控/捞回/锁死/excluded 回执 + INV-10 按母法 6.3 修订；三决策=门控 A（判滤默认剔除、可逐条/全部捞回）/ AI 未跑就导入弹窗+锁死 / 被滤篇不记账（台账只记 POST 成功）；GLM 施工、主驾审核（引擎 diff 对备份核最小 + App diff 审 + 五套独立亲跑全绿 148 项）。待 PI GUI 真导入终验收",
+      date: 2026-07-19 }
   - { id: BL-01, item: 属性/模糊测试, resolved_by: "tests/property_test.py（5 属性 ×≥500 例，seed 可复现）", date: 2026-07-18 }
   - { id: BL-02, item: "UI 随机事件风暴脚本（真随机序列）", resolved_by: "tests/stress_test.py 场景 6：随机事件风暴 ×50 轮/每轮 8–15 步（独立 random.Random(SEED+600)；引擎 mock 5 回执变体含 unknown/mismatch；deepseek mock 随机判决/抛错；每轮断言不崩+_running 归位+单飞上界+_last_params 锁定，失败打印 seed/轮次/动作序列）；EX-02 到期条件满足→关闭", date: 2026-07-18 }
   - { id: BL-07, item: "对抗软观察两条（counts 谎报 / 未知 status 静默丢）", resolved_by: "harvest_page.py _render_counts_warn（counts≠清单橙字警示，非 int 跳过）+ _render_other_group（未知/缺 status 进「其他」卡不丢），search+import 两路；adversarial_test +6 净 check 定向验证（旧 2 条软缺陷登记翻转为正向断言）；GLM 施工、主驾独立复核（diff 审 + 五套亲跑全绿 129 项）", date: 2026-07-18 }
@@ -46,12 +47,26 @@ resolved:
       resolved_by: "GLM 修复轮（lit/engine.py / lit/deepseek.py / ui/pages/harvest_page.py / ui/workers.py），adversarial_test 35/46→47/47 转绿；主驾独立复现核证 3 条关键缺陷后定级 B2 批量修复",
       date: 2026-07-18 }
 
+# 事故记录（母法 9.2 七步；R2-07）
+incidents:
+  - id: INC-01
+    date: 2026-07-19
+    severity: 低（配置漂移，无数据丢失、无对外影响）
+    what: "6b-2 施工中，GLM 用一次性 python -c 手验渲染时忘 patch strategy.STRATEGY_PATH，strategy.save_category('胸部肿瘤与胸外科',…) 写进真实 Mecha-Core/.mecha/strategy.json，把胸外 deepseek.criteria 从详版（含食管/纵隔/胸膜/胸腺 + 剔纯心外）覆写为测试 fixture 简版『主体聚焦肺癌』"
+    limit_loss: "仅胸外一分类的 criteria 字段漂移（save_category 原子合并，其余 4 分类 + 胸外的 editorial/letter/topicFilter 完好）；台账/overrides mtime 未动；无真导入发生（门控真写只归 PI GUI）"
+    evidence: "GLM 自报 + 主驾对照本会话早前捕获的原值确认；当前值 = 简版，原值 = 详版"
+    recover: "待 PI 拍板恢复源——① Baidu 版本历史取回完整原 criteria（权威，推荐）② 主驾本会话捕获的原值回填（高置信但结尾疑似不完整，作 fallback）。主驾未擅自回写 Mecha-Core（红线 + 副作用即停），等 PI 决策"
+    notify: 已即时报 PI
+    root_cause: "被派 agent 的临时手验脚本未套测试环境隔离；施工单虽写『strategy 只读绝不写』，但只约束交付代码、未约束 agent 的 ad-hoc 验证命令"
+    guardrail: "dispatch brief 模板加一条：任何一次性验证脚本必须先 patch 所有真实文件路径（STRATEGY_PATH/LEDGER_PATH/OVERRIDES_PATH 桩到 tests/_tmp_*），或干脆走既有测试套；不得对真实 Mecha-Core 路径跑写操作"
+
 # 审批记录
 approvals:
   - date: "2026-07-19"
     by: PI
     decisions:
-      - "6b-2 交互原型通过；三决策锁定=门控 A（默认剔除+捞回）/ AI 未跑就导入=弹窗+锁死 / 被滤篇不记账（见 BL-04 locked_spec）"
+      - "6b-2 交互原型通过；三决策锁定=门控 A（默认剔除+捞回）/ AI 未跑就导入=弹窗+锁死 / 被滤篇不记账（见 resolved BL-04）"
+      - "同意改引擎加 -ExcludePmids（Mecha-Core 红线，PI 批准）；派 GLM 施工、主驾审核"
       - "转 public 仓（免 GitHub Pro 付费墙）→ 启用 main 分支保护；EX-01 关闭、GATE-01/02 转 enabled"
       - "日常开发入口=VBS（venv 开发态）；打包 exe 留作功能冻结后的稳定使用版（主驾定，PI 授权）"
       - "A（6b-2）与 B（加固）都做；顺序采主驾建议 BL-06 → 6b-2 → BL-08b"

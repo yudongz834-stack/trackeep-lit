@@ -558,6 +558,74 @@ if _harvest is not None:
     check("BL-07② import: 未知 status item 不再静默消失",
           "WeirdImportItem" in _itexts)
 
+    # --- 6b-2：excluded 分组渲染对抗（畸形 counts / items 不崩 + 不落「其他」）---
+    _no_crash("render(import): excluded 计数缺 items", lambda: _harvest._render_import_receipt(_P,
+        {"counts": {"imported": 1, "failed": 0, "dup": 0, "excluded": 5},
+         "collection": {"exists": True, "key": "K"}}))
+    _no_crash("render(import): excluded items 缺 counts", lambda: _harvest._render_import_receipt(_P,
+        {"items": [{"title": "ex1", "status": "excluded"}, {"title": "ex2", "status": "excluded"}],
+         "collection": {"exists": True, "key": "K"}}))
+    _no_crash("render(import): excluded counts 字符串", lambda: _harvest._render_import_receipt(_P,
+        {"counts": {"imported": 1, "failed": 0, "dup": 0, "excluded": "x"},
+         "items": [{"title": "e", "status": "excluded"}],
+         "collection": {"exists": True, "key": "K"}}))
+    # excluded 有显式分组 → counts 与清单不一致橙字警示、不落「其他」
+    _harvest._render_import_receipt(_P,
+        {"counts": {"imported": 1, "failed": 0, "dup": 0, "excluded": 3},
+         "items": [{"title": "i1", "status": "imported"},
+                   {"title": "ex-vis", "status": "excluded"}],
+         "collection": {"exists": True, "key": "K"}})
+    _app.processEvents()
+    _extexts = _label_texts()
+    check("6b-2 adv: excluded 分组渲染不崩 + 文章可见",
+          any("AI 已过滤" in t for t in _extexts) and "ex-vis" in _extexts,
+          "(texts=%s)" % [t for t in _extexts if '过滤' in t or 'ex-vis' in t])
+    check("6b-2 adv: excluded 不落「其他」卡",
+          not any("未识别状态" in t for t in _extexts))
+    check("6b-2 adv: counts≠清单 → excluded 橙字警示",
+          any("不一致" in t and "excluded" in t for t in _extexts))
+
+    # --- 6b-2：_compute_exclude_pmids 对畸形 verdicts / items 健壮（不抛）---
+    # 先写一份干净的 DeepSeek-enabled strategy，让门控路径生效
+    _ST.write_text(json.dumps({"version": 1, "categories": {
+        "胸部肿瘤与胸外科": {"editorial": False, "letter": False,
+                          "topicFilter": {"enabled": False, "terms": ""},
+                          "deepseek": {"enabled": True, "criteria": "x"}}}},
+        ensure_ascii=False), encoding="utf-8")
+    _harvest._last_params = dict(_P)
+    # 畸形 items：pmid=None / 缺 pmid / 整数 pmid；verdicts 含非字符串键、缺 keep
+    _harvest._last_result = {"counts": {"new": 3}, "items": [
+        {"status": "new", "pmid": None}, {"status": "new"}, {"status": "new", "pmid": 123}]}
+    _harvest._ai_verdicts = {"123": {"keep": False}, 999: {"keep": False}, "x": "notadict"}
+    _harvest._recovered = set()
+    try:
+        excl = _harvest._compute_exclude_pmids()
+        check("6b-2 adv: 畸形 pmid/verdicts → _compute_exclude_pmids 不抛 + 只滤有效 keep=False",
+              excl == {"123"}, "(excl=%s)" % sorted(excl))
+    except Exception as e:
+        check("6b-2 adv: 畸形 pmid/verdicts → _compute_exclude_pmids 不抛", False,
+              "(%s: %s)" % (type(e).__name__, str(e)[:80]))
+        _defect("hard", "harvest", "_compute_exclude_pmids 对畸形 verdicts/items 抛异常",
+                "ui/pages/harvest_page.py _compute_exclude_pmids",
+                "%s: %s" % (type(e).__name__, str(e)[:100]))
+    # _ai_verdicts 为非 dict（list）→ isinstance 守卫兜底不抛
+    _harvest._ai_verdicts = [{"keep": False}]
+    try:
+        excl2 = _harvest._compute_exclude_pmids()
+        check("6b-2 adv: _ai_verdicts 非 dict → 兜底空集不抛", excl2 == set(),
+              "(excl=%s)" % sorted(excl2))
+    except Exception as e:
+        check("6b-2 adv: _ai_verdicts 非 dict → 兜底空集不抛", False,
+              "(%s)" % type(e).__name__)
+        _defect("hard", "harvest", "_ai_verdicts 非 dict 时 _compute_exclude_pmids 抛异常",
+                "ui/pages/harvest_page.py _compute_exclude_pmids isinstance 守卫",
+                "%s" % type(e).__name__)
+    # 还原：清 DeepSeek 启用 + verdicts，避免污染后续
+    _ST.write_text('{"version": 1, "categories": {}}', encoding="utf-8")
+    _harvest._ai_verdicts = None
+    _harvest._recovered = set()
+    _harvest._last_result = None
+
 
 # ============================ 7. FuncWorker BaseException 兜底（防 _running 永不复位） ============================
 # job 抛 SystemExit（BaseException 子类，不被 except Exception 捕获）→ run 应仍发 failed 信号、

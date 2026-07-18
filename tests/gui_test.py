@@ -444,6 +444,205 @@ def import_uses_locked_params():
 check("VS-06: 检索后切刊，导入仍用锁定的 _last_params", import_uses_locked_params)
 
 
+# ============================ 8b. 6b-2 真门控：锁死 / 排除 / 捞回 / AI-disabled ============================
+# 每个用例临时启用「胸部肿瘤与胸外科」DeepSeek，用完还原空 strategy，避免污染后续用例。
+
+_PARAMS = {"journal": "J Thorac Oncol", "mode": "latest", "reldate_days": 30,
+           "inc_ed": False, "inc_lt": False, "topic": None}
+
+
+def _enable_deepseek():
+    """临时启用胸外分类 DeepSeek（返回还原用空 strategy 文本）。"""
+    strategy.save_category("胸部肿瘤与胸外科", {"editorial": False, "letter": False,
+        "topicFilter": {"enabled": False, "terms": ""},
+        "deepseek": {"enabled": True, "criteria": "主体聚焦肺癌"}})
+
+
+def _reset_strategy_empty():
+    """还原 strategy.json 到空骨架（清除本组用例的 DeepSeek 启用）。"""
+    _ST.write_text('{"version": 1, "categories": {}}', encoding="utf-8")
+
+
+def _patch_information():
+    """QMessageBox.information 是模态弹窗（offscreen 会阻塞）——换桩自动 Ok 并计数。"""
+    state = {"n": 0}
+    orig = QMessageBox.information
+    QMessageBox.information = lambda *a, **k: (state.__setitem__("n", state["n"] + 1), QMessageBox.Ok)[1]
+    return orig, state
+
+
+# verdicts：pmid 10000/10001 判滤、10002/10003/10004 判留（与 _receipt(new=5) 的 pmid 对齐）
+_VERDICTS = {
+    "10000": {"keep": False, "reason": "不相关"}, "10001": {"keep": False, "reason": "不相关"},
+    "10002": {"keep": True, "reason": "相关"}, "10003": {"keep": True, "reason": "相关"},
+    "10004": {"keep": True, "reason": "相关"},
+}
+
+
+def ai_gate_blocks_import():
+    # AI-enabled 刊 + 未跑 AI 就点导入 → 弹 information + run_import 零调用（锁死）
+    _enable_deepseek()
+    _eng.reset()
+    harvest._running = False
+    harvest._select_journal("J Thorac Oncol")
+    app.processEvents()
+    harvest._last_params = dict(_PARAMS)
+    harvest._last_result = _receipt(found=31, new=5)
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+    harvest._render_receipt("J Thorac Oncol", harvest._last_result, dict(_PARAMS))
+    app.processEvents()
+    orig_info, st = _patch_information()
+    orig_q = _patch_question(QMessageBox.Yes)   # 即使误弹确认框也 Yes，验证被门控拦
+    try:
+        impbtns = [b for b in harvest._action_btns if "导入" in b.text()]
+        assert impbtns, "前置：缺导入按钮"
+        impbtns[0].click()
+        _drain(harvest, 3)
+    finally:
+        QMessageBox.information = orig_info
+        QMessageBox.question = orig_q
+    n_import = len([c for c in _eng.calls if c[0] == "import"])
+    assert st["n"] == 1, f"应弹 1 次门控提醒（实际 {st['n']}）"
+    assert n_import == 0, f"AI 未跑就导入应锁死（run_import 调用 {n_import} 次）"
+    _reset_strategy_empty()
+    harvest._ai_verdicts = None
+
+
+check("6b-2②: AI-enabled 刊未跑 AI → 弹提醒 + run_import 零调用（锁死）",
+      ai_gate_blocks_import)
+
+
+def ai_gating_excludes_filtered():
+    # AI-enabled + 跑完 AI（verdicts 含 keep=False）+ 点导入 → exclude_pmids == 判滤且未捞回的 pmid
+    _enable_deepseek()
+    _eng.reset()
+    harvest._running = False
+    harvest._select_journal("J Thorac Oncol")
+    app.processEvents()
+    harvest._last_params = dict(_PARAMS)
+    harvest._last_result = _receipt(found=31, new=5)
+    harvest._ai_verdicts = dict(_VERDICTS)
+    harvest._recovered = set()
+    harvest._render_receipt("J Thorac Oncol", harvest._last_result, dict(_PARAMS))
+    app.processEvents()
+    orig_q = _patch_question(QMessageBox.Yes)
+    try:
+        impbtns = [b for b in harvest._action_btns if "导入" in b.text()]
+        impbtns[0].click()
+        ok = _drain(harvest, 5)
+    finally:
+        QMessageBox.question = orig_q
+    imports = [c for c in _eng.calls if c[0] == "import"]
+    assert ok and len(imports) == 1, f"应导入 1 次（drain={ok}, n={len(imports)}）"
+    exclude = imports[0][2].get("exclude_pmids")
+    assert exclude == {"10000", "10001"}, \
+        f"exclude_pmids 应为判滤未捞回的 {{10000,10001}}，实际 {exclude}"
+    _reset_strategy_empty()
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+    harvest._running = False
+
+
+check("6b-2①: 跑完 AI 点导入 → exclude_pmids == 判滤且未捞回的 PMID", ai_gating_excludes_filtered)
+
+
+def ai_gating_recover_removes_from_exclude():
+    # 捞回 pmid 10000 后再导入 → 该 pmid 不在 exclude_pmids（只剩 10001）
+    _enable_deepseek()
+    _eng.reset()
+    harvest._running = False
+    harvest._select_journal("J Thorac Oncol")
+    app.processEvents()
+    harvest._last_params = dict(_PARAMS)
+    harvest._last_result = _receipt(found=31, new=5)
+    harvest._ai_verdicts = dict(_VERDICTS)
+    harvest._recovered = set()
+    harvest._render_receipt("J Thorac Oncol", harvest._last_result, dict(_PARAMS))
+    app.processEvents()
+    harvest._toggle_recover("10000")          # 捞回 10000
+    app.processEvents()
+    assert "10000" in harvest._recovered
+    orig_q = _patch_question(QMessageBox.Yes)
+    try:
+        impbtns = [b for b in harvest._action_btns if "导入" in b.text()]
+        impbtns[0].click()
+        ok = _drain(harvest, 5)
+    finally:
+        QMessageBox.question = orig_q
+    imports = [c for c in _eng.calls if c[0] == "import"]
+    assert ok and len(imports) == 1
+    exclude = imports[0][2].get("exclude_pmids")
+    assert exclude == {"10001"}, f"捞回 10000 后 exclude 应只剩 {{10001}}，实际 {exclude}"
+    _reset_strategy_empty()
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+    harvest._running = False
+
+
+check("6b-2①: 捞回一条后导入 → 该 PMID 移出 exclude_pmids", ai_gating_recover_removes_from_exclude)
+
+
+def ai_disabled_no_gate_full_import():
+    # AI-disabled 刊（默认空 strategy）→ 不弹门控、直接可导、exclude_pmids 为空
+    _reset_strategy_empty()                   # 确保 DeepSeek 关
+    _eng.reset()
+    harvest._running = False
+    harvest._select_journal("J Thorac Oncol")
+    app.processEvents()
+    harvest._last_params = dict(_PARAMS)
+    harvest._last_result = _receipt(found=31, new=5)
+    harvest._ai_verdicts = None               # 没跑 AI
+    harvest._recovered = set()
+    harvest._render_receipt("J Thorac Oncol", harvest._last_result, dict(_PARAMS))
+    app.processEvents()
+    orig_info, st = _patch_information()
+    orig_q = _patch_question(QMessageBox.Yes)
+    try:
+        impbtns = [b for b in harvest._action_btns if "导入" in b.text()]
+        impbtns[0].click()
+        ok = _drain(harvest, 5)
+    finally:
+        QMessageBox.information = orig_info
+        QMessageBox.question = orig_q
+    imports = [c for c in _eng.calls if c[0] == "import"]
+    assert ok and len(imports) == 1, f"AI-disabled 应直接导入（n={len(imports)}）"
+    assert st["n"] == 0, f"AI-disabled 不应弹门控提醒（实际 {st['n']}）"
+    exclude = imports[0][2].get("exclude_pmids")
+    assert not exclude, f"AI-disabled exclude 应为空，实际 {exclude}"
+    harvest._running = False
+
+
+check("6b-2②: AI-disabled 刊 → 不弹窗、直接导、exclude 空（全导）",
+      ai_disabled_no_gate_full_import)
+
+
+def import_receipt_excluded_group():
+    # 导入回执含 excluded 分组：AI 过滤的篇目显式成组、可见、不落「其他」
+    params = dict(_PARAMS)
+    ri = {"journal": "J Thorac Oncol", "mode": "latest",
+          "counts": {"imported": 3, "failed": 0, "dup": 1, "suspect": 0, "excluded": 2},
+          "items": (_item("imported", 3) + _item("dup", 1)
+                    + [{"title": "excl-A", "status": "excluded", "pmid": 9001,
+                        "doi": "x", "type": "Journal Article", "hasAbstract": True},
+                       {"title": "excl-B", "status": "excluded", "pmid": 9002,
+                        "doi": "x", "type": "Journal Article", "hasAbstract": True}]),
+          "collection": {"exists": True, "key": "KEYXYZ"}}
+    harvest._render_import_receipt(params, ri)
+    app.processEvents()
+    texts = _label_texts(harvest)
+    assert any("AI 已过滤" in t and "2 篇" in t for t in texts), \
+        f"缺 excluded 分组标题：{[t for t in texts if '过滤' in t]}"
+    assert any("excl-A" in t for t in texts) and any("excl-B" in t for t in texts), \
+        "excluded 文章标题不可见（静默丢）"
+    # 「其他」卡不应出现（excluded 已有显式分组）
+    assert not any("未识别状态" in t for t in texts), "excluded 误落进「其他」卡"
+
+
+check("6b-2 receipt: excluded 分组显式渲染 + 文章可见（不静默丢）",
+      import_receipt_excluded_group)
+
+
 # ============================ 9. VS-07：反复渲染→清空不累积泄漏 ============================
 
 def render_clear_no_leak():
