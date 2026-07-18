@@ -14,7 +14,7 @@ import tempfile
 
 from lit import config
 
-OVERRIDES_PATH = config.MECHA_CORE / ".mecha" / "journal-overrides.json"
+OVERRIDES_PATH = config.MECHA_CORE / ".trackeep" / "journal-overrides.json"
 
 # 默认（无条目时的检索配置基线）—— 例外表只存与这三字段不同的值
 DEFAULT = {

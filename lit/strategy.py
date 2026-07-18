@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""采集策略表读写：`.mecha/strategy.json`（按 5 分类的采集策略总控）。
+"""采集策略表读写：`.trackeep/strategy.json`（按 5 分类的采集策略总控）。
 
 按分类（与 `journals.CATEGORIES` 逐字一致）分别配 pubtype 基底开关（Editorial/Letter）、
 PubMed 主题检索式（topicFilter）、DeepSeek 语义复筛判据（deepseek）。DeepSeek 本片只存
@@ -17,7 +17,7 @@ import tempfile
 
 from lit import config, journals, overrides
 
-STRATEGY_PATH = config.MECHA_CORE / ".mecha" / "strategy.json"
+STRATEGY_PATH = config.MECHA_CORE / ".trackeep" / "strategy.json"
 
 # 单分类的策略默认（无 strategy.json 或该分类缺失时的基线）
 CATEGORY_DEFAULT = {

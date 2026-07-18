@@ -49,6 +49,17 @@ resolved:
 
 # 事故记录（母法 9.2 七步；R2-07）
 incidents:
+  - id: INC-02
+    date: 2026-07-19
+    severity: 中（App 功能退化，用户可见；无数据丢失）
+    what: "验收 6b-2 时 App 左树只剩静态 10 刊、AI 复筛全关（PI 报『分类全没了、退化』）。真因=并发的 mecha→trackeep 生态迁移（契约 Mecha-Core/migration/trackeep-rename-contract.md）在 02:38 把 .mecha/→.trackeep/、Mecha-Memex/→Trackeep-Memex/，本 App 硬编码路径常量未跟上 → journals.load 找不到期刊表回退静态 10、strategy.resolve 找不到策略全默认（AI 全关）"
+    limit_loss: "纯路径失配、非数据丢失——真实配置 .trackeep/strategy.json（5 分类 + 胸外详版 criteria）完好；INC-01 里对 .mecha/ 的多次回写实为写到迁移后死路径（无害，已清，无 Mecha 残留）"
+    evidence: "find 定位 .trackeep/strategy.json + Trackeep-Memex/期刊来源表.md；迁移契约 §0『产品层 trackeep-lit 不在本次范围』=迁移 agent 不动本仓、消费方路径自维护"
+    recover: "改 4 路径常量：strategy/overrides/ledger STRATEGY/OVERRIDES/LEDGER_PATH 的 .mecha→.trackeep + journals.JOURNAL_TABLE 的 Mecha-Memex→Trackeep-Memex；实测 journals.load=5 分类 74 刊、胸外 resolve deepseek_enabled=True、四套测试全绿。engine/config MECHA_CORE 路径（scripts/ + 顶层 Mecha-Core 未改名）暂不动"
+    notify: 已即时报 PI（诊断链：非代码 bug/非同步删除，是迁移改名 collision）
+    root_cause: "App 硬编码绝对路径消费 Mecha-Core 内部结构，未随生态迁移；且本 App 属迁移『范围外』=无 agent 代为跟改，全靠本仓自维护"
+    guardrail: "CLAUDE.md『不走回头路』⑧固化：消费 Mecha-Core 路径随迁移会断；未来顶层 Mecha-Core→Trackeep-Core / ~/.config/mecha→ 时 config.MECHA_CORE/ENGINE_PATH/zotero ENV_PATH 需同步跟改"
+
   - id: INC-01
     date: 2026-07-19
     severity: 低（配置漂移，无数据丢失、无对外影响）

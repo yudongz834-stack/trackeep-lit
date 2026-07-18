@@ -9,7 +9,7 @@ from datetime import date, datetime
 
 from lit import config
 
-LEDGER_PATH = config.MECHA_CORE / ".mecha" / "zotero-import-ledger.json"
+LEDGER_PATH = config.MECHA_CORE / ".trackeep" / "zotero-import-ledger.json"
 
 DEFAULT_DAYS = 60        # 首次采集 / 读不到台账
 MIN_DAYS = 7

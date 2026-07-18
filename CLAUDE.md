@@ -31,15 +31,16 @@ PI 的医学文献桌面进料端：选刊 → PubMed 检索 → Zotero 去重�
 5. **导入用检索时锁定的 `_last_params`**，不读当前 UI 态——防切刊/改配置后导入错对象（Slice 3 设计，VS-06）。
 6. **导入 = 引擎重新完整跑**（不复用预览 items）——天然满足「导入前必是最新检索+去重」+ 崩溃后重跑自动补齐（护栏⑤⑥⑩）。
 7. **`tool="trackeep-lit"`（NCBI 标识）与 schema `trackeep-lit/import-result@1` 是 wire 契约**——2026-07-18 PI 拍板 wire 层随品牌全迁（引擎唯一消费方=本 App，两端原子切换）。
+8. **本 App 硬编码消费 Mecha-Core 内部路径，随 mecha→trackeep 迁移会断**——2026-07-19 迁移把 `.mecha/`→`.trackeep/`、`Mecha-Memex/`→`Trackeep-Memex/`，App 路径常量没跟上 → journals 回退静态 10、strategy 全默认（AI 全关），PI 误判"退化"。已改 4 常量（strategy/overrides/ledger→`.trackeep`，journals→`Trackeep-Memex`）。**未来 stage 改顶层 `Mecha-Core`→`Trackeep-Core` 或 `~/.config/mecha`→时，config.py 的 `MECHA_CORE`/`ENGINE_PATH` 与 zotero.py 的 `ENV_PATH` 会再断，需同步跟改**。迁移契约=`Mecha-Core/migration/trackeep-rename-contract.md`（本 App"不在其范围"=迁移 agent 不动本仓，消费方路径由本仓自维护）。
 
-## 外部依赖（都不在本仓，指针）
+## 外部依赖（都不在本仓，指针；路径随 mecha→trackeep 迁移，见"不走回头路"⑧）
 
 | 资源 | 用途 | 归属 |
 |---|---|---|
 | `Mecha-Core/scripts/zotero-import.ps1` | 检索/导入引擎 | 只读 spawn（**例外**：6b-2 起本 App 拥有 `-ExcludePmids` 参数，PI 2026-07-19 批准，备份 `archives/zotero-import.ps1.bak-20260719-pre-exclude-pmids`；改引擎仍须 PI 拍板+备份） |
-| `Mecha-Core/.mecha/journal-overrides.json` | 单刊例外表 | 本仓可写（原子写） |
-| `Mecha-Core/.mecha/strategy.json` | 分类采集策略 | 本仓可写（原子写） |
-| `Mecha-Core/.mecha/zotero-import-ledger.json` | 采集台账 | **只读**（引擎写） |
-| `Mecha-Memex/00-系统/期刊来源表.md` | 74 刊来源（5 分类） | 只读解析 |
-| `~/.config/mecha/secrets/zotero.env` | Zotero 凭证 | 只进请求头 |
+| `Mecha-Core/.trackeep/journal-overrides.json` | 单刊例外表 | 本仓可写（原子写） |
+| `Mecha-Core/.trackeep/strategy.json` | 分类采集策略 | 本仓可写（原子写） |
+| `Mecha-Core/.trackeep/zotero-import-ledger.json` | 采集台账 | **只读**（引擎写） |
+| `Trackeep-Memex/00-系统/期刊来源表.md` | 74 刊来源（5 分类） | 只读解析 |
+| `~/.config/mecha/secrets/zotero.env` | Zotero 凭证 | 只进请求头（迁移未及，仍 `mecha`） |
 | `DEEPSEEK_TOKEN`（Windows 用户环境变量） | 复筛凭证 | 只进请求头 |

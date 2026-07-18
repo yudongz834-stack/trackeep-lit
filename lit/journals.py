@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""期刊来源表解析（只读）：从 Mecha-Memex 期刊登记表载全 74 刊，按 5 分类分组。
+"""期刊来源表解析（只读）：从 Trackeep-Memex 期刊登记表载全 74 刊，按 5 分类分组。
 
 表格式（`期刊来源表.md`）：`| 来源分类 | 期刊全名 | PubMed缩写 | 推荐目录名 | 备注 |`，
 `line.split('|')` 后 cells[1]=分类、cells[4]=推荐目录名（=检索用刊名）。跳过列数<5、
@@ -12,7 +12,7 @@ import re
 
 from lit import config
 
-JOURNAL_TABLE = config.MECHA_CORE / "Mecha-Memex" / "00-系统" / "期刊来源表.md"
+JOURNAL_TABLE = config.MECHA_CORE / "Trackeep-Memex" / "00-系统" / "期刊来源表.md"
 
 # 5 个来源分类 —— 顺序即左树分组顺序（对齐期刊来源表收录统计）
 CATEGORIES = [
