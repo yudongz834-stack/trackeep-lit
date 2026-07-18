@@ -21,8 +21,7 @@ gates:
   - { id: secret-scan,  status: pending-ci, via: "job:secret-scan（gitleaks-action@v2）" }
   - { id: evidence,     status: pending-ci, via: "job:evidence（汇总 sha/时间/统计/跳过计数/产物哈希/lock_hash → evidence-<sha>）" }
   - { id: b0_block,     status: pending-ci, via: "governance job 校验 open_defects.b0==0 + 任一 job 红=工作流红=发布阻断" }
-  # 例外门禁（不在 CI 强制，记录在案）
-  - { id: branch_protection, status: exception, ref: EX-01 }
+  - { id: branch_protection, status: enabled, via: "2026-07-19 public 仓 main 分支保护（禁 force-push+删除 + required checks + linear history）；EX-01 关闭" }
 
 open_defects:
   b0: 0
@@ -32,7 +31,8 @@ open_defects:
 # 待办 backlog（目标窗口为预估，非承诺）
 backlog:
   - { id: BL-08b, item: "变异测试存活变异体逐个分析（首轮杀灭率 40.9%<70%，policy R2-05）：329 存活主要聚 zotero.py(85,rare POST 路)+deepseek.py(102,网络路)——判'真弱点补断言'还是'纯逻辑镜像/难到达可接受'；每弱点回流 lit/ 定向单测", target: 下个发布周期, ref: [policy.R2-05] }
-  - { id: BL-04, item: "6b-2：DeepSeek 复筛 advisory→真拦截（导入门控 + 人工捞回交互）", target: 下轮功能, ref: [INV-10 届时按 6.3 修订], note: "2026-07-18 交互原型已出（导入门控栏+逐条捞回，沿用现有调色盘），待 PI 拍板 3 决策：①门控默认强度 ②AI 未跑就导入的回退 ③被滤篇是否记账（动 INV-10）" }
+  - { id: BL-04, item: "6b-2：DeepSeek 复筛 advisory→真拦截（导入门控 + 人工捞回交互）", target: 本轮功能（PI 2026-07-19 拍板可开工）, ref: [INV-10 施工时按 6.3 修订],
+      locked_spec: "PI 2026-07-19 三决策全定：①门控默认强度=A（AI 判滤默认不导入、可逐条/全部捞回，底部实时显示将导入数）②AI 未跑就点导入=弹窗提醒+导入锁死（AI-enabled 刊必须先跑完复筛才解锁导入；AI-disabled 分类=流病/AI 照旧全导）③被滤篇=不记账（引擎台账只记 POST 成功；采集最新模式下被滤篇随日期窗口自然滑出、回填模式重跑才重现；判据调优后自动翻案，不动 INV-10 导入范围根本语义、只 UI 默认剔除+PI 捞回兜底）" }
   - { id: BL-05, item: INV 证据缺口逐条补自动断言（各 INV backlog 项）, target: 滚动, ref: [invariants.yaml] }
   - { id: BL-06, item: 依赖漏洞/许可证扫描（GATE-06 补齐）, target: 下个发布周期, ref: [policy.GATE-06] }
 
@@ -48,6 +48,13 @@ resolved:
 
 # 审批记录
 approvals:
+  - date: "2026-07-19"
+    by: PI
+    decisions:
+      - "6b-2 交互原型通过；三决策锁定=门控 A（默认剔除+捞回）/ AI 未跑就导入=弹窗+锁死 / 被滤篇不记账（见 BL-04 locked_spec）"
+      - "转 public 仓（免 GitHub Pro 付费墙）→ 启用 main 分支保护；EX-01 关闭、GATE-01/02 转 enabled"
+      - "日常开发入口=VBS（venv 开发态）；打包 exe 留作功能冻结后的稳定使用版（主驾定，PI 授权）"
+      - "A（6b-2）与 B（加固）都做；顺序采主驾建议 BL-06 → 6b-2 → BL-08b"
   - date: "2026-07-18"
     by: PI
     decisions:

@@ -6,6 +6,7 @@
 exceptions:
 
   - id: EX-01
+    status: closed
     violated_clause: "母法 10.3-1 / 10.3-2（稳定分支保护 + 禁止直推与 force-push）"
     reason: GitHub Free 私有仓不支持受保护分支规则与禁直推门禁
     current_risk: 中——主分支可被直推 / 误 force-push，无服务器侧硬拦
@@ -16,9 +17,11 @@ exceptions:
     approver: "PI 2026-07-18（照搬 Trackeep Quant EX-01 同款，随「建 GitHub CI」决策）"
     evidence: "2026-07-18 实测：classic branch protection 与 rulesets 双路 API 均 403「Upgrade to GitHub Pro or make this repository public」——付费墙确证，非未尝试"
     expires: condition
-    expires_when: 转为 public 仓库，或升级 GitHub 付费计划启用分支保护（约 $4/月，待 PI 拍板——升级即自动到期补设）
+    expires_when: 转为 public 仓库，或升级 GitHub 付费计划启用分支保护
     applicable_versions: "v0.x（GitHub Free 私有仓期间）"
     followup_task: "n/a（依赖外部：GitHub 付费计划，非开发待办）"
+    closed_date: 2026-07-19
+    closed_by: "到期条件满足——PI 2026-07-19 拍板转 public 仓（免付费墙）；已启用 main 分支保护（禁 force-push + 禁删除 + required checks governance/tests/secret-scan + linear history；enforce_admins=false 保留单执行体直推工作流）。GATE-01 转 enabled、GATE-02 force-push 侧已堵（直推按单执行体设计保留）"
 
   - id: EX-02
     status: closed

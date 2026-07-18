@@ -25,7 +25,7 @@ obligations:
   - { id: R1-01, source: "4.8 R1", status: enabled,  item: 备份或恢复路径,           via: App 本体零自有数据——文献库在 Zotero 云端（回收站可逆）；台账/例外表/策略表在 Mecha-Core（Baidu 同步盘 + Mirror 承载备份）；仓本体 GitHub。故独立备份演练不适用（一句话理由，母法 2.4） }
   - { id: R1-02, source: "4.8 R1", status: enabled,  item: 关键回归测试,             via: smoke + gui 两件套（每改动必跑 + CI 每推必跑） }
   - { id: R1-03, source: "4.8 R1", status: backlog,  item: 数据一致性检查,           via: 引擎幂等去重 + counts 如实分列（INV-04/05）已就位；审计页↔引擎 JSON 一致性自动断言待补（BL-05） }
-  - { id: R1-04, source: "4.8 R1", status: exception, item: 分支保护和自动测试,      ref: EX-01（分支保护：GitHub Free 不可用）；自动测试 enabled（CI tests job，pending-ci） }
+  - { id: R1-04, source: "4.8 R1", status: enabled,  item: 分支保护和自动测试,      via: "2026-07-19 转 public 仓后启用 main 分支保护（禁 force-push+删除 + required checks + linear history）；EX-01 关闭；自动测试=CI tests job" }
   - { id: R1-05, source: "7.6",    status: enabled,  item: 脆弱场景登记表,           via: vulnerable-scenarios.yaml（10 条） }
   - { id: R1-06, source: "7.3",    status: enabled,  item: 核心数据路径生成式测试,   via: tests/property_test.py（5 属性 ×≥500 例：resolve 合并/TRACKEEP_JSON 解析/overrides·strategy 往返/ledger 窗口；seed 可复现，BL-01 已落地 2026-07-18） }
 
@@ -45,8 +45,8 @@ obligations:
   - { id: C1-02, source: "4.8 C1", status: enabled,  item: 数据导出和恢复方式,       via: 数据主体在 Zotero（其自身导出/备份机制）；本 App 配置为可携 JSON }
 
   # ---------- 10.3 机器门禁（12 项）----------
-  - { id: GATE-01, source: "10.3-1",  status: exception, item: 稳定分支保护,              ref: EX-01 }
-  - { id: GATE-02, source: "10.3-2",  status: exception, item: 禁止直推和 force-push,     ref: EX-01 }
+  - { id: GATE-01, source: "10.3-1",  status: enabled,   item: 稳定分支保护,              via: "2026-07-19 public 仓 main 分支保护：禁 force-push + 禁删除 + required checks(governance/tests/secret-scan) + linear history" }
+  - { id: GATE-02, source: "10.3-2",  status: enabled,   item: 禁止直推和 force-push,     via: "force-push 侧已服务器端硬堵（allow_force_pushes=false）；直推按单执行体设计保留（enforce_admins=false），非违规——本项目工作流即 AI 单体直推 + CI 每推阻断" }
   - { id: GATE-03, source: "10.3-3",  status: enabled,   item: CI 证据+产物哈希,          via: quality-gates.yml evidence job（pending-ci） }
   - { id: GATE-04, source: "10.3-4",  status: enabled,   item: B0 阻断发布,               via: governance job 校验 manifest open_defects.b0==0（pending-ci） }
   - { id: GATE-05, source: "10.3-5",  status: enabled,   item: 密钥与敏感信息扫描,        via: gitleaks-action（pending-ci） }

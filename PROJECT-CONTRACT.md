@@ -106,6 +106,7 @@ R1 非强制、PI 点名）。
 
 ## 9. 开放问题
 
-- 打包收尾（BL-03）：`Trackeep Lit.spec` 已就位，PyInstaller 装法/复用策略待 PI 拍板
-- 6b-2 DeepSeek 真拦截（BL-04）：下轮功能，届时 INV-10 按母法 6.3 变更流程修订
-- 本合同为 v0.2.0 首版；CI 首跑后由 CI 证据回填 manifest 门禁状态
+- 6b-2 DeepSeek 真拦截（BL-04）：**PI 2026-07-19 拍板可开工**，三决策锁定（见 manifest BL-04 `locked_spec`）；施工时 INV-10 按母法 6.3 变更流程修订（advisory→真门控）
+- BL-08b 变异存活体分析（首轮杀灭率 40.9%<70%，policy R2-05）：排 6b-2 之后
+- ~~打包收尾（BL-03）~~ 已关闭（2026-07-18，onedir 112MB / frozen selftest exit 0）
+- ~~分支保护（EX-01）~~ 已关闭（2026-07-19 转 public 仓 + 启用 main 分支保护）
