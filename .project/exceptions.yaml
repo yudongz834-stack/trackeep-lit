@@ -21,6 +21,7 @@ exceptions:
     followup_task: "n/a（依赖外部：GitHub 付费计划，非开发待办）"
 
   - id: EX-02
+    status: closed
     violated_clause: "母法 A.2 UI 交互稳定性（事件风暴每候选版本 ≥30min + 连点竞态）"
     reason: UI 随机事件风暴脚本尚未落地；当前以确定性交互回归（gui 两件套）替代
     current_risk: 低-中——连点竞态 / 序列滥用类缺陷覆盖不足；已有单飞锁结构护栏（INV-09）
@@ -32,6 +33,8 @@ exceptions:
     expires_when: UI 随机事件风暴脚本落地（manifest 待办 BL-02，目标 v0.3）
     applicable_versions: "v0.2.x（至事件风暴脚本落地）"
     followup_task: BL-02
+    closed_date: 2026-07-18
+    closed_by: "到期条件已满足——BL-02 落地（tests/stress_test.py 场景 6：随机事件风暴 ×50 轮，真随机序列 seed 可复现）；PI 原定条件自动触发，无需新决策"
 
   - id: EX-03
     violated_clause: "母法 A.2 节律（每夜全量回归 + 并发≥500 + 每周 soak ≥8h）"

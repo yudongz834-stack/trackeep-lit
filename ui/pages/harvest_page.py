@@ -634,6 +634,47 @@ class HarvestPage(QWidget):
                     HarvestPage._clear_layout(sub)
                     sub.deleteLater()
 
+    def _render_counts_warn(self, box, counts, groups, keys) -> None:
+        """BL-07①：counts 与 items 分组实数逐键对比，任一不等 → 橙字警示（以 counts 为准）。
+
+        统计行 chips 仍按 counts 显示（既有行为不变），警示只是把不一致挑明、不再静默谎报。
+        counts 值非 int（脏回执）→ 跳过该键不比、不警示（转不了 int 视为不可比，不让对比抛异常）。
+        """
+        parts = []
+        for key in keys:
+            try:
+                cv = int(counts.get(key, 0))
+            except (TypeError, ValueError):
+                continue
+            actual = len(groups.get(key, []))
+            if cv != actual:
+                parts.append("%s %d≠清单 %d" % (key, cv, actual))
+        if parts:
+            warn = QLabel("⚠ 回执自检：counts 与清单数不一致（%s），以 counts 为准"
+                          % "，".join(parts))
+            warn.setStyleSheet(style.WARN_TEXT)
+            warn.setWordWrap(True)
+            box.addWidget(warn)
+
+    def _render_other_group(self, box, groups, known_keys) -> None:
+        """BL-07②：已知分组渲染完后，剩余分组（未知 status / 缺 status 等）合并为一张
+        「❔ 其他（未识别状态）」卡，表头带总条数，逐条 _item_row（带原始 status 药丸，
+        _STATUS_STYLE.get 已有默认回退样式），不静默丢。"""
+        remaining = [(k, rows) for k, rows in groups.items() if k not in known_keys]
+        if not remaining:
+            return
+        total = sum(len(rows) for _, rows in remaining)
+        card, clay = self._card()
+        clay.setContentsMargins(0, 0, 0, 0)
+        clay.setSpacing(0)
+        hdr = QLabel("❔ 其他（未识别状态）（%d 篇）" % total)
+        hdr.setStyleSheet("font-weight:bold; padding:10px 14px; color:%s;" % style.TEXT)
+        clay.addWidget(hdr)
+        for key, rows in remaining:
+            for it in rows:
+                clay.addWidget(self._item_row(it, key))
+        box.addWidget(card)
+
     def _render_receipt(self, journal: str, r: dict, params: dict | None = None) -> None:
         self._clear_receipt()
         box = self.receipt_box
@@ -656,6 +697,11 @@ class HarvestPage(QWidget):
 
         # 统计行：found / new / dup / suspect
         counts = r.get("counts", {}) or {}
+        # counts/分组实数对比（BL-07①②）前置：警示与其他卡都依赖 groups，stats 仍只用 counts
+        items = r.get("items", []) or []
+        groups: dict[str, list] = {}
+        for it in items:
+            groups.setdefault((it.get("status") or "?"), []).append(it)
         stats = QHBoxLayout()
         stats.setSpacing(8)
         stats.addWidget(self._stat_chip("命中", r.get("found", 0), style.TEXT))
@@ -664,6 +710,9 @@ class HarvestPage(QWidget):
         stats.addWidget(self._stat_chip("疑似", counts.get("suspect", 0), _SUS_COLOR))
         stats.addStretch(1)
         box.addLayout(stats)
+
+        # BL-07①：counts 与清单实数逐键对比，不一致 → 橙字警示（chips 仍显 counts，不改为清单数）
+        self._render_counts_warn(box, counts, groups, ("new", "dup", "suspect"))
 
         # 护栏⑫：found>=retmax 上限可能截断 → 橙字告警（建议改按月回填）
         # found 非 int（脏回执）安全降级：转不了就视为不触发告警，避免 TypeError；显示仍照原值
@@ -688,11 +737,7 @@ class HarvestPage(QWidget):
         ai_on = strategy.resolve(journal)["deepseek_enabled"]
         verdicts = self._ai_verdicts or {}
 
-        # 分组清单
-        items = r.get("items", []) or []
-        groups: dict[str, list] = {}
-        for it in items:
-            groups.setdefault((it.get("status") or "?"), []).append(it)
+        # 分组清单（items/groups 已于上方 counts 处算出）
         order = [("new", "🆕 新增 · 将导入"), ("dup", "♻ 去重跳过 · 已在库"),
                  ("suspect", "❓ 疑似 · 待人工")]
         for key, title in order:
@@ -717,6 +762,9 @@ class HarvestPage(QWidget):
                 v = verdicts.get(str(it.get("pmid"))) if key == "new" else None
                 clay.addWidget(self._item_row(it, key, verdict=v))
             box.addWidget(card)
+
+        # BL-07②：剩余分组（未知 status / 缺 status 等）合并渲染「其他」卡，不静默丢
+        self._render_other_group(box, groups, {"new", "dup", "suspect"})
 
         # 导入按钮（仅 new>0 显示）：确认框 → 受控建 collection（不存在时）→ run_import
         new_count = counts.get("new", 0)
@@ -940,6 +988,11 @@ class HarvestPage(QWidget):
         imported = counts.get("imported", 0) or 0
         failed = counts.get("failed", 0) or 0
         dup = counts.get("dup", 0) or 0
+        # counts/分组实数对比（BL-07①②）前置
+        items = r.get("items", []) or []
+        groups: dict[str, list] = {}
+        for it in items:
+            groups.setdefault((it.get("status") or "?"), []).append(it)
 
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         badge = QLabel(f"  ✓ 已导入 {imported} · 失败 {failed} · 去重 {dup} · {ts}  ")
@@ -956,11 +1009,10 @@ class HarvestPage(QWidget):
         stats.addStretch(1)
         box.addLayout(stats)
 
-        # 分组清单（imported/failed/dup/suspect）
-        items = r.get("items", []) or []
-        groups: dict[str, list] = {}
-        for it in items:
-            groups.setdefault((it.get("status") or "?"), []).append(it)
+        # BL-07①：counts 与清单实数逐键对比（imported/failed/dup 三键），不一致 → 橙字警示
+        self._render_counts_warn(box, counts, groups, ("imported", "failed", "dup"))
+
+        # 分组清单（imported/failed/dup/suspect；items/groups 已于上方 counts 处算出）
         order = [("imported", "✓ 已导入"), ("failed", "✗ 失败 · 可重试"),
                  ("dup", "♻ 去重跳过"), ("suspect", "❓ 疑似 · 待人工")]
         for key, title in order:
@@ -977,6 +1029,9 @@ class HarvestPage(QWidget):
             for it in rows:
                 clay.addWidget(self._item_row(it, key))
             box.addWidget(card)
+
+        # BL-07②：剩余分组（未知 status / 缺 status 等）合并渲染「其他」卡，不静默丢
+        self._render_other_group(box, groups, {"imported", "failed", "dup", "suspect"})
 
         # 失败 > 0 → 重试按钮（再跑一次 run_import，幂等）
         if failed > 0:

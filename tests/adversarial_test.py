@@ -461,35 +461,36 @@ if _harvest is not None:
         {"found": 6, "counts": {"new": 5, "dup": 1},
          "items": [{"title": "only1", "status": "new"}],
          "collection": {"exists": True, "key": "K"}}, _P))
-    # 软缺陷：统计行按 counts 显示（"新增 5"），与 items 实际 1 条不符 → 谎报（INV-04 精神）
-    _defect("soft", "render",
-            "counts.new 与 items 实际条数不一致时，统计行按 counts 显示（谎报）",
-            "harvest_page.py:654 _stat_chip 用 counts.get 而非 len(items)",
-            "显示「新增 5」但 items 仅 1 条 new")
+    _app.processEvents()
+    # BL-07①：counts≠清单 → 橙字警示条出现（原「静默谎报」软缺陷已加固为显式警示）
+    check("BL-07① search: counts≠清单 → 警示条出现",
+          any("不一致" in t and "new" in t for t in _label_texts()))
+    # 一致回执 → 无警示条（反例：不误报）
+    _harvest._render_receipt("J Thorac Oncol",
+        {"found": 2, "counts": {"new": 1, "dup": 1, "suspect": 0},
+         "items": [{"title": "n1", "status": "new"}, {"title": "d1", "status": "dup"}],
+         "collection": {"exists": True, "key": "K"}}, _P)
+    _app.processEvents()
+    check("BL-07① search: counts==清单 → 无警示条",
+          not any("不一致" in t for t in _label_texts()))
 
     _no_crash("render: item 缺 title", lambda: _harvest._render_receipt("J Thorac Oncol",
         {"found": 1, "counts": {"new": 1}, "items": [{"status": "new"}],
          "collection": {"exists": True, "key": "K"}}, _P))
 
-    # item 缺 status / 未知 status：不崩，但该 item 被静默丢弃（order 不含 "?"）
+    # BL-07②：item 缺 status / 未知 status → 进「其他（未识别状态）」卡，不再静默丢
     _harvest._render_receipt("J Thorac Oncol",
-        {"found": 1, "counts": {"new": 1}, "items": [{"title": "NoStatusItem"}],
+        {"found": 2, "counts": {"new": 1},
+         "items": [{"title": "ANewOne", "status": "new"},
+                   {"title": "WeirdStatusItem", "status": "bizarre"},
+                   {"title": "NoStatusItem"}],
          "collection": {"exists": True, "key": "K"}}, _P)
     _app.processEvents()
-    check("render: item 缺 status → 不崩 +（软缺陷）item 静默不出现",
-          "NoStatusItem" not in _label_texts())
-    _defect("soft", "render",
-            "items 中 status 缺失/未知值 的条目被静默丢弃（不在回执显示）",
-            "harvest_page.py:682 groups.setdefault(it.get('status') or '?')；order 不含 '?'",
-            "该 item 不可见")
-
-    _harvest._render_receipt("J Thorac Oncol",
-        {"found": 1, "counts": {"new": 1},
-         "items": [{"title": "WeirdStatusItem", "status": "bizarre"}],
-         "collection": {"exists": True, "key": "K"}}, _P)
-    _app.processEvents()
-    check("render: status 未知值 → 不崩 +（软缺陷）静默丢弃",
-          "WeirdStatusItem" not in _label_texts())
+    _stexts = _label_texts()
+    check("BL-07② search: 未知/缺 status → 「其他」卡 + 总条数正确",
+          any("未识别状态" in t and "2 篇" in t for t in _stexts))   # bizarre + 缺 status = 2
+    check("BL-07② search: 未知/缺 status item 不再静默消失",
+          "WeirdStatusItem" in _stexts and "NoStatusItem" in _stexts)
 
     _no_crash("render: title 10k+换行+控制字符", lambda: _harvest._render_receipt(
         "J Thorac Oncol",
@@ -526,6 +527,36 @@ if _harvest is not None:
     # payload 为 None / list → 第 916 行 r.get(...) 抛 AttributeError（硬缺陷）
     _no_crash("render(import): payload 为 None", lambda: _harvest._render_import_receipt(_P, None))
     _no_crash("render(import): payload 为 list", lambda: _harvest._render_import_receipt(_P, ["x"]))
+
+    # BL-07① import：counts≠清单 → 警示条出现；counts==清单 → 无警示条
+    _harvest._render_import_receipt(_P,
+        {"counts": {"imported": 3, "failed": 1, "dup": 0},
+         "items": [{"title": "i1", "status": "imported"}],   # imported 3≠1, failed 1≠0
+         "collection": {"exists": True, "key": "K"}})
+    _app.processEvents()
+    check("BL-07① import: counts≠清单 → 警示条出现",
+          any("不一致" in t and ("imported" in t or "failed" in t)
+              for t in _label_texts()))
+    _harvest._render_import_receipt(_P,
+        {"counts": {"imported": 1, "failed": 0, "dup": 1},
+         "items": [{"title": "i1", "status": "imported"}, {"title": "d1", "status": "dup"}],
+         "collection": {"exists": True, "key": "K"}})
+    _app.processEvents()
+    check("BL-07① import: counts==清单 → 无警示条",
+          not any("不一致" in t for t in _label_texts()))
+
+    # BL-07② import：未知 status → 「其他」卡 + 不静默丢
+    _harvest._render_import_receipt(_P,
+        {"counts": {"imported": 1, "failed": 0, "dup": 0},
+         "items": [{"title": "i1", "status": "imported"},
+                   {"title": "WeirdImportItem", "status": "bizarre"}],
+         "collection": {"exists": True, "key": "K"}})
+    _app.processEvents()
+    _itexts = _label_texts()
+    check("BL-07② import: 未知 status → 「其他」卡 + 条数正确",
+          any("未识别状态" in t and "1 篇" in t for t in _itexts))
+    check("BL-07② import: 未知 status item 不再静默消失",
+          "WeirdImportItem" in _itexts)
 
 
 # ============================ 7. FuncWorker BaseException 兜底（防 _running 永不复位） ============================

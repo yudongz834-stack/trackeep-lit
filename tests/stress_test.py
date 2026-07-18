@@ -426,6 +426,185 @@ def seed_reproducible():
 check("母法7.4: 时序扰动 seed 打印 + 同 seed 可复现", seed_reproducible)
 
 
+# ============================ 6. 随机事件风暴 ×50（BL-02：真随机序列）============================
+# 复用 SEED 机制（STRESS_SEED 覆写、seed 已打印可复现）；独立 random.Random 不扰既有场景流。
+# 每轮从动作池随机抽 8–15 步；引擎 mock 可编程（随机延迟 + 5 种回执变体，含未知 status /
+# counts≠items 走 BL-07①② 新渲染路径）；deepseek mock 随机判决或抛 RuntimeError。
+
+def random_event_storm():
+    import json
+    rng = random.Random(SEED + 600)            # 独立 RNG，不扰主流程 random 序列
+    all_jnames = journals.all_journals()       # 10 个合法刊名（树叶子 = 推荐目录名）
+    cat_nodes = list(harvest._cat_nodes.values())
+
+    # 启用一个分类的 DeepSeek → 选该类期刊 + new>0 时出 AI 复筛按钮（否则「若在」跳过）
+    _ST.write_text(json.dumps({"version": 1, "categories": {
+        "胸部肿瘤与胸外科": {"editorial": False, "letter": False,
+                          "topicFilter": {"enabled": False, "terms": ""},
+                          "deepseek": {"enabled": True, "criteria": "主体聚焦肺癌"}}}},
+        ensure_ascii=False), encoding="utf-8")
+
+    # ---- 回执变体工厂（5 种，覆盖 BL-07①② 新渲染路径）----
+    def _sitem(status, n=1, title=None, base_pmid=20000):
+        return [{"title": (title or "%s 风暴 %d" % (status, i)), "status": status,
+                 "type": "Journal Article", "pmid": base_pmid + i, "doi": "10.2/%d" % i,
+                 "hasAbstract": True} for i in range(n)]
+
+    def make_search_receipt(journal):
+        v = rng.choice(["normal", "new0", "found0", "unknown", "mismatch"])
+        base = {"query": "storm[ta]", "journal": journal, "mode": "latest",
+                "collection": {"exists": True, "key": "STORMK"}, "taMismatch": False,
+                "broadCount": 3}
+        if v == "found0":
+            return {**base, "found": 0, "counts": {"new": 0, "dup": 0, "suspect": 0}, "items": []}
+        if v == "unknown":                              # 含未知 status → BL-07② 其他卡
+            items = _sitem("new", 2) + [{"title": "weird-storm", "status": "bizarre"},
+                                        {"title": "nostatus-storm"}]
+            return {**base, "found": len(items), "counts": {"new": 2, "dup": 0, "suspect": 0},
+                    "items": items}
+        if v == "mismatch":                             # counts≠items → BL-07① 警示
+            items = _sitem("new", 1) + _sitem("dup", 1)
+            return {**base, "found": 5, "counts": {"new": 3, "dup": 1, "suspect": 0},
+                    "items": items}
+        if v == "new0":
+            items = _sitem("dup", 2) + _sitem("suspect", 1)
+            return {**base, "found": 3, "counts": {"new": 0, "dup": 2, "suspect": 1},
+                    "items": items}
+        items = _sitem("new", 2) + _sitem("dup", 1) + _sitem("suspect", 1)   # normal
+        return {**base, "found": 4, "counts": {"new": 2, "dup": 1, "suspect": 1},
+                "items": items}
+
+    def make_import_receipt(journal):
+        v = rng.choice(["ok", "failed", "unknown", "mismatch"])
+        base = {"journal": journal, "mode": "latest",
+                "collection": {"exists": True, "key": "STORMK"}}
+        if v == "unknown":
+            items = _sitem("imported", 1) + [{"title": "weird-imp", "status": "bizarre"}]
+            return {**base, "counts": {"imported": 1, "failed": 0, "dup": 0}, "items": items}
+        if v == "mismatch":
+            items = _sitem("imported", 1)
+            return {**base, "counts": {"imported": 3, "failed": 1, "dup": 0}, "items": items}
+        if v == "failed":
+            items = _sitem("imported", 2) + _sitem("failed", 1) + _sitem("dup", 1)
+            return {**base, "counts": {"imported": 2, "failed": 1, "dup": 1}, "items": items}
+        items = _sitem("imported", 2) + _sitem("dup", 1)                       # ok
+        return {**base, "counts": {"imported": 2, "failed": 0, "dup": 1}, "items": items}
+
+    # ---- 风暴用 engine / deepseek mock（随机延迟 + 随机回执 / 判决或抛），记入 _eng.calls ----
+    _orig_search = engine.run_search
+    _orig_import = engine.run_import
+    _orig_ds = deepseek.classify
+
+    def storm_search(journal, **kw):
+        _eng.calls.append(("search", journal, dict(kw)))   # 记入供 _search_calls 读
+        time.sleep(rng.uniform(0, 0.15))
+        return make_search_receipt(journal)
+
+    def storm_import(journal, **kw):
+        _eng.calls.append(("import", journal, dict(kw)))
+        time.sleep(rng.uniform(0, 0.15))
+        return make_import_receipt(journal)
+
+    def storm_classify(items, criteria, **kw):
+        if rng.random() < 0.3:
+            raise RuntimeError("storm: DeepSeek 随机失败")
+        time.sleep(rng.uniform(0, 0.05))
+        return {str(it.get("pmid")): {"keep": rng.choice([True, False]), "reason": "storm"}
+                for it in items}
+
+    engine.run_search = storm_search
+    engine.run_import = storm_import
+    deepseek.classify = storm_classify
+
+    STORM_ROUNDS = 50
+    try:
+        for rnd in range(STORM_ROUNDS):
+            action_log = []
+            _reset_running()
+            _eng.reset()
+            harvest._select_journal(rng.choice(all_jnames))
+            app.processEvents()
+            search_clicks_nr = 0      # 非 running 窗口的检索点击（INV-09 有效点击上界）
+            import_clicks_nr = 0
+
+            for _ in range(rng.randint(8, 15)):
+                action = rng.choice(["tree", "mode", "backfill", "exc_ed", "exc_lt",
+                                     "topic", "search", "ai", "import", "jitter"])
+                action_log.append(action)
+                if action == "tree":
+                    if rng.random() < 0.5:
+                        harvest._select_journal(rng.choice(all_jnames))
+                    else:
+                        harvest.tree.setCurrentItem(rng.choice(cat_nodes))
+                elif action == "mode":
+                    (harvest.rb_latest if rng.random() < 0.5 else harvest.rb_back).setChecked(True)
+                elif action == "backfill":
+                    harvest.rb_back.setChecked(True)
+                    harvest.cb_year.setCurrentIndex(rng.randrange(harvest.cb_year.count()))
+                    harvest.cb_month.setCurrentIndex(rng.randrange(harvest.cb_month.count()))
+                elif action == "exc_ed":
+                    harvest.cb_editorial.setChecked(rng.choice([True, False]))
+                elif action == "exc_lt":
+                    harvest.cb_letter.setChecked(rng.choice([True, False]))
+                elif action == "topic":
+                    harvest.topic_edit.setText(rng.choice(["", "lung[tiab]", "筛查"]))
+                    harvest._on_exception_changed()
+                elif action == "search":
+                    if not harvest._running:
+                        search_clicks_nr += 1
+                    harvest.search_btn.click()
+                elif action == "ai":
+                    aibtns = [b for b in harvest._action_btns if "DeepSeek" in b.text()]
+                    if aibtns and not harvest._running:
+                        aibtns[0].click()
+                elif action == "import":
+                    impbtns = [b for b in harvest._action_btns if "导入" in b.text()]
+                    if impbtns:
+                        if not harvest._running:
+                            import_clicks_nr += 1
+                        orig_q = _patch_question(rng.choice([QMessageBox.Yes, QMessageBox.No]))
+                        try:
+                            impbtns[0].click()
+                        finally:
+                            QMessageBox.question = orig_q
+                # jitter 无显式分支：仅下方 processEvents + 抖动
+                app.processEvents()
+                time.sleep(rng.uniform(0, 0.005))
+
+            ok = _drain(harvest, 8)
+            sc = _search_calls()
+            ic = _import_calls()
+            try:
+                assert ok, "worker 未在 8s 内收尾"
+                assert not harvest._running, "_running 未归位"
+                assert harvest.tree.isEnabled(), "树未解冻"
+                assert harvest._config_panel.isEnabled(), "配置区未解冻"
+                assert len(sc) <= search_clicks_nr, \
+                    f"run_search {len(sc)} > 有效点击 {search_clicks_nr}"
+                assert len(ic) <= import_clicks_nr, \
+                    f"run_import {len(ic)} > 有效点击 {import_clicks_nr}"
+                # VS-06：_last_params（若非 None）的 journal 必属发起检索时的刊
+                if harvest._last_params is not None:
+                    lj = harvest._last_params.get("journal")
+                    assert lj in all_jnames, f"_last_params.journal={lj!r} 非合法刊"
+                    if sc:
+                        assert lj == sc[-1][1], \
+                            f"_last_params.journal={lj!r} ≠ 末次检索 {sc[-1][1]!r}"
+            except AssertionError as e:
+                print(f"风暴失败：seed={SEED} round={rnd} seq={action_log} "
+                      f"search={len(sc)}/{search_clicks_nr} import={len(ic)}/{import_clicks_nr} "
+                      f"params={harvest._last_params} :: {e}")
+                raise
+    finally:
+        engine.run_search = _orig_search
+        engine.run_import = _orig_import
+        deepseek.classify = _orig_ds
+
+
+check("BL-02: 随机事件风暴 ×%d（不崩/_running 归位/单飞/_last_params 锁定）" % 50,
+      random_event_storm)
+
+
 # ============================ 收尾 ============================
 import shutil  # noqa: E402
 

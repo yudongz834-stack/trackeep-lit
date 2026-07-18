@@ -39,7 +39,9 @@ invariants:
     evidence:
       - check: "INV-04（failed>0 出重试 / failed=0 无重试）"
         file: tests/gui_test.py
-      - gap: counts 与 items 实际条数不一致时按 counts 显示（对抗软观察，BL-07 登记；引擎自家输出受控、风险低）
+      - check: "BL-07① counts≠清单→橙字警示出现 / counts==清单→无警示（search+import 两路）；BL-07② 未知/缺 status→「其他」卡不静默丢（search+import 两路）"
+        file: tests/adversarial_test.py
+      - note: "BL-07 软观察已加固（2026-07-18）：counts 仍按引擎值显示（真相口径），但与 items 实数不一致时显式警示、不再静默；未知 status 条目进「其他」卡不再丢弃"
 
   - id: INV-05
     name: 重复导入幂等
