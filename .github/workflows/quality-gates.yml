@@ -193,8 +193,41 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  deps-scan:
+    # BL-06 / GATE-06（母法 10.3-6）：依赖漏洞（pip-audit 查锁定版已知 CVE）+ 许可证（pip-licenses）。
+    # 依赖面极小（PySide6 全家 4 包，均 LGPLv3）；pip-audit 命中已知漏洞=job 红=发布阻断，待人工 triage
+    # （修版本 / 或加 --ignore-vuln <ID> 并在 commit 记录理由，形制同例外）。许可证出现 AGPL/未知=阻断。
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install scanners
+        run: python -m pip install pip-audit pip-licenses
+      - name: Vulnerability scan（pip-audit 对锁定依赖，命中已知 CVE 即红）
+        run: pip-audit -r requirements-lock.txt --desc
+      - name: License check（列全部依赖许可证，AGPL/未知即阻断）
+        shell: bash
+        run: |
+          python -m pip install -r requirements-lock.txt
+          pip-licenses --format=markdown --with-urls --with-authors | tee licenses.md
+          if pip-licenses --format=csv | tail -n +2 | grep -iE "AGPL|UNKNOWN"; then
+            echo "::error::发现 AGPL/未知许可证依赖——人工审查后放行或替换"
+            exit 1
+          fi
+          echo "✅ 许可证检查通过（无 AGPL / 无未知许可证）"
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: licenses-${{ github.sha }}
+          path: licenses.md
+          if-no-files-found: warn
+
   evidence:
-    needs: [tests, secret-scan, governance]
+    needs: [tests, secret-scan, governance, deps-scan]
     runs-on: ubuntu-latest
     permissions:
       contents: read

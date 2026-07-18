@@ -50,7 +50,7 @@ obligations:
   - { id: GATE-03, source: "10.3-3",  status: enabled,   item: CI 证据+产物哈希,          via: quality-gates.yml evidence job（pending-ci） }
   - { id: GATE-04, source: "10.3-4",  status: enabled,   item: B0 阻断发布,               via: governance job 校验 manifest open_defects.b0==0（pending-ci） }
   - { id: GATE-05, source: "10.3-5",  status: enabled,   item: 密钥与敏感信息扫描,        via: gitleaks-action（pending-ci） }
-  - { id: GATE-06, source: "10.3-6",  status: backlog,   item: 依赖锁定/漏洞/许可证检查,  via: requirements-lock.txt 本轮生成（锁定）；漏洞/许可证扫描待加（BL-06） }
+  - { id: GATE-06, source: "10.3-6",  status: enabled,   item: 依赖锁定/漏洞/许可证检查,  via: "requirements-lock.txt 锁定 + quality-gates.yml deps-scan job（pip-audit 查已知 CVE + pip-licenses 查许可证，AGPL/未知阻断；BL-06 已落地 2026-07-19，接入 evidence needs）" }
   - { id: GATE-07, source: "10.3-7",  status: "n/a",     item: 迁移与回滚证据检查,        reason: 无自有数据库/Schema，无迁移面 }
   - { id: GATE-08, source: "10.3-8",  status: backlog,   item: 分级与验收标准缺失阻断施工, via: PROJECT-CONTRACT 已成文；机器自动阻断待加 }
   - { id: GATE-09, source: "10.3-9",  status: backlog,   item: 预算和失败熔断,            via: CI 不执行预算熔断；由编排/运行环境层承担（PROJECT-CONTRACT §4），诚实标 backlog }

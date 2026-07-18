@@ -34,13 +34,13 @@ backlog:
   - { id: BL-04, item: "6b-2：DeepSeek 复筛 advisory→真拦截（导入门控 + 人工捞回交互）", target: 本轮功能（PI 2026-07-19 拍板可开工）, ref: [INV-10 施工时按 6.3 修订],
       locked_spec: "PI 2026-07-19 三决策全定：①门控默认强度=A（AI 判滤默认不导入、可逐条/全部捞回，底部实时显示将导入数）②AI 未跑就点导入=弹窗提醒+导入锁死（AI-enabled 刊必须先跑完复筛才解锁导入；AI-disabled 分类=流病/AI 照旧全导）③被滤篇=不记账（引擎台账只记 POST 成功；采集最新模式下被滤篇随日期窗口自然滑出、回填模式重跑才重现；判据调优后自动翻案，不动 INV-10 导入范围根本语义、只 UI 默认剔除+PI 捞回兜底）" }
   - { id: BL-05, item: INV 证据缺口逐条补自动断言（各 INV backlog 项）, target: 滚动, ref: [invariants.yaml] }
-  - { id: BL-06, item: 依赖漏洞/许可证扫描（GATE-06 补齐）, target: 下个发布周期, ref: [policy.GATE-06] }
 
 resolved:
   - { id: BL-01, item: 属性/模糊测试, resolved_by: "tests/property_test.py（5 属性 ×≥500 例，seed 可复现）", date: 2026-07-18 }
   - { id: BL-02, item: "UI 随机事件风暴脚本（真随机序列）", resolved_by: "tests/stress_test.py 场景 6：随机事件风暴 ×50 轮/每轮 8–15 步（独立 random.Random(SEED+600)；引擎 mock 5 回执变体含 unknown/mismatch；deepseek mock 随机判决/抛错；每轮断言不崩+_running 归位+单飞上界+_last_params 锁定，失败打印 seed/轮次/动作序列）；EX-02 到期条件满足→关闭", date: 2026-07-18 }
   - { id: BL-07, item: "对抗软观察两条（counts 谎报 / 未知 status 静默丢）", resolved_by: "harvest_page.py _render_counts_warn（counts≠清单橙字警示，非 int 跳过）+ _render_other_group（未知/缺 status 进「其他」卡不丢），search+import 两路；adversarial_test +6 净 check 定向验证（旧 2 条软缺陷登记翻转为正向断言）；GLM 施工、主驾独立复核（diff 审 + 五套亲跑全绿 129 项）", date: 2026-07-18 }
   - { id: BL-08, item: "变异测试首轮机制 + 首跑", resolved_by: ".github/workflows/mutation.yml + setup.cfg（mutmut 2.5.1，Windows 不支持故走 CI ubuntu 手动触发；变异面=lit/ 数据层 7 文件，runner=smoke）；首跑 2026-07-18 杀灭率 40.9%（228 killed/329 survived/557），报告落 run artifact；存活分析转 BL-08b", date: 2026-07-18 }
+  - { id: BL-06, item: "依赖漏洞/许可证扫描（GATE-06 补齐）", resolved_by: "quality-gates.yml deps-scan job（pip-audit 查锁定依赖已知 CVE + pip-licenses 许可证检查，AGPL/未知阻断）；接入 evidence needs=发布阻断；依赖面=PySide6 全家 4 包 LGPLv3", date: 2026-07-19 }
   - { id: BL-03, item: PyInstaller 打包收尾, resolved_by: "PI 授权绕过安装钩子（先查现成：系统/quant venv 均 6.21.0）→ 钉版装 lit venv → Trackeep Lit.spec 打包 onedir 112MB → frozen selftest exit 0；PyInstaller 属构建工具不入 requirements-lock（CI 不需）", date: 2026-07-18 }
   - { id: DEFECT-ROUND-1, item: "对抗测试暴露 11 硬缺陷 + FuncWorker BaseException 加固（VS-11）",
       resolved_by: "GLM 修复轮（lit/engine.py / lit/deepseek.py / ui/pages/harvest_page.py / ui/workers.py），adversarial_test 35/46→47/47 转绿；主驾独立复现核证 3 条关键缺陷后定级 B2 批量修复",
