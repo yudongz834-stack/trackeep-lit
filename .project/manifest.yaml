@@ -55,7 +55,7 @@ incidents:
     what: "6b-2 施工中，GLM 用一次性 python -c 手验渲染时忘 patch strategy.STRATEGY_PATH，strategy.save_category('胸部肿瘤与胸外科',…) 写进真实 Mecha-Core/.mecha/strategy.json，把胸外 deepseek.criteria 从详版（含食管/纵隔/胸膜/胸腺 + 剔纯心外）覆写为测试 fixture 简版『主体聚焦肺癌』"
     limit_loss: "仅胸外一分类的 criteria 字段漂移（save_category 原子合并，其余 4 分类 + 胸外的 editorial/letter/topicFilter 完好）；台账/overrides mtime 未动；无真导入发生（门控真写只归 PI GUI）"
     evidence: "GLM 自报 + 主驾对照本会话早前捕获的原值确认；当前值 = 简版，原值 = 详版"
-    recover: "待 PI 拍板恢复源——① Baidu 版本历史取回完整原 criteria（权威，推荐）② 主驾本会话捕获的原值回填（高置信但结尾疑似不完整，作 fallback）。主驾未擅自回写 Mecha-Core（红线 + 副作用即停），等 PI 决策"
+    recover: "已恢复（2026-07-19，PI 授权直接改）——方案 A（Baidu 版本历史）主驾无云端 GUI 访问、做不到，按 PI 指令转方案 B：主驾本会话捕获的原 criteria 外科式回填（只改胸外 deepseek.criteria，原子写，回读核验其余 4 分类零改动）。恢复前把损坏态备份到 scratchpad（不进公开仓——含 PI 真实科研判据）。⚠ 遗留：回填值结尾括号未闭合（可能是原值本身，也可能本会话捕获截断），待 PI 眼校完整性——如原值更长可 Baidu 历史取权威版或 PI 直接补全"
     notify: 已即时报 PI
     root_cause: "被派 agent 的临时手验脚本未套测试环境隔离；施工单虽写『strategy 只读绝不写』，但只约束交付代码、未约束 agent 的 ad-hoc 验证命令"
     guardrail: "dispatch brief 模板加一条：任何一次性验证脚本必须先 patch 所有真实文件路径（STRATEGY_PATH/LEDGER_PATH/OVERRIDES_PATH 桩到 tests/_tmp_*），或干脆走既有测试套；不得对真实 Mecha-Core 路径跑写操作"
