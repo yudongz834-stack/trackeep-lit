@@ -628,6 +628,16 @@ class HarvestPage(QWidget):
 
     # ---------- 运行态 UI（横幅 + 进度条 + 秒表 + 冻结） ----------
 
+    def _set_running_banner(self) -> None:
+        """刷新运行态横幅文案（动词 + 秒数 + 副文案）。
+
+        秒表 tick（_tick_elapsed）与 AI 复筛进度回调（on_progress）共用同一格式，
+        避免两处文案漂移；progress 只改 _run_detail 副文案，不动秒表机制。
+        """
+        self.run_status.setText(
+            "⏳ 正在%s… 已用 %ds · %s · 请勿关闭窗口"
+            % (self._run_verb, self._elapsed, self._run_detail))
+
     def _begin_running_ui(self, verb: str, detail: str) -> None:
         """进入运行态：醒目珊瑚横幅 + 走马灯进度条 + 秒数跳动 + 冻结期刊树/配置区。
 
@@ -640,7 +650,7 @@ class HarvestPage(QWidget):
         self.run_status.setStyleSheet(
             "background:%s; color:white; padding:8px 14px; border-radius:9px;"
             "font-weight:bold;" % style.ACCENT)
-        self.run_status.setText("⏳ 正在%s… 已用 0s · %s · 请勿关闭窗口" % (verb, detail))
+        self._set_running_banner()
         self.run_status.setVisible(True)
         self.run_progress.setVisible(True)
         self.tree.setEnabled(False)          # 冻结期刊树（运行中锁定目标）
@@ -659,9 +669,7 @@ class HarvestPage(QWidget):
     def _tick_elapsed(self) -> None:
         """每秒刷新横幅秒数（保留动作名 + 副文案），让 PI 看到进度在动、没冻死。"""
         self._elapsed += 1
-        self.run_status.setText(
-            "⏳ 正在%s… 已用 %ds · %s · 请勿关闭窗口"
-            % (self._run_verb, self._elapsed, self._run_detail))
+        self._set_running_banner()
 
     # ---------- 检索 ----------
 
@@ -1009,6 +1017,10 @@ class HarvestPage(QWidget):
         结果只标注在审计页、**不拦截导入**。用检索时锁定的 _last_params['journal'] +
         _last_result（不重新检索）；_running 时直接返回（单飞）。判据准不准由 PI 在
         左树分类节点的策略表单里调，本处只照判据执行。
+
+        6b-3 分批：classify 内部切 20 篇/批逐批判，每批完调 progress → 横幅副文案显
+        「批 done/total」。emit_box 由 run_async 在 worker.start() 前绑定 progress.emit
+        （结构性消竞态），job 闭包晚绑把它传给 classify。
         """
         if self._running:
             return
@@ -1025,8 +1037,13 @@ class HarvestPage(QWidget):
         self._set_action_btns_enabled(False)
         self._begin_running_ui("AI 复筛", "DeepSeek V4 Flash 逐篇判，约 10–30 秒")
 
+        emit_box = []                          # run_async 在 start 前塞入 worker.progress.emit
+
         def job():
-            return deepseek.classify(new_items, criteria)
+            def _progress(done_b, total_b):    # classify 两参 → Signal(object) 包 tuple
+                if emit_box:
+                    emit_box[0]((done_b, total_b))
+            return deepseek.classify(new_items, criteria, progress=_progress)
 
         def done(verdicts):
             self._running = False
@@ -1046,7 +1063,14 @@ class HarvestPage(QWidget):
             self.run_status.setText("❌ AI 复筛失败：" + err)
             self.run_status.setVisible(True)
 
-        run_async(self, job, done=done, failed=failed)
+        def on_progress(payload):
+            # 跨线程经 Qt 排队连接到 UI 线程；只改副文案、不动秒表机制（_tick_elapsed 仍每秒跳）
+            done_b, total_b = payload
+            self._run_detail = "批 %d/%d" % (done_b, total_b)
+            self._set_running_banner()
+
+        run_async(self, job, done=done, failed=failed, on_progress=on_progress,
+                  emit_sink=emit_box)
 
     def _on_import_clicked(self, r: dict) -> None:
         """导入按钮：AI 门控校验 → 算排除集 → 确认框 → 受控建 collection → run_import 线程。

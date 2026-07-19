@@ -557,6 +557,141 @@ check("INV-08 加严: _fetch_abstracts 解析合成 XML（拼接多 AbstractText
       and "肺癌免疫治疗新进展" in abs_["111"] and "结论段" in abs_["111"]
       and abs_["222"] == "")
 
+
+# ============================ 6b-3 分批判决 + efetch 分块（classify 全链） ============================
+# mock urlopen 按 URL 分流：efetch（eutils.ncbi）→ 合成 PubMed XML；DeepSeek
+# （api.deepseek.com）→ 合成判决 JSON。绝不联网、绝不真调 DeepSeek / 真 efetch。
+import urllib.parse as _urlparse  # noqa: E402
+
+
+class _ClassifyUrlopen:
+    """按 URL 分流的 urlopen 桩：记 efetch 分块 + DS 调用序号，可按 DS 序号注入失败。"""
+
+    def __init__(self):
+        self.efetch_chunks = []        # 每次 efetch 的 PMID 列表（验 180/块分块）
+        self.ds_calls = 0
+        self.ds_fail_at = set()        # 第 N 次 DS 调用抛 RuntimeError（1-based，重试也计数）
+
+    def _xml(self, ids):
+        parts = ["<PubmedArticleSet>"]
+        for pmid in ids:
+            parts.append(
+                "<PubmedArticle><MedlineCitation><PMID>%s</PMID>"
+                "<Article><Abstract><AbstractText>摘要-%s</AbstractText></Abstract>"
+                "</Article></MedlineCitation></PubmedArticle>" % (pmid, pmid))
+        parts.append("</PubmedArticleSet>")
+        return "".join(parts).encode("utf-8")
+
+    def _ds_body(self, req):
+        # prompt 每篇一个「[N] 标题: ...」块；数 "标题:" 出现次数 = 该批篇数 → keep=True 判决
+        content = json.loads(req.data.decode("utf-8"))["messages"][0]["content"]
+        n_items = content.count("标题:")
+        arr = [{"n": i + 1, "keep": True, "reason": "mock-keep"} for i in range(n_items)]
+        text = json.dumps(arr, ensure_ascii=False)
+        return json.dumps({"content": [{"type": "text", "text": text}]},
+                          ensure_ascii=False).encode("utf-8")
+
+    def __call__(self, req, timeout=None):
+        url = req.full_url
+        if "eutils.ncbi" in url:
+            ids = _urlparse.parse_qs(_urlparse.urlparse(url).query).get("id", [""])[0].split(",")
+            self.efetch_chunks.append(ids)
+            return _FakeResp(self._xml(ids))
+        self.ds_calls += 1
+        if self.ds_calls in self.ds_fail_at:
+            raise RuntimeError("mock DS fail at call %d" % self.ds_calls)
+        return _FakeResp(self._ds_body(req))
+
+
+def _items(n, start=1):
+    """造 n 条带 pmid/title 的候选（pmid 从 start 起）。"""
+    return [{"pmid": start + i, "title": "T%d" % (start + i)} for i in range(n)]
+
+
+_orig_cls_urlopen = _urlreq.urlopen
+
+# (A) 45 篇 → 3 批（ceil(45/20)=3）：全 45 篇有判决、合并正确、DS 3 次、efetch 1 次（<180）
+mk = _ClassifyUrlopen()
+_urlreq.urlopen = mk
+v_a = deepseek.classify(_items(45), "判据", timeout=30)
+_urlreq.urlopen = _orig_cls_urlopen
+check("6b-3: 45 篇 → 全 45 篇有判决（无遗漏）", len(v_a) == 45, "(len=%d)" % len(v_a))
+check("6b-3: 45 篇 → 判决合并正确（全 keep=True）",
+      all((vp or {}).get("keep") is True for vp in v_a.values()))
+check("6b-3: 45 篇 → DeepSeek 请求 3 次（=ceil(45/20)）",
+      mk.ds_calls == 3, "(ds_calls=%d)" % mk.ds_calls)
+check("6b-3: 45 篇 → efetch 1 次（<180 一块）",
+      len(mk.efetch_chunks) == 1, "(chunks=%d)" % len(mk.efetch_chunks))
+
+# (B) efetch 分块：200 pmid → ceil(200/180)=2 次 efetch（180+20）合并 → 200 篇全有判决；DS 10 批
+mk = _ClassifyUrlopen()
+_urlreq.urlopen = mk
+v_b = deepseek.classify(_items(200), "判据", timeout=30)
+_urlreq.urlopen = _orig_cls_urlopen
+check("6b-3 efetch: 200 pmid → 2 次 efetch（180 + 20）",
+      len(mk.efetch_chunks) == 2
+      and len(mk.efetch_chunks[0]) == 180 and len(mk.efetch_chunks[1]) == 20,
+      "(chunks=%s)" % [len(c) for c in mk.efetch_chunks])
+check("6b-3 efetch: 200 pmid 合并 → 全 200 篇有判决",
+      len(v_b) == 200, "(len=%d)" % len(v_b))
+check("6b-3 efetch: 200 pmid → DeepSeek 10 批（=ceil(200/20)）",
+      mk.ds_calls == 10, "(ds_calls=%d)" % mk.ds_calls)
+
+# (C) 单批失败：批 2（pmid 21–40）初试 + 重试都失败 → 该批保守保留 + 透明理由，其余正常、不崩
+#     DS 调用序：批1=1 / 批2初试=2 / 批2重试=3 / 批3=4 → fail_at={2,3}
+mk = _ClassifyUrlopen()
+mk.ds_fail_at = {2, 3}
+_urlreq.urlopen = mk
+v_c = deepseek.classify(_items(45), "判据", timeout=30)
+_urlreq.urlopen = _orig_cls_urlopen
+_fail_batch = [str(21 + i) for i in range(20)]                       # pmid 21–40
+_ok_batch = [str(i) for i in range(1, 21)] + [str(i) for i in range(41, 46)]
+check("6b-3 单批失败: 失败批 pmid 全标 keep=True + 透明理由",
+      all((v_c.get(p) or {}).get("keep") is True
+          and "本批复筛失败·默认保留" in (v_c.get(p) or {}).get("reason", "")
+          for p in _fail_batch))
+check("6b-3 单批失败: 其余批正常判决（reason=mock-keep，非兜底）",
+      all((v_c.get(p) or {}).get("keep") is True
+          and (v_c.get(p) or {}).get("reason") == "mock-keep"
+          for p in _ok_batch))
+check("6b-3 单批失败: 含重试 → DS 调用 4 次（1 + 2 + 1）",
+      mk.ds_calls == 4, "(ds_calls=%d)" % mk.ds_calls)
+check("6b-3 单批失败: 整体不崩、全 45 篇仍齐", len(v_c) == 45, "(len=%d)" % len(v_c))
+
+# (D) 全批皆失败 → RuntimeError（不无声默认保留误导 PI）；错误文本不含 token（INV-08）
+mk = _ClassifyUrlopen()
+mk.ds_fail_at = {1, 2, 3, 4, 5, 6}      # 3 批 × 2 试全失败
+_urlreq.urlopen = mk
+try:
+    deepseek.classify(_items(45), "判据", timeout=30)
+    check("6b-3 全批失败: → RuntimeError", False, "(没抛)")
+except RuntimeError as e:
+    check("6b-3 全批失败: → RuntimeError 含「全部失败」",
+          "全部失败" in str(e), "(msg=%s)" % str(e)[:50])
+    check("INV-08: 全批失败错误文本不含 token 值", _sentinel not in str(e))
+finally:
+    _urlreq.urlopen = _orig_cls_urlopen
+
+# (E) 小量（<20 篇）→ 单批，向后兼容（行为同旧：1 次 DS、1 次 efetch）
+mk = _ClassifyUrlopen()
+_urlreq.urlopen = mk
+v_e = deepseek.classify(_items(5), "判据", timeout=30)
+_urlreq.urlopen = _orig_cls_urlopen
+check("6b-3 向后兼容: <20 篇 → 单批（DS 1 次 + 全 5 篇有判决）",
+      mk.ds_calls == 1 and len(v_e) == 5)
+check("6b-3 向后兼容: <20 篇 → efetch 1 次", len(mk.efetch_chunks) == 1)
+
+# (F) progress 回调：每判完一批调一次，参数 (done, total) 递增；3 批 → 调 3 次
+mk = _ClassifyUrlopen()
+_urlreq.urlopen = mk
+_prog = []
+deepseek.classify(_items(45), "判据", timeout=30,
+                  progress=lambda d, t: _prog.append((d, t)))
+_urlreq.urlopen = _orig_cls_urlopen
+check("6b-3 progress: 回调被调 3 次（=批数）", len(_prog) == 3, "(prog=%s)" % _prog)
+check("6b-3 progress: 参数递增 (1,3)(2,3)(3,3)",
+      _prog == [(1, 3), (2, 3), (3, 3)], "(prog=%s)" % _prog)
+
 # ============================ 收尾：清理临时目录 ============================
 import shutil  # noqa: E402
 

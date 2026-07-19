@@ -31,7 +31,7 @@ def _tmp(name: str) -> Path:
 
 
 # ---- 真实文件全桩到临时路径（绝不读写 Mecha-Core / 凭证）----
-from lit import config, engine, journals, ledger, overrides, strategy, zotero  # noqa: E402
+from lit import config, deepseek, engine, journals, ledger, overrides, strategy, zotero  # noqa: E402
 
 _OV = _tmp("overrides.json")
 _ST = _tmp("strategy.json")
@@ -654,6 +654,63 @@ def import_receipt_excluded_group():
 
 check("6b-2 receipt: excluded 分组显式渲染 + 文章可见（不静默丢）",
       import_receipt_excluded_group)
+
+
+# ============================ 8c. 6b-3 分批进度（progress 信号 → 横幅副文案） ============================
+
+def ai_filter_progress_updates_banner():
+    """6b-3: AI 复筛分批 → progress 信号经 Qt 跨线程到 UI，横幅副文案显「批 done/total」。
+
+    mock classify 模拟 2 批（25 篇 / 20 = 2）、每批调 progress；真 _start_ai_filter
+    把 worker.progress.emit 透传给 classify、on_progress slot 刷 _run_detail。
+    """
+    _enable_deepseek()
+    _eng.reset()
+    harvest._running = False
+    harvest._select_journal("J Thorac Oncol")
+    app.processEvents()
+    harvest._last_params = dict(_PARAMS)
+    harvest._last_result = _receipt(found=31, new=25, dup=0, suspect=0)   # 25 new → 2 批
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+    harvest._run_detail = ""                                            # 清旧副文案
+    harvest._render_receipt("J Thorac Oncol", harvest._last_result, dict(_PARAMS))
+    app.processEvents()
+
+    captured = {"total": None}
+
+    def fake_classify(items, criteria, *, progress=None, **kw):
+        total = max(1, (len(items) + 19) // 20)
+        captured["total"] = total
+        for i in range(1, total + 1):
+            if progress is not None:
+                progress(i, total)
+        return {str(it.get("pmid")): {"keep": True, "reason": "gui-mock"} for it in items}
+
+    orig_cls = deepseek.classify
+    deepseek.classify = fake_classify
+    try:
+        aibtns = [b for b in harvest._action_btns if "DeepSeek" in b.text()]
+        assert aibtns, "前置：缺 AI 复筛按钮"
+        aibtns[0].click()
+        ok = _drain(harvest, 5)
+    finally:
+        deepseek.classify = orig_cls
+    assert ok, "AI 复筛 worker 未在 5s 内收尾"
+    assert harvest._ai_verdicts is not None and len(harvest._ai_verdicts) == 25, \
+        f"判决未应用：{len(harvest._ai_verdicts or {})}"
+    assert captured["total"] == 2, f"应分 2 批（25 篇），实际 {captured['total']}"
+    # on_progress 在 UI 线程跑过 → _run_detail 更新为末批「批 2/2」（横幅副文案）
+    assert harvest._run_detail == "批 2/2", \
+        f"progress 未刷横幅副文案：_run_detail={harvest._run_detail!r}"
+    _reset_strategy_empty()
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+    harvest._running = False
+
+
+check("6b-3: AI 复筛分批 → progress 信号到 UI + 横幅副文案「批 done/total」",
+      ai_filter_progress_updates_banner)
 
 
 # ============================ 9. VS-07：反复渲染→清空不累积泄漏 ============================

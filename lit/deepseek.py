@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """DeepSeek V4 Flash 语义复筛（6b）：对检索出的 new 候选，按分类判据逐篇判"主体是否相关"。
 
-两步：① efetch 抓 new 的标题+摘要（引擎只吐 hasAbstract 布尔、不吐正文）
-      ② 喂 DeepSeek Flash 批量判 keep/drop + ≤20 字理由。
+两步：① efetch 抓 new 的标题+摘要（引擎只吐 hasAbstract 布尔、不吐正文；180 PMID/块）
+      ② 喂 DeepSeek Flash 分批判 keep/drop + ≤20 字理由（20 篇/批，逐批合并）。
 6b-1 只出判决供 PI 预览（advisory），**不拦截导入**；6b-2 才门控真写。
+6b-3 分批：单批输出装不下（一年几百篇 → ~80 篇后 JSON 截断 → 整体崩）的根因治掉——
+      切小批逐批判、单批失败保守保留不崩、全批皆失败才报错（见 classify）。
 
 安全：`DEEPSEEK_TOKEN` 从进程环境读（Windows 用户环境变量登录时已注入进程）；
 只进请求头，**绝不打印 / 记录 token 值**。走 Anthropic 兼容端点（与验证脚本同范式）。
@@ -19,35 +21,74 @@ _EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 _DS_URL = "https://api.deepseek.com/anthropic/v1/messages"
 _DS_MODEL = "deepseek-v4-flash"
 _ABSTRACT_CAP = 1200          # 每篇摘要截断长度（控 token）
+_EFETCH_CHUNK = 180           # efetch 分块：每块 PMID 数（对齐引擎 180/块，控 URL 长度）
+_BATCH_SIZE = 20              # DeepSeek 判决分批：每批篇数（~20 判决远小于 max_tokens=4096，不截断）
 
 
-def classify(items, criteria, *, timeout=180):
+def classify(items, criteria, *, timeout=180, progress=None):
     """对 items（含 pmid/title 的 new 候选）按 criteria 判相关性。
 
     返回 {pmid: {"keep": bool, "reason": str}}。items 空 / 无 pmid → 空 dict。
-    抛 RuntimeError（缺 token / 网络 / 解析失败）由调用方转人话显示。
+
+    分批判决（6b-3）：efetch 抓全部摘要后，按 _BATCH_SIZE 篇/批逐批调 DeepSeek，
+    合并各批 {pmid: {keep,reason}}。单批失败（网络 / 解析 / RuntimeError）重试 1 次，
+    仍失败 → 该批 pmid 标 keep=True + 透明理由「本批复筛失败·默认保留」（保守：不误滤）
+    + 继续下一批，**不让整体崩**。全批皆失败（每一批都失败）才抛 RuntimeError，避免
+    「全部默认保留」却无声、误导 PI 以为都判过了。顺序执行（不并发，尊重限流 + 确定性）。
+
+    progress：可选回调，每判完一批（含失败兜底）调 progress(done_batches, total_batches)。
     """
     items = [it for it in (items or []) if it.get("pmid")]
     if not items:
         return {}
     abstracts = _fetch_abstracts([str(it["pmid"]) for it in items], timeout=timeout)
-    return _deepseek_judge(items, abstracts, criteria, timeout=timeout)
+    total = (len(items) + _BATCH_SIZE - 1) // _BATCH_SIZE
+    verdicts = {}
+    failed_batches = 0
+    last_err = None
+    for i in range(total):
+        batch = items[i * _BATCH_SIZE:(i + 1) * _BATCH_SIZE]
+        done = False
+        for _attempt in range(2):            # 初试 + 重试 1 次（规格缺陷类最多一次重试）
+            try:
+                verdicts.update(_deepseek_judge(batch, abstracts, criteria, timeout=timeout))
+                done = True
+                break
+            except Exception as e:           # 网络 / 解析 / RuntimeError 统一兜（不吞 BaseException）
+                last_err = e
+        if not done:
+            # 单批两次都失败：保守保留（宁多看不错杀）+ 透明理由，继续下一批
+            for it in batch:
+                pmid = str(it.get("pmid") or "")
+                if pmid:
+                    verdicts[pmid] = {"keep": True, "reason": "本批复筛失败·默认保留"}
+            failed_batches += 1
+        if progress is not None:
+            progress(i + 1, total)
+    if total > 0 and failed_batches == total:
+        # 全批皆失败：不无声默认保留，让人话报错冒泡到 UI（末次原因不含 token：见 _deepseek_judge）
+        raise RuntimeError("AI 复筛全部失败：%s" % last_err)
+    return verdicts
 
 
 def _fetch_abstracts(pmids, *, timeout):
-    """efetch 抓每个 PMID 的摘要正文 → {pmid: abstract}。网络失败抛 URLError。"""
-    q = urllib.parse.urlencode({"db": "pubmed", "retmode": "xml",
-                                "id": ",".join(pmids), "tool": "trackeep-lit"})
-    req = urllib.request.Request(_EUTILS + "/efetch.fcgi?" + q)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        xml = resp.read()
-    root = ET.fromstring(xml)
+    """efetch 抓每个 PMID 的摘要正文 → {pmid: abstract}。按 _EFETCH_CHUNK 个 PMID 一块
+    分次请求（对齐引擎 180/块、控 URL 长度），合并结果。任一块网络失败抛 URLError。
+    """
     out = {}
-    for art in root.findall(".//PubmedArticle"):
-        pmid = art.findtext(".//PMID") or ""
-        parts = [("".join(a.itertext())).strip()
-                 for a in art.findall(".//Abstract/AbstractText")]
-        out[pmid] = " ".join(p for p in parts if p)[:_ABSTRACT_CAP]
+    for start in range(0, len(pmids), _EFETCH_CHUNK):
+        chunk = pmids[start:start + _EFETCH_CHUNK]
+        q = urllib.parse.urlencode({"db": "pubmed", "retmode": "xml",
+                                    "id": ",".join(chunk), "tool": "trackeep-lit"})
+        req = urllib.request.Request(_EUTILS + "/efetch.fcgi?" + q)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            xml = resp.read()
+        root = ET.fromstring(xml)
+        for art in root.findall(".//PubmedArticle"):
+            pmid = art.findtext(".//PMID") or ""
+            parts = [("".join(a.itertext())).strip()
+                     for a in art.findall(".//Abstract/AbstractText")]
+            out[pmid] = " ".join(p for p in parts if p)[:_ABSTRACT_CAP]
     return out
 
 

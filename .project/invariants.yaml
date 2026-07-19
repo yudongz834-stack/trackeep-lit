@@ -110,8 +110,10 @@ invariants:
         file: tests/gui_test.py
       - check: "run_import 传 exclude_pmids→argv 含 -ExcludePmids；空/不传→argv 不含；run_search 永不含；resolve 三态×判据矩阵 + 默认全开 + override 往返 + 畸形回落"
         file: tests/smoke_test.py
-      - check: "excluded 畸形回执渲染不崩 + _compute_exclude_pmids 健壮；畸形 deepseek override resolve 不崩"
+      - check: "excluded 畸形回执渲染不崩 + _compute_exclude_pmids 健壮；畸形 deepseek override resolve 不崩；AI 复筛单批畸形→保守保留兜底、全批畸形→RuntimeError 且 token 不泄（6b-3 分批）"
         file: tests/adversarial_test.py
+      - check: "AI 复筛分批（6b-3）：45 篇→3 批全判决合并 / efetch 200→180 分块 / 单批失败保守保留继续 / 全批失败 RuntimeError / <20 篇单批向后兼容 / 批次 progress 回调"
+        file: tests/smoke_test.py
     change_process: >
       母法 6.3 迭代：①6b-1 advisory→6b-2 门控（PI 2026-07-19，引擎 -ExcludePmids 已备份）②6b-2→期刊级控制+默认全开
       （PI 2026-07-19：AI 开关/判据细到每本刊 + 默认全开；三决策=默认标准判据/每刊可自定义判据/默认全开；原型经

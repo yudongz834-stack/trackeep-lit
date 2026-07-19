@@ -426,6 +426,110 @@ except Exception as e:
             "%s" % type(e).__name__)
 
 
+# ============================ 5b. DeepSeek 分批对抗（classify 全链，mock urlopen） ============================
+# 姿态：prove 分批对畸形 DeepSeek 响应不崩——单批畸形（解析失败，区别于 5 节直调）→ 该批
+# 保守保留 + 其余正常；全批畸形 → RuntimeError；空 items → 空 dict。绝联网（局部换桩，用完还原网闸）。
+import urllib.parse as _urlparse  # noqa: E402
+
+_ADV_SENTINEL = os.environ.get("DEEPSEEK_TOKEN", "")
+
+
+class _BatchDsMock:
+    """按 DS 调用序号返回脚本化响应（valid/malformed/raise）；efetch 恒返回合成 XML。"""
+
+    def __init__(self, responses):
+        # responses: {call_idx(1-based): "valid" | "malformed" | "raise"}，缺省 "valid"
+        self.responses = responses
+        self.ds_calls = 0
+
+    def _xml(self, ids):
+        parts = ["<PubmedArticleSet>"]
+        for pmid in ids:
+            parts.append(
+                "<PubmedArticle><MedlineCitation><PMID>%s</PMID>"
+                "<Article><Abstract><AbstractText>摘要</AbstractText></Abstract>"
+                "</Article></MedlineCitation></PubmedArticle>" % pmid)
+        parts.append("</PubmedArticleSet>")
+        return "".join(parts).encode("utf-8")
+
+    def _valid_body(self, req):
+        content = json.loads(req.data.decode("utf-8"))["messages"][0]["content"]
+        n_items = content.count("标题:")
+        arr = [{"n": i + 1, "keep": True, "reason": "adv-ok"} for i in range(n_items)]
+        return _ds_resp(json.dumps(arr, ensure_ascii=False))
+
+    def __call__(self, req, timeout=None):
+        url = req.full_url
+        if "eutils.ncbi" in url:
+            ids = _urlparse.parse_qs(_urlparse.urlparse(url).query).get("id", [""])[0].split(",")
+            return _FakeResp(self._xml(ids))
+        self.ds_calls += 1
+        kind = self.responses.get(self.ds_calls, "valid")
+        if kind == "raise":
+            raise RuntimeError("adv: DS raise at call %d" % self.ds_calls)
+        if kind == "malformed":
+            return _FakeResp(_ds_resp("都不相关，无 JSON 数组"))   # 无 [数组] → 解析失败
+        return _FakeResp(self._valid_body(req))
+
+
+_items45 = [{"pmid": i, "title": "T%d" % i} for i in range(1, 46)]
+
+# (a) 单批畸形（批2 初试+重试都畸形→解析失败）→ 该批保守保留 + 其余正常 + 不崩
+#     DS 序：批1=1(valid) / 批2初试=2(malformed) / 批2重试=3(malformed) / 批3=4(valid)
+_mk = _BatchDsMock({2: "malformed", 3: "malformed"})
+_saved = _urlreq.urlopen
+_urlreq.urlopen = _mk
+try:
+    _v = deepseek.classify(_items45, "判据", timeout=30)
+    _ok_len = isinstance(_v, dict) and len(_v) == 45
+    _b2_defaulted = all(
+        (_v.get(str(21 + i)) or {}).get("keep") is True
+        and "失败" in (_v.get(str(21 + i)) or {}).get("reason", "")
+        for i in range(20))
+    check("6b-3 adv: 单批畸形 → 该批保守保留 + 其余正常 + 不崩",
+          _ok_len and _b2_defaulted, "(len=%d ds=%d)" % (len(_v), _mk.ds_calls))
+except Exception as e:
+    check("6b-3 adv: 单批畸形 → 该批保守保留 + 其余正常 + 不崩", False,
+          "(%s: %s)" % (type(e).__name__, str(e)[:80]))
+    _defect("hard", "deepseek", "分批 classify 单批畸形响应导致整体崩",
+            "lit/deepseek.py classify 分批失败兜底", "%s" % type(e).__name__)
+finally:
+    _urlreq.urlopen = _saved
+
+# (b) 全批畸形（3 批 × 2 试全畸形）→ RuntimeError；错误文本不含 token（INV-08）
+_mk = _BatchDsMock({i: "malformed" for i in range(1, 7)})
+_saved = _urlreq.urlopen
+_urlreq.urlopen = _mk
+try:
+    deepseek.classify(_items45, "判据", timeout=30)
+    check("6b-3 adv: 全批畸形 → 应 RuntimeError", False, "(没抛)")
+    _defect("hard", "deepseek", "分批 classify 全批失败未抛 RuntimeError（静默默认保留）",
+            "lit/deepseek.py classify 全批皆失败分支", "no raise")
+except RuntimeError as e:
+    check("6b-3 adv: 全批畸形 → RuntimeError 含「全部失败」", "全部失败" in str(e))
+    check("INV-08 adv: 全批失败错误文本不含 token 值", _ADV_SENTINEL not in str(e))
+except Exception as e:
+    check("6b-3 adv: 全批畸形 → RuntimeError", False, "(抛 %s)" % type(e).__name__)
+    _defect("hard", "deepseek", "分批 classify 全批失败抛非 RuntimeError",
+            "lit/deepseek.py classify", "%s" % type(e).__name__)
+finally:
+    _urlreq.urlopen = _saved
+
+# (c) 空 items → 空 dict、零 DS 调用（边界：无 new 候选时不调 DeepSeek）
+_mk = _BatchDsMock({})
+_saved = _urlreq.urlopen
+_urlreq.urlopen = _mk
+try:
+    _ve = deepseek.classify([], "判据", timeout=30)
+    check("6b-3 adv: 空 items → 空 dict + 零 DS 调用不崩",
+          _ve == {} and _mk.ds_calls == 0)
+except Exception as e:
+    check("6b-3 adv: 空 items → 空 dict + 零 DS 调用不崩", False,
+          "(%s)" % type(e).__name__)
+finally:
+    _urlreq.urlopen = _saved
+
+
 # ============================ 6. 畸形引擎回执（_render_receipt / _render_import_receipt） ============================
 # 涉 Qt：offscreen 渲染。构建失败则跳过本节、不连累前面非 Qt 节。
 _harvest = None
