@@ -340,6 +340,78 @@ with _Patch(journals, "JOURNAL_TABLE", _jt), \
     r3 = strategy.resolve("Ann Thorac Surg")
     check("resolve: 单刊显式 topicFilter 优先", r3["topic"] == "esophag*[tiab]")
 
+# --- per-journal deepseek override（三态 × 判据矩阵 + 默认全开 + 往返 + 畸形回落）---
+# 复用上面的 _jt / _ov_res / _st_res（已 patch 到临时路径）。
+with _Patch(journals, "JOURNAL_TABLE", _jt), \
+        _Patch(overrides, "OVERRIDES_PATH", _ov_res), \
+        _Patch(strategy, "STRATEGY_PATH", _st_res):
+    # 默认全开：CATEGORY_DEFAULT deepseek enabled=True（未配分类也默认开）
+    check("默认全开: CATEGORY_DEFAULT deepseek enabled=True",
+          strategy.CATEGORY_DEFAULT["deepseek"]["enabled"] is True)
+    check("默认全开: 未配分类 get_category deepseek enabled=True",
+          strategy.get_category("流行病学与公共卫生")["deepseek"]["enabled"] is True)
+    # 配胸外 enabled=False（模拟 PI 显式关某分类）+ 分类判据，供下面三态矩阵参照
+    strategy.save_category("胸部肿瘤与胸外科",
+                           {"editorial": False, "letter": False,
+                            "topicFilter": {"enabled": False, "terms": ""},
+                            "deepseek": {"enabled": False, "criteria": "分类判据"}})
+    # 三态 × 判据矩阵：(override, expected_enabled, expected_criteria, label)
+    matrix = [
+        ({"enabled": None, "criteria": None}, False, "分类判据",
+         "inherit：开/关随分类（关）+ 判据继承分类"),
+        ({"enabled": True, "criteria": None}, True, "分类判据",
+         "force-on：本刊强制开 + 判据继承分类"),
+        ({"enabled": False, "criteria": None}, False, "分类判据",
+         "force-off：本刊强制关 + 判据继承分类"),
+        ({"enabled": None, "criteria": "本刊判据"}, False, "本刊判据",
+         "inherit enabled + 自定义判据：开关随分类、判据用本刊"),
+        ({"enabled": True, "criteria": "本刊判据"}, True, "本刊判据",
+         "force-on + 自定义判据"),
+    ]
+    for ov, exp_en, exp_cr, label in matrix:
+        overrides.save("J Thorac Oncol", {"includeEditorial": False, "includeLetter": False,
+                        "topicFilter": None, "deepseek": ov})
+        r = strategy.resolve("J Thorac Oncol")
+        check("resolve deepseek 三态×判据: %s" % label,
+              r["deepseek_enabled"] is exp_en and r["deepseek_criteria"] == exp_cr,
+              "(got en=%r cr=%r)" % (r["deepseek_enabled"], r["deepseek_criteria"]))
+    # override 往返：save → load_all → resolve（他刊不丢）
+    overrides.save("Ann Thorac Surg", {"includeEditorial": False, "includeLetter": False,
+                    "topicFilter": None, "deepseek": {"enabled": True, "criteria": "ATS判据"}})
+    d = overrides.load_all()
+    check("override 往返: deepseek 段落盘 + 他刊并存",
+          isinstance(d.get("Ann Thorac Surg", {}).get("deepseek"), dict)
+          and d["Ann Thorac Surg"]["deepseek"]["enabled"] is True
+          and d["Ann Thorac Surg"]["deepseek"]["criteria"] == "ATS判据"
+          and "J Thorac Oncol" in d)
+    r = strategy.resolve("Ann Thorac Surg")
+    check("override 往返: resolve 取本刊强制开 + 自定义判据",
+          r["deepseek_enabled"] is True and r["deepseek_criteria"] == "ATS判据")
+    # 全默认 override（inherit + 空判据）→ 条目删除
+    overrides.save("Ann Thorac Surg", {"includeEditorial": False, "includeLetter": False,
+                    "topicFilter": None, "deepseek": {"enabled": None, "criteria": None}})
+    check("override: 全默认（inherit + 空判据）→ 该刊条目删除",
+          "Ann Thorac Surg" not in overrides.load_all())
+    # 畸形单刊 deepseek override（手编 JSON 绕过 save 归一）→ resolve 安全回落分类、不抛
+    for label, raw_ov, exp_en, exp_cr in [
+        ("deepseek 非 dict", {"deepseek": "notadict"}, False, "分类判据"),
+        ("deepseek null", {"deepseek": None}, False, "分类判据"),
+        ("enabled 非 bool（criteria 合法）",
+         {"deepseek": {"enabled": "yes", "criteria": "x"}}, False, "x"),
+        ("criteria 非 str（enabled 合法）",
+         {"deepseek": {"enabled": True, "criteria": 123}}, True, "分类判据"),
+    ]:
+        _ov_res.write_text(json.dumps({"J Thorac Oncol": raw_ov}, ensure_ascii=False),
+                           encoding="utf-8")
+        try:
+            rr = strategy.resolve("J Thorac Oncol")
+            check("resolve deepseek 畸形回落: %s" % label,
+                  rr["deepseek_enabled"] is exp_en and rr["deepseek_criteria"] == exp_cr,
+                  "(got en=%r cr=%r)" % (rr["deepseek_enabled"], rr["deepseek_criteria"]))
+        except Exception as e:
+            check("resolve deepseek 畸形回落: %s" % label, False,
+                  "(%s: %s)" % (type(e).__name__, str(e)[:80]))
+
 # --- ledger：合成台账（带 BOM）→ last_date 取最大；reldate_for=gap+30 夹 [7,400] ---
 _led = _tmp("ledger.json")
 with _Patch(ledger, "LEDGER_PATH", _led):

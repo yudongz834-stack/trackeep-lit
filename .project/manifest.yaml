@@ -5,13 +5,13 @@
 # 与 policy/exceptions 重叠的信息以主文件为准，本文件只引用不复制。
 
 project: trackeep-lit
-version: 0.3.0
+version: 0.4.0
 standard_version: v1.1.2
 updated: 2026-07-19
 
 lifecycle:
-  current_stage: "5.4-5.6 v0.3.0 6b-2 DeepSeek 复筛真门控（advisory→门控+捞回，引擎加 -ExcludePmids；GLM 施工/主驾审核，148 项全绿）"
-  this_change_stage: "新功能：6b-2 真门控导入（INV-10 按母法 6.3 修订；引擎红线改动经 PI 批准+备份）。待 PI 真导入验收 + strategy.json 事故恢复"
+  current_stage: "5.4-5.6 v0.4.0 AI 复筛期刊级控制 + 默认全开（每刊三态覆写+自定义判据；GLM 施工/主驾审核，172 项全绿；原型 Kimi K3 订阅施工）"
+  this_change_stage: "新功能：AI 复筛细到每本刊（resolve 契约=单刊>分类>默认全开，INV-10 母法 6.3 迭代）+ strategy.json 真实数据启用流病/医学AI（主驾另做，已备份）。待 PI GUI 验收"
 
 # 本次启用的门禁清单。状态统一 pending-ci：文件已落成、CI 首跑前不视为已通过。
 # ⚠️ 此后仅由 CI 证据回填；agent 手改 status 为 passed 一律无效。
@@ -34,6 +34,9 @@ backlog:
   - { id: BL-05, item: INV 证据缺口逐条补自动断言（各 INV backlog 项）, target: 滚动, ref: [invariants.yaml] }
 
 resolved:
+  - { id: FEAT-perjournal-ai, item: "AI 复筛期刊级控制 + 默认全开（6b-2 之上）",
+      resolved_by: "overrides 加 per-journal deepseek override（三态 enabled + 自定义 criteria）+ resolve 契约改「单刊>分类>CATEGORY_DEFAULT(默认全开)」+ chip_ai 可点开关/例外区三态 radio+判据框（_persist_exception 统一）；strategy.json 真实数据启用流病/医学AI（主驾另做，thoracic 默认判据，备份 scratchpad/strategy.json.bak-before-allon）；INV-10 母法 6.3 迭代；原型 Kimi K3(订阅)施工→PI 拍板；GLM 施工代码、主驾审核（diff + 五套独立亲跑 172 项全绿）。⚠ 副作用（预期）：默认全开+6b-2 force-first=几乎每次导入需先跑复筛。待 PI GUI 验收",
+      date: 2026-07-19 }
   - { id: BL-04, item: "6b-2：DeepSeek 复筛 advisory→真门控导入（导入门控 + 人工捞回）",
       resolved_by: "引擎加 -ExcludePmids（Mecha-Core 红线改动，PI 2026-07-19 批准，备份 archives/zotero-import.ps1.bak-20260719-pre-exclude-pmids，diff 最小、空参数向后兼容）+ lit/engine.py 透传 + harvest_page 门控/捞回/锁死/excluded 回执 + INV-10 按母法 6.3 修订；三决策=门控 A（判滤默认剔除、可逐条/全部捞回）/ AI 未跑就导入弹窗+锁死 / 被滤篇不记账（台账只记 POST 成功）；GLM 施工、主驾审核（引擎 diff 对备份核最小 + App diff 审 + 五套独立亲跑全绿 148 项）。待 PI GUI 真导入终验收",
       date: 2026-07-19 }

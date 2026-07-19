@@ -24,7 +24,7 @@ CATEGORY_DEFAULT = {
     "editorial": False,
     "letter": False,
     "topicFilter": {"enabled": False, "terms": ""},
-    "deepseek": {"enabled": False, "criteria": ""},
+    "deepseek": {"enabled": True, "criteria": ""},   # 默认全开：未配的分类 AI 复筛也默认开
 }
 
 
@@ -99,7 +99,11 @@ def resolve(journal: str) -> dict:
     返回 {editorial, letter, topic, deepseek_enabled, deepseek_criteria}：
       - editorial/letter：单刊 journal-overrides 显式字段优先，否则分类默认
       - topic：单刊显式 topicFilter（非空）优先；否则分类的（仅当 enabled 且 terms 非空）
-      - deepseek_*：只看分类（单刊层级不覆写语义判据）
+      - deepseek_enabled：单刊 `deepseek.enabled` 显式 bool 时用它，否则分类默认
+      - deepseek_criteria：单刊 `deepseek.criteria`（非空 str）优先，否则分类判据
+
+    对畸形单刊 deepseek override 健壮（非 dict / enabled 非 bool / criteria 非 str
+    一律安全回落分类，不抛）。
     """
     cat = journals.category_of(journal)
     base = get_category(cat) if cat else copy.deepcopy(CATEGORY_DEFAULT)
@@ -113,9 +117,21 @@ def resolve(journal: str) -> dict:
         topic = base["topicFilter"]["terms"].strip()
     else:
         topic = None
+    # deepseek：单刊 override 优先（enabled 显式 bool / criteria 非空 str），否则分类；
+    # 非 dict / 非 bool / 非 str 一律 isinstance 守卫回落分类（不抛）
+    ds_enabled = bool(base["deepseek"]["enabled"])
+    ds_criteria = base["deepseek"]["criteria"] or ""
+    ds_override = raw.get("deepseek")
+    if isinstance(ds_override, dict):
+        ov_enabled = ds_override.get("enabled")
+        if isinstance(ov_enabled, bool):
+            ds_enabled = ov_enabled
+        ov_criteria = ds_override.get("criteria")
+        if isinstance(ov_criteria, str) and ov_criteria.strip():
+            ds_criteria = ov_criteria.strip()
     return {"editorial": bool(editorial), "letter": bool(letter), "topic": topic,
-            "deepseek_enabled": bool(base["deepseek"]["enabled"]),
-            "deepseek_criteria": base["deepseek"]["criteria"] or ""}
+            "deepseek_enabled": ds_enabled,
+            "deepseek_criteria": ds_criteria}
 
 
 def _atomic_write(data: dict) -> None:

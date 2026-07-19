@@ -36,8 +36,8 @@ from datetime import date, datetime
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QBrush, QColor
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel,
-                               QLineEdit, QMessageBox, QProgressBar, QPushButton,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFrame, QHBoxLayout,
+                               QLabel, QLineEdit, QMessageBox, QProgressBar, QPushButton,
                                QRadioButton, QScrollArea, QStackedWidget, QTreeWidget,
                                QTreeWidgetItem, QVBoxLayout, QWidget)
 
@@ -251,7 +251,12 @@ class HarvestPage(QWidget):
         srow.setSpacing(8)
         self.chip_cat = chip()
         self.chip_topic = chip()
-        self.chip_ai = chip()
+        # chip_ai：可点的每刊 AI 开关（QPushButton 扁平胶囊；开=珊瑚实心 / 关=灰描边）。
+        # 与下方「本刊例外 · AI 复筛」三态 + 判据框是同一份 override 的不同入口。
+        self.chip_ai = QPushButton("🤖 AI 复筛：—")
+        self.chip_ai.setCursor(Qt.PointingHandCursor)
+        self.chip_ai.clicked.connect(self._on_chip_ai_clicked)
+        self._style_chip_ai(False)   # 初始关态样式（首刊载入时 _refresh_ai_state 重算）
         srow.addWidget(self.chip_cat)
         srow.addWidget(self.chip_topic)
         srow.addWidget(self.chip_ai)
@@ -267,14 +272,14 @@ class HarvestPage(QWidget):
         srow.addWidget(self.btn_exc)
         ply.addLayout(srow)
 
-        # 本刊例外区（默认折叠）：Editorial/Letter + 主题覆写 → 写 journal-overrides.json
+        # 本刊例外区（默认折叠）：Editorial/Letter + 主题覆写 + AI 复筛选关/判据 → 写 journal-overrides.json
         self.exc_box = QFrame()
         self.exc_box.setVisible(False)
         exl = QVBoxLayout(self.exc_box)
         exl.setContentsMargins(0, 8, 0, 0)
         exl.setSpacing(8)
         exl.addWidget(self._muted(
-            "覆写本刊的类型 / 主题（留空 = 随分类默认）。仅本刊生效，写 journal-overrides.json。"))
+            "覆写本刊的类型 / 主题 / AI 复筛（留空 = 随分类默认）。仅本刊生效，写 journal-overrides.json。"))
         erow = QHBoxLayout()
         erow.setSpacing(12)
         erow.addWidget(self._muted("类型例外："))
@@ -293,6 +298,34 @@ class HarvestPage(QWidget):
         self.topic_edit.editingFinished.connect(self._on_exception_changed)
         trow.addWidget(self.topic_edit, 1)
         exl.addLayout(trow)
+        # AI 复筛（本刊）覆写：三态开关 + 判据 + 当前生效提示
+        div_ai = QFrame()
+        div_ai.setFixedHeight(1)
+        div_ai.setStyleSheet("background:%s;" % style.BORDER)
+        exl.addWidget(div_ai)
+        exl.addWidget(self._label("AI 复筛（本刊）", "sectionTitle"))
+        arow = QHBoxLayout()
+        arow.setSpacing(10)
+        arow.addWidget(self._muted("开关："))
+        self.rb_ai_inherit = QRadioButton("跟随分类")
+        self.rb_ai_on = QRadioButton("本刊强制开")
+        self.rb_ai_off = QRadioButton("本刊强制关")
+        self._ai_group = QButtonGroup(self)             # 互斥组：buttonClicked 一次只触发一次
+        for rb in (self.rb_ai_inherit, self.rb_ai_on, self.rb_ai_off):
+            self._ai_group.addButton(rb)
+            arow.addWidget(rb)
+        self._ai_group.buttonClicked.connect(self._on_ai_radio_changed)
+        arow.addStretch(1)
+        exl.addLayout(arow)
+        crow = QHBoxLayout()
+        crow.addWidget(self._muted("判据："))
+        self.ai_criteria_edit = QLineEdit()
+        self.ai_criteria_edit.setPlaceholderText("留空 = 继承分类判据；填则本刊用此判据")
+        self.ai_criteria_edit.editingFinished.connect(self._on_ai_criteria_changed)
+        crow.addWidget(self.ai_criteria_edit, 1)
+        exl.addLayout(crow)
+        self.ai_effective_label = self._muted("")
+        exl.addWidget(self.ai_effective_label)
         ply.addWidget(self.exc_box)
         return panel
 
@@ -397,46 +430,138 @@ class HarvestPage(QWidget):
     def _load_journal(self, journal: str) -> None:
         """选中期刊 → 载生效策略摘要（resolve）+ 本刊例外控件（overrides）+ 采集窗口。
 
-        _loading 抑制期间的写回，避免切刊把旧刊例外写进新刊。
+        _loading 抑制期间的写回，避免切刊把旧刊例外写进新刊。AI 复筛的 chip / 三态 /
+        生效提示由 _refresh_ai_state 统一刷（判据框在此处载入）。
         """
         self.journal_title.setText("📡  " + journal)
         res = strategy.resolve(journal)
         cat = journals.category_of(journal) or "—"
         self.chip_cat.setText("本刊按【%s】采集" % cat)
         self.chip_topic.setText("主题过滤：" + ("开" if res["topic"] else "关"))
-        self.chip_ai.setText("🤖 AI 复筛：" + ("开" if res["deepseek_enabled"] else "关"))
         cfg = overrides.get(journal)
         self._loading = True
         try:
             self.cb_editorial.setChecked(cfg["includeEditorial"])
             self.cb_letter.setChecked(cfg["includeLetter"])
             self.topic_edit.setText(cfg.get("topicFilter") or "")
+            # AI 复筛判据框从 override 载入（radio / chip / 生效提示由 _refresh_ai_state 刷）
+            ds = cfg.get("deepseek") or {}
+            ov_criteria = ds.get("criteria") if isinstance(ds, dict) else None
+            self.ai_criteria_edit.setText(ov_criteria if isinstance(ov_criteria, str) else "")
         finally:
             self._loading = False
+        self._refresh_ai_state(journal)
         self.btn_exc.setText("本刊例外 ▾" + ("（有）" if overrides.is_exception(journal) else ""))
         self._update_window_for_current()
         self._update_search_btn()
 
     def _on_exception_changed(self) -> None:
-        """本刊例外（Editorial/Letter/主题覆写）变更 → 写 journal-overrides + 刷新摘要。"""
+        """本刊例外（Editorial/Letter/主题覆写）变更 → 走统一持久化（含 deepseek 控件态）。"""
+        self._persist_exception()
+
+    def _read_deepseek_override(self) -> dict:
+        """从三态 radio + 判据框读当前本刊 deepseek override（{enabled, criteria}）。"""
+        if self.rb_ai_on.isChecked():
+            enabled = True
+        elif self.rb_ai_off.isChecked():
+            enabled = False
+        else:                                   # inherit（含三态全未选的初始态）
+            enabled = None
+        criteria = self.ai_criteria_edit.text().strip() or None
+        return {"enabled": enabled, "criteria": criteria}
+
+    def _persist_exception(self, deepseek: dict | None = None) -> None:
+        """读全本刊例外控件（editorial/letter/topic/deepseek）→ 原子写 overrides → 刷新摘要。
+
+        deepseek=None → 从控件读；传 dict → 用它（chip 点击翻转有效态时用）。_loading 期间直返不写。
+        chip_ai / 三态 radio / 判据框三个入口都经此函数 → 同一份 override 数据、不互相覆盖。
+        """
         if self._loading:
             return
         journal = self.current_journal()
         if not journal:
             return
+        if deepseek is None:
+            deepseek = self._read_deepseek_override()
         cfg = {
             "includeEditorial": self.cb_editorial.isChecked(),
             "includeLetter": self.cb_letter.isChecked(),
             "topicFilter": self.topic_edit.text().strip() or None,
+            "deepseek": deepseek,
         }
         try:
             overrides.save(journal, cfg)
         except OSError as e:
             self.run_status.setText("⚠ 本刊例外写回失败：%s" % e)
             self.run_status.setVisible(True)
+            return
         self.btn_exc.setText("本刊例外 ▾" + ("（有）" if overrides.is_exception(journal) else ""))
+        self._refresh_ai_state(journal)
         res = strategy.resolve(journal)
         self.chip_topic.setText("主题过滤：" + ("开" if res["topic"] else "关"))
+
+    def _on_chip_ai_clicked(self) -> None:
+        """chip_ai 点击：翻转当前刊 AI 有效态（开↔关），写 deepseek.enabled=非当前态，刷新。
+
+        当前有效开（含继承+分类开）→ 强制关；当前有效关 → 强制开。回到「跟随分类」用下方三态。
+        """
+        if self._loading:
+            return
+        journal = self.current_journal()
+        if not journal:
+            return
+        new_enabled = not strategy.resolve(journal)["deepseek_enabled"]
+        self._persist_exception(
+            deepseek={"enabled": new_enabled,
+                      "criteria": self.ai_criteria_edit.text().strip() or None})
+
+    def _on_ai_radio_changed(self) -> None:
+        """三态 radio 切换（QButtonGroup.buttonClicked，一次选择只触发一次）→ 写 override。"""
+        self._persist_exception()
+
+    def _on_ai_criteria_changed(self) -> None:
+        """判据框编辑完成 → 写 deepseek.criteria（留空=继承），刷新生效提示。"""
+        self._persist_exception()
+
+    def _style_chip_ai(self, on: bool) -> None:
+        """chip_ai 样式：开=珊瑚实心 / 关=灰描边（QPushButton 带 hover 反馈）。"""
+        if on:
+            self.chip_ai.setStyleSheet(
+                "QPushButton { background:%s; color:white; border:none; border-radius:8px;"
+                "padding:4px 10px; font-size:9.5pt; font-weight:bold; }"
+                "QPushButton:hover { background:%s; }" % (style.ACCENT, style.ACCENT_DARK))
+        else:
+            self.chip_ai.setStyleSheet(
+                "QPushButton { background:#fff; border:1px solid %s; border-radius:8px;"
+                "padding:4px 10px; font-size:9.5pt; }"
+                "QPushButton:hover { border-color:%s; color:%s; }"
+                % (style.BORDER, style.ACCENT, style.ACCENT_DARK))
+
+    def _refresh_ai_state(self, journal: str) -> None:
+        """按 override + resolve 重算 AI 复筛显示态：chip 文案/样式 + 三态 radio + 当前生效提示。
+
+        只读 resolve / overrides、只 set 控件显示态（_loading 抑制 buttonClicked/toggled 的写回）。
+        """
+        res = strategy.resolve(journal)
+        ai_on = res["deepseek_enabled"]
+        ov = (overrides.get(journal).get("deepseek") or {})
+        ov_enabled = ov.get("enabled") if isinstance(ov.get("enabled"), bool) else None
+        raw_criteria = ov.get("criteria")
+        src = "本刊" if (isinstance(raw_criteria, str) and raw_criteria.strip()) else "分类"
+        self._loading = True
+        try:
+            self.chip_ai.setText("🤖 AI 复筛：" + ("开" if ai_on else "关"))
+            self._style_chip_ai(ai_on)
+            if ov_enabled is True:
+                self.rb_ai_on.setChecked(True)
+            elif ov_enabled is False:
+                self.rb_ai_off.setChecked(True)
+            else:
+                self.rb_ai_inherit.setChecked(True)
+            self.ai_effective_label.setText(
+                "当前生效：AI 复筛 %s · 判据来自「%s」" % ("开" if ai_on else "关", src))
+        finally:
+            self._loading = False
 
     def _update_window_for_current(self) -> None:
         """选中刊 / 导入后 → 重算 latest 窗口天数（latest 模式检索用）+ 刷新文案。"""

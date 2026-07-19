@@ -163,7 +163,7 @@ def _gen_raw_category(rng):
 
 
 def _gen_raw_override(rng):
-    """随机单刊例外 dict：含缺键（不含某字段即「未显式」）。"""
+    """随机单刊例外 dict：含缺键（不含某字段即「未显式」）；deepseek 含半缺 / 畸形变体。"""
     ov = {}
     if rng.random() < 0.6:
         ov["includeEditorial"] = rng.choice([True, False])
@@ -178,6 +178,20 @@ def _gen_raw_override(rng):
         ov["topicFilter"] = rng.choice(["", "  ", "\t"])          # 空串 / 空白（falsy / truthy 混）
     else:
         ov["topicFilter"] = rng.choice(["lung[tiab]", "  esophag*[tiab]  ", "x"])
+    # deepseek 覆写（含半缺 / 畸形 → resolve 应安全回落分类，预言机同口径）
+    r = rng.random()
+    if r < 0.35:
+        pass                                                      # deepseek 缺
+    elif r < 0.5:
+        ov["deepseek"] = {"enabled": rng.choice([True, False])}   # 半缺 criteria
+    elif r < 0.62:
+        ov["deepseek"] = {"criteria": rng.choice(["", "判据O"])}  # 半缺 enabled
+    elif r < 0.78:
+        ov["deepseek"] = {"enabled": rng.choice([True, False, None]),
+                          "criteria": rng.choice([None, "", "判据P", "  判据P  "])}
+    else:
+        ov["deepseek"] = rng.choice(["notadict", None, {"enabled": "yes"},
+                                      {"criteria": 123}, {"enabled": True, "criteria": 123}])
     return ov
 
 
@@ -235,11 +249,22 @@ def _resolve_invariant_fail(result, raw_ov, base):
     elif cat_active:
         if result["topic"] != base["topicFilter"]["terms"].strip():
             return ("topic 分类 strip", f"base={base['topicFilter']['terms']!r} got={result['topic']!r}")
-    # deepseek 只看分类
-    if result["deepseek_enabled"] != bool(base["deepseek"]["enabled"]):
-        return ("deepseek_enabled", f"base={base['deepseek']['enabled']} got={result['deepseek_enabled']}")
-    if result["deepseek_criteria"] != (base["deepseek"]["criteria"] or ""):
-        return ("deepseek_criteria", f"base={base['deepseek']['criteria']!r} got={result['deepseek_criteria']!r}")
+    # deepseek：单刊 override 优先（enabled 显式 bool 用它；criteria 非空 str 用它），否则分类；
+    # 畸形 override（非 dict / enabled 非 bool / criteria 非 str）预言机同 resolve 安全回落分类
+    ds_ov = raw_ov.get("deepseek")
+    exp_enabled = bool(base["deepseek"]["enabled"])
+    exp_criteria = base["deepseek"]["criteria"] or ""
+    if isinstance(ds_ov, dict):
+        ov_en = ds_ov.get("enabled")
+        if isinstance(ov_en, bool):
+            exp_enabled = ov_en
+        ov_cr = ds_ov.get("criteria")
+        if isinstance(ov_cr, str) and ov_cr.strip():
+            exp_criteria = ov_cr.strip()
+    if result["deepseek_enabled"] != exp_enabled:
+        return ("deepseek_enabled", f"exp={exp_enabled} got={result['deepseek_enabled']!r} | ds_ov={ds_ov!r}")
+    if result["deepseek_criteria"] != exp_criteria:
+        return ("deepseek_criteria", f"exp={exp_criteria!r} got={result['deepseek_criteria']!r} | ds_ov={ds_ov!r}")
     return None
 
 
@@ -350,20 +375,41 @@ check("属性2: TRACKEEP_JSON 解析（有合法行→取首条 payload / 无→
 # ============================ 属性 3：overrides 往返属性 ============================
 
 def _norm_ov_cfg(cfg):
-    """save→get 的归一预言机：topicFilter 空串/空白/None 等价归 None（strip 后空）。"""
+    """save→get 的归一预言机：topicFilter 空串/空白/None 等价归 None（strip 后空）；
+    deepseek 经 `_normalize_deepseek` 同口径归一（非 dict / 非 bool / 非 str → None）。"""
     tf = cfg.get("topicFilter", None)
     tf = tf.strip() if isinstance(tf, str) else tf
     tf = tf or None
+    ds = cfg.get("deepseek")
+    if not isinstance(ds, dict):
+        ds = {}
+    en = ds.get("enabled")
+    en = en if isinstance(en, bool) else None
+    cr = ds.get("criteria")
+    cr = cr.strip() if isinstance(cr, str) else None
+    cr = cr or None
     return {"includeEditorial": bool(cfg.get("includeEditorial", False)),
             "includeLetter": bool(cfg.get("includeLetter", False)),
-            "topicFilter": tf}
+            "topicFilter": tf,
+            "deepseek": {"enabled": en, "criteria": cr}}
 
 
 def _gen_ov_cfg(rng):
+    r = rng.random()
+    if r < 0.3:
+        deepseek = None                                   # 不设（= 继承）
+    elif r < 0.5:
+        deepseek = {"enabled": rng.choice([True, False])}  # 半缺 criteria
+    elif r < 0.7:
+        deepseek = {"criteria": rng.choice(["", "判据Z"])}  # 半缺 enabled
+    else:
+        deepseek = {"enabled": rng.choice([True, False]),
+                    "criteria": rng.choice([None, "", "判据W", "  判据W  "])}
     return {
         "includeEditorial": rng.choice([True, False]),
         "includeLetter": rng.choice([True, False]),
         "topicFilter": rng.choice([None, "", "  ", "lung[tiab]", "  lung[tiab]  ", "\t"]),
+        "deepseek": deepseek,
     }
 
 

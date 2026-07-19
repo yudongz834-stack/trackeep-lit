@@ -79,6 +79,13 @@ strategy.STRATEGY_PATH = _ST
 ledger.LEDGER_PATH = _LED
 journals.JOURNAL_TABLE = _JT
 
+# 默认全开后胸外 AI 默认开 → _on_import_clicked 在 _ai_verdicts is None 时弹 information 锁死
+# （offscreen 模态挂死）。场景 1-5 用 JTO（胸外）测单飞/渲染/锁定，与 AI 无关——先显式关
+# 胸外 DeepSeek 隔离 AI 门控；场景 6 风暴自带 _ST 覆写（enabled=True）+ information 桩，不受影响。
+strategy.save_category("胸部肿瘤与胸外科", {"editorial": False, "letter": False,
+    "topicFilter": {"enabled": False, "terms": ""},
+    "deepseek": {"enabled": False, "criteria": ""}})
+
 
 # ---- 合成回执（与 gui_test 同构）----
 def _item(status, n=1, title=None):

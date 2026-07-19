@@ -235,10 +235,11 @@ with _Patch(strategy, "STRATEGY_PATH", _ST), _Patch(overrides, "OVERRIDES_PATH",
     check("strategy: topicFilter 字符串 → 兜默认不崩",
           gc["topicFilter"]["enabled"] is False, "(tf=%r)" % gc["topicFilter"])
 
-    # deepseek 为 null → 同上兜默认
+    # deepseek 为 null → 同上兜默认（默认全开后 enabled=True）
     _st_write({"version": 1, "categories": {"胸部肿瘤与胸外科": {"deepseek": None}}})
     gc = strategy.get_category("胸部肿瘤与胸外科")
-    check("strategy: deepseek=null → 兜默认不崩", gc["deepseek"]["enabled"] is False)
+    check("strategy: deepseek=null → 兜默认不崩（默认全开=True）",
+          gc["deepseek"]["enabled"] is True)
 
     # version 缺失 → load/get_category 不依赖 version
     _st_write({"categories": {}})
@@ -249,10 +250,38 @@ with _Patch(strategy, "STRATEGY_PATH", _ST), _Patch(overrides, "OVERRIDES_PATH",
     _st_write({"version": "bad", "categories": {}})
     check("strategy: version 字符串 → 不崩", strategy.load().get("version") == "bad")
 
-    # resolve 未知刊 → category_of None → base=CATEGORY_DEFAULT → 兜默认
+    # resolve 未知刊 → category_of None → base=CATEGORY_DEFAULT → 兜默认（默认全开=True）
     r = strategy.resolve("根本不存在的刊名XYZ")
-    check("strategy: resolve 未知刊 → 兜默认不崩",
-          r["editorial"] is False and r["topic"] is None and r["deepseek_enabled"] is False)
+    check("strategy: resolve 未知刊 → 兜默认不崩（默认全开=True）",
+          r["editorial"] is False and r["topic"] is None and r["deepseek_enabled"] is True)
+
+    # per-journal deepseek 畸形 override（手编 JSON，绕过 save 归一）→ resolve 安全回落、不抛
+    _st_write({"version": 1, "categories": {"胸部肿瘤与胸外科": {
+        "deepseek": {"enabled": True, "criteria": "分类判据"}}}})
+    for label, raw_ov, exp_en, exp_cr in [
+        ("deepseek 非 dict", {"deepseek": "notadict"}, True, "分类判据"),
+        ("deepseek 为 list", {"deepseek": [1, 2]}, True, "分类判据"),
+        ("enabled 非 bool（criteria 合法）",
+         {"deepseek": {"enabled": "yes", "criteria": "x"}}, True, "x"),
+        ("criteria 非 str（enabled 合法）",
+         {"deepseek": {"enabled": True, "criteria": 123}}, True, "分类判据"),
+        ("deepseek 半缺（仅 enabled=False）",
+         {"deepseek": {"enabled": False}}, False, "分类判据"),
+    ]:
+        _OV.write_text(json.dumps({"J Thorac Oncol": raw_ov}, ensure_ascii=False),
+                       encoding="utf-8")
+        try:
+            rr = strategy.resolve("J Thorac Oncol")
+            check("strategy: deepseek override %s → resolve 不崩 + 安全回落" % label,
+                  rr["deepseek_enabled"] is exp_en and rr["deepseek_criteria"] == exp_cr,
+                  "(got en=%r cr=%r)" % (rr["deepseek_enabled"], rr["deepseek_criteria"]))
+        except Exception as e:
+            check("strategy: deepseek override %s → resolve 不崩 + 安全回落" % label, False,
+                  "(%s: %s)" % (type(e).__name__, str(e)[:80]))
+            _defect("hard", "strategy", "deepseek override %s → resolve 抛异常" % label,
+                    "lit/strategy.py resolve deepseek 分支", "%s" % type(e).__name__)
+    # 清 _OV 残留（本组畸形 override 不能污染后续 section 6 _compute_exclude_pmids 测试）
+    _OV.write_text("{}", encoding="utf-8")
 
 
 # ============================ 4. 畸形期刊表（journals） ============================

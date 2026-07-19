@@ -332,6 +332,12 @@ check("INV-09: running 态导入/复筛入口直接返回（计数不增）", ru
 
 
 # ============================ 7. INV-02：写库仅经确认触发 + 受控建 ============================
+# 默认全开后空 strategy 下胸外 AI 默认开 → _on_import_clicked 会因 _ai_verdicts is None 弹
+# information 锁死（offscreen 模态挂死）。本节用例测的是「纯导入确认流」（与 AI 无关），
+# 先显式关胸外 DeepSeek 隔离 AI 门控；section 8b 的 6b-2 用例各自 _enable/_disable 覆盖。
+strategy.save_category("胸部肿瘤与胸外科", {"editorial": False, "letter": False,
+    "topicFilter": {"enabled": False, "terms": ""},
+    "deepseek": {"enabled": False, "criteria": ""}})
 
 def _patch_question(ans):
     orig = QMessageBox.question
@@ -456,6 +462,13 @@ def _enable_deepseek():
     strategy.save_category("胸部肿瘤与胸外科", {"editorial": False, "letter": False,
         "topicFilter": {"enabled": False, "terms": ""},
         "deepseek": {"enabled": True, "criteria": "主体聚焦肺癌"}})
+
+
+def _disable_deepseek():
+    """显式关胸外分类 DeepSeek（默认全开后，测 AI-disabled 路径须显式关）。"""
+    strategy.save_category("胸部肿瘤与胸外科", {"editorial": False, "letter": False,
+        "topicFilter": {"enabled": False, "terms": ""},
+        "deepseek": {"enabled": False, "criteria": ""}})
 
 
 def _reset_strategy_empty():
@@ -584,8 +597,8 @@ check("6b-2①: 捞回一条后导入 → 该 PMID 移出 exclude_pmids", ai_gat
 
 
 def ai_disabled_no_gate_full_import():
-    # AI-disabled 刊（默认空 strategy）→ 不弹门控、直接可导、exclude_pmids 为空
-    _reset_strategy_empty()                   # 确保 DeepSeek 关
+    # AI-disabled 刊（显式关胸外 DeepSeek）→ 不弹门控、直接可导、exclude_pmids 为空
+    _disable_deepseek()                       # 默认全开后须显式关，才测 AI-disabled 路径
     _eng.reset()
     harvest._running = False
     harvest._select_journal("J Thorac Oncol")
@@ -701,6 +714,140 @@ def strategy_form_persists():
 
 
 check("策略表单: 改 checkbox 落盘 + _loading 期间不写回", strategy_form_persists)
+
+
+# ============================ 11. per-journal AI 复筛覆写（chip + 三态 + 判据）============================
+# 默认全开（CATEGORY_DEFAULT deepseek enabled=True）：空 strategy → 所有分类 AI 开。
+
+def _reset_ov():
+    _OV.unlink(missing_ok=True)
+    _OV.write_text("{}", encoding="utf-8")
+
+
+def _select_and_load(name):
+    """选刊 + 强制 _load_journal（_select_journal 对已选刊是 no-op、不重载 UI）。"""
+    harvest._select_journal(name)
+    harvest._load_journal(name)
+    app.processEvents()
+
+
+def chip_ai_toggle_writes_override():
+    # 默认 AI 全开 → chip 显「开」；点 chip → 强制关 → chip 显「关」+ override 写 enabled=False
+    _reset_strategy_empty()
+    _reset_ov()
+    _select_and_load("J Thorac Oncol")
+    assert "开" in harvest.chip_ai.text(), f"默认应开，chip={harvest.chip_ai.text()!r}"
+    assert harvest.rb_ai_inherit.isChecked(), "默认应选 inherit"
+    harvest.chip_ai.click()
+    app.processEvents()
+    assert "关" in harvest.chip_ai.text(), f"点后应关，chip={harvest.chip_ai.text()!r}"
+    ov = overrides.load_all().get("J Thorac Oncol", {})
+    assert (ov.get("deepseek") or {}).get("enabled") is False, f"override 未写 force-off：{ov}"
+    assert harvest.rb_ai_off.isChecked(), "chip 关后 radio 应联动 force-off"
+    assert strategy.resolve("J Thorac Oncol")["deepseek_enabled"] is False
+    # 再点 → 强制开
+    harvest.chip_ai.click()
+    app.processEvents()
+    assert "开" in harvest.chip_ai.text()
+    ov2 = overrides.load_all().get("J Thorac Oncol", {})
+    assert (ov2.get("deepseek") or {}).get("enabled") is True
+    assert harvest.rb_ai_on.isChecked()
+
+
+check("per-journal AI: 点 chip_ai 翻转 + 写 override + radio 联动 + resolve 生效",
+      chip_ai_toggle_writes_override)
+
+
+def ai_radio_three_state_writes():
+    _reset_strategy_empty()
+    _reset_ov()
+    _select_and_load("J Thorac Oncol")
+    assert harvest.rb_ai_inherit.isChecked() and "开" in harvest.chip_ai.text()
+    # 选「本刊强制关」→ enabled=False + chip 关
+    harvest.rb_ai_off.click()
+    app.processEvents()
+    ov = (overrides.load_all().get("J Thorac Oncol", {}).get("deepseek") or {})
+    assert ov.get("enabled") is False, f"radio off 未写：{ov}"
+    assert "关" in harvest.chip_ai.text()
+    # 选「本刊强制开」→ enabled=True + chip 开
+    harvest.rb_ai_on.click()
+    app.processEvents()
+    ov2 = (overrides.load_all().get("J Thorac Oncol", {}).get("deepseek") or {})
+    assert ov2.get("enabled") is True
+    assert "开" in harvest.chip_ai.text()
+    # 选「跟随分类」→ 全默认 → 条目删除 + chip 开（分类默认开）
+    harvest.rb_ai_inherit.click()
+    app.processEvents()
+    assert "J Thorac Oncol" not in overrides.load_all(), "inherit 应清 override（全默认）"
+    assert "开" in harvest.chip_ai.text()
+
+
+check("per-journal AI: 三态 radio 写 override + chip 联动 + inherit 清条目",
+      ai_radio_three_state_writes)
+
+
+def ai_criteria_writes_override():
+    _reset_strategy_empty()
+    _reset_ov()
+    _select_and_load("J Thorac Oncol")
+    assert "分类" in harvest.ai_effective_label.text()   # 留空 = 分类
+    # 填判据 → 写 criteria + resolve 取本刊判据 + 生效提示显「本刊」
+    harvest.ai_criteria_edit.setText("本刊肺癌判据")
+    harvest._on_ai_criteria_changed()
+    app.processEvents()
+    ov = (overrides.load_all().get("J Thorac Oncol", {}).get("deepseek") or {})
+    assert ov.get("criteria") == "本刊肺癌判据", f"criteria 未写：{ov}"
+    assert strategy.resolve("J Thorac Oncol")["deepseek_criteria"] == "本刊肺癌判据"
+    assert "本刊" in harvest.ai_effective_label.text(), \
+        f"生效提示应显本刊：{harvest.ai_effective_label.text()!r}"
+    # 清空判据 → criteria 继承分类（若 deepseek enabled 仍 None → 全默认 → 条目删）
+    harvest.ai_criteria_edit.setText("")
+    harvest._on_ai_criteria_changed()
+    app.processEvents()
+    assert "J Thorac Oncol" not in overrides.load_all(), "清空判据 + inherit → 全默认删条目"
+
+
+check("per-journal AI: 判据框写 criteria + 生效提示显来源 + 清空回落", ai_criteria_writes_override)
+
+
+def ai_switch_journal_reflect():
+    # J Thorac Oncol：强制关 + 自定义判据；Ann Thorac Surg：无 override（继承）
+    _reset_strategy_empty()
+    _reset_ov()
+    overrides.save("J Thorac Oncol", {"includeEditorial": False, "includeLetter": False,
+                    "topicFilter": None, "deepseek": {"enabled": False, "criteria": "JTO判据"}})
+    _select_and_load("J Thorac Oncol")
+    assert harvest.rb_ai_off.isChecked() and harvest.ai_criteria_edit.text() == "JTO判据"
+    assert "关" in harvest.chip_ai.text()
+    # 切到 Ann Thorac Surg → 回显继承 + 空判据 + chip 开（默认全开）
+    _select_and_load("Ann Thorac Surg")
+    assert harvest.rb_ai_inherit.isChecked(), "ATS 应回显 inherit"
+    assert harvest.ai_criteria_edit.text() == "", "ATS 判据框应空（继承）"
+    assert "开" in harvest.chip_ai.text()
+    # 切回 JTO → 仍 force-off + JTO判据（未被 ATS 污染）
+    _select_and_load("J Thorac Oncol")
+    assert harvest.rb_ai_off.isChecked() and harvest.ai_criteria_edit.text() == "JTO判据"
+
+
+check("per-journal AI: 切刊正确回显（不污染他刊 override）", ai_switch_journal_reflect)
+
+
+def ai_loading_no_spurious_write():
+    _reset_strategy_empty()
+    _reset_ov()
+    _select_and_load("J Thorac Oncol")
+    # 程序化载入不应落盘 override
+    assert "J Thorac Oncol" not in overrides.load_all(), "载入不应落盘 override"
+    # _loading=True 期间持久化 / chip 点击 → 直返不写
+    before = overrides.load_all()
+    harvest._loading = True
+    harvest._persist_exception()
+    harvest._on_chip_ai_clicked()
+    harvest._loading = False
+    assert overrides.load_all() == before, "_loading 期间不应写回"
+
+
+check("per-journal AI: _loading 期间持久化/点击不误写", ai_loading_no_spurious_write)
 
 
 # ============================ 收尾 ============================
