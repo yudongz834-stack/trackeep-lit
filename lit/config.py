@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 APP_NAME = "Trackeep Lit"
-VERSION = "0.4.1"  # v0.4.1 AI 复筛分批处理（6b-3）：切 20 篇/批治一年量截断崩溃 + 单批失败保守保留 + 批次进度
+VERSION = "0.4.2"  # v0.4.2 结果页极简重排（存入 Zotero 按钮上移 + 🤖→✦ 火花 + 去重/检索式折叠；纯视觉，逻辑零改动）
 
 # 打包成品（PyInstaller frozen）= exe 所在文件夹；开发态 = 项目根（lit/ 的上两级）。
 # 与 gui.py 的 ROOT 同源，使 ui.main_window.ICON_PATH 在两种态下都指向 app.ico。

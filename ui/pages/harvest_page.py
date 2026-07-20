@@ -253,7 +253,7 @@ class HarvestPage(QWidget):
         self.chip_topic = chip()
         # chip_ai：可点的每刊 AI 开关（QPushButton 扁平胶囊；开=珊瑚实心 / 关=灰描边）。
         # 与下方「本刊例外 · AI 复筛」三态 + 判据框是同一份 override 的不同入口。
-        self.chip_ai = QPushButton("🤖 AI 复筛：—")
+        self.chip_ai = QPushButton("✦ AI 复筛：—")
         self.chip_ai.setCursor(Qt.PointingHandCursor)
         self.chip_ai.clicked.connect(self._on_chip_ai_clicked)
         self._style_chip_ai(False)   # 初始关态样式（首刊载入时 _refresh_ai_state 重算）
@@ -550,7 +550,7 @@ class HarvestPage(QWidget):
         src = "本刊" if (isinstance(raw_criteria, str) and raw_criteria.strip()) else "分类"
         self._loading = True
         try:
-            self.chip_ai.setText("🤖 AI 复筛：" + ("开" if ai_on else "关"))
+            self.chip_ai.setText("✦ AI 复筛：" + ("开" if ai_on else "关"))
             self._style_chip_ai(ai_on)
             if ov_enabled is True:
                 self.rb_ai_on.setChecked(True)
@@ -837,13 +837,18 @@ class HarvestPage(QWidget):
             "font-weight:bold; font-size:10pt;" % style.ACCENT)
         box.addWidget(badge)
 
-        # 统计行：found / new / dup / suspect
+        # 统计 / 分组 / 门控变量前置：导入按钮上移到顶部汇总区，需提前算 new_count / gating
         counts = r.get("counts", {}) or {}
-        # counts/分组实数对比（BL-07①②）前置：警示与其他卡都依赖 groups，stats 仍只用 counts
         items = r.get("items", []) or []
         groups: dict[str, list] = {}
         for it in items:
             groups.setdefault((it.get("status") or "?"), []).append(it)
+        new_count = counts.get("new", 0)
+        ai_on = strategy.resolve(journal)["deepseek_enabled"]
+        verdicts = self._ai_verdicts or {}
+        gating = ai_on and bool(verdicts)   # 门控生效条件（决定捞回 UI / 导入排除）
+
+        # 统计行：命中 / 新增 / 去重 / 疑似
         stats = QHBoxLayout()
         stats.setSpacing(8)
         stats.addWidget(self._stat_chip("命中", r.get("found", 0), style.TEXT))
@@ -852,6 +857,50 @@ class HarvestPage(QWidget):
         stats.addWidget(self._stat_chip("疑似", counts.get("suspect", 0), _SUS_COLOR))
         stats.addStretch(1)
         box.addLayout(stats)
+
+        # 顶部汇总区动作行：导入按钮（仅 new>0）+ ✦ DeepSeek 复筛按钮 —— 上移到统计旁，
+        # 不再沉到最底。搬位置≠改行为：仍 _on_import_clicked / 进 _action_btns / 门控副标保留。
+        if new_count > 0:
+            action = QHBoxLayout()
+            action.setSpacing(10)
+            imp = QPushButton("📥  存入 Zotero")
+            imp.setObjectName("primary")
+            imp.setCursor(Qt.PointingHandCursor)
+            imp.setEnabled(not self._running)
+            imp.clicked.connect(lambda: self._on_import_clicked(r))
+            action.addWidget(imp)
+            self._action_btns.append(imp)
+            # ✦ DeepSeek 复筛按钮：AI-enabled 刊且有 new 才出；已跑完 → 不显按钮（下方说明代替）
+            if ai_on and not verdicts:
+                aibtn = QPushButton("✦  DeepSeek 复筛…")
+                aibtn.setCursor(Qt.PointingHandCursor)
+                aibtn.setEnabled(not self._running)
+                aibtn.clicked.connect(self._start_ai_filter)
+                action.addWidget(aibtn)
+                self._action_btns.append(aibtn)
+            action.addStretch(1)
+            box.addLayout(action)
+
+            # 导入按钮副标（小字）：门控时保留「将导入 X / 留 Y / 捞回 Z / 滞 W」明细，否则简短
+            if gating:
+                _will, _filt, _rec = self._gate_breakdown(r)
+                hint = ("将导入 %d 篇（✦ AI 留 %d + 已捞回 %d，滤 %d）· 真实写库，"
+                        "点击后先确认。" % (_will, _will - _rec, _rec, _filt))
+            else:
+                hint = ("将写入 %d 篇新增 · 真实写库（可逆：可移回收站）。点击后先确认。"
+                        % new_count)
+            box.addWidget(self._muted(hint))
+
+            # 一行 AI 说明：未跑 → 引导先跑（门控锁死）；已跑 → 捞回 / 门控说明
+            if ai_on:
+                if not verdicts:
+                    box.addWidget(self._muted(
+                        "✦ 按分类判据逐篇判「主体是否相关」（约 10–30 秒）。"
+                        "本刊已开 AI 复筛，须先跑完才能导入（判滤的默认不导入、可捞回）。"))
+                else:
+                    box.addWidget(self._muted(
+                        "✦ AI 判滤的篇目默认不导入；可在下方逐条 ↩ 捞回或全部捞回。"
+                        "导入按当前判决门控。判据准不准可点上方「调整本类策略」或选左树分类节点调整。"))
 
         # BL-07①：counts 与清单实数逐键对比，不一致 → 橙字警示（chips 仍显 counts，不改为清单数）
         self._render_counts_warn(box, counts, groups, ("new", "dup", "suspect"))
@@ -868,20 +917,7 @@ class HarvestPage(QWidget):
             trunc.setWordWrap(True)
             box.addWidget(trunc)
 
-        # query 行
-        qline = QLabel(r.get("query", "—") or "—")
-        qline.setStyleSheet("font-family: Consolas, monospace; color:%s;" % style.MUTED)
-        qline.setWordWrap(True)
-        qline.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        box.addWidget(qline)
-
-        # AI 复筛判决：6b-2 真门控（AI-enabled 刊 + 已有 verdicts → 判滤的默认不导入、可捞回）；
-        # 6b-1 advisory（仅标注）已是历史。ai_on 决定是否出「复筛」按钮 + 是否门控。
-        ai_on = strategy.resolve(journal)["deepseek_enabled"]
-        verdicts = self._ai_verdicts or {}
-        gating = ai_on and bool(verdicts)   # 门控生效条件（决定捞回 UI / 导入排除）
-
-        # 分组清单（items/groups 已于上方 counts 处算出）
+        # 分组清单（items/groups 已于上方算出）
         order = [("new", "🆕 新增 · 将导入"), ("dup", "♻ 去重跳过 · 已在库"),
                  ("suspect", "❓ 疑似 · 待人工")]
         for key, title in order:
@@ -891,7 +927,7 @@ class HarvestPage(QWidget):
             card, clay = self._card()
             clay.setContentsMargins(0, 0, 0, 0)
             clay.setSpacing(0)
-            # new 组表头：门控时附「将导入 X / AI 建议留 Y / 滤 Z」+ 全部捞回；否则仅判决统计
+            # new 组表头：门控时附「将导入 X / ✦ AI 建议留 Y / 滤 Z」+ 全部捞回；否则仅判决统计
             hdr_text = f"{title}（{len(rows)} 篇）"
             on_recover = None                  # 默认不给捞回按钮（非门控 / 非 new 组）
             if key == "new" and verdicts:
@@ -902,76 +938,40 @@ class HarvestPage(QWidget):
                                 if str(it.get("pmid") or "") in self._recovered)
                 if gating and filtered > 0:
                     # 门控生效：表头亮「将导入」数（keep=True + 已捞回）+ 全部捞回入口
-                    hdr_text = ("🆕 新增（%d 篇 · 将导入 %d · 🤖 AI 建议留 %d / 滤 %d）"
+                    hdr_text = ("🆕 新增（%d 篇 · 将导入 %d · ✦ AI 建议留 %d / 滤 %d）"
                                 % (len(rows), kept + recovered, kept, filtered))
                     on_recover = self._toggle_recover
                 else:
-                    hdr_text = ("🆕 新增（%d 篇 · 🤖 AI 建议留 %d / 滤 %d）"
+                    hdr_text = ("🆕 新增（%d 篇 · ✦ AI 建议留 %d / 滤 %d）"
                                 % (len(rows), kept, filtered))
-            hdr = QLabel(hdr_text)
-            hdr.setStyleSheet(
-                "font-weight:bold; padding:10px 14px; color:%s;" % style.TEXT)
-            clay.addWidget(hdr)
-            # 门控 + 有滤项 → 表头下放「↩ 全部捞回」+ 说明（捞回操作都进 _action_btns 随单飞禁用）
-            if key == "new" and on_recover is not None:
-                rrow = QHBoxLayout()
-                rrow.setContentsMargins(14, 0, 14, 6)
-                rec_all = QPushButton("↩ 全部捞回（%d）" % filtered)
-                rec_all.setCursor(Qt.PointingHandCursor)
-                rec_all.setEnabled(not self._running)
-                rec_all.clicked.connect(lambda checked=False: self._recover_all())
-                rrow.addWidget(rec_all)
-                rrow.addWidget(self._muted(
-                    "AI 判滤的篇目默认不导入；可逐条 ↩ 捞回或全部捞回。"), 1)
-                clay.addLayout(rrow)
-                self._action_btns.append(rec_all)
-            for it in rows:
-                v = verdicts.get(str(it.get("pmid"))) if key == "new" else None
-                clay.addWidget(self._item_row(it, key, verdict=v, on_recover=on_recover))
+            # 去重组：默认折叠（表头可点切换 ▾/▴），点开才显紧凑条目
+            if key == "dup":
+                self._build_dup_group(clay, hdr_text, rows)
+            else:
+                hdr = QLabel(hdr_text)
+                hdr.setStyleSheet(
+                    "font-weight:bold; padding:10px 14px; color:%s;" % style.TEXT)
+                clay.addWidget(hdr)
+                # 门控 + 有滤项 → 表头下放「↩ 全部捞回」+ 说明（捞回操作都进 _action_btns 随单飞禁用）
+                if key == "new" and on_recover is not None:
+                    rrow = QHBoxLayout()
+                    rrow.setContentsMargins(14, 0, 14, 6)
+                    rec_all = QPushButton("↩ 全部捞回（%d）" % filtered)
+                    rec_all.setCursor(Qt.PointingHandCursor)
+                    rec_all.setEnabled(not self._running)
+                    rec_all.clicked.connect(lambda checked=False: self._recover_all())
+                    rrow.addWidget(rec_all)
+                    rrow.addWidget(self._muted(
+                        "AI 判滤的篇目默认不导入；可逐条 ↩ 捞回或全部捞回。"), 1)
+                    clay.addLayout(rrow)
+                    self._action_btns.append(rec_all)
+                for it in rows:
+                    v = verdicts.get(str(it.get("pmid"))) if key == "new" else None
+                    clay.addWidget(self._item_row(it, key, verdict=v, on_recover=on_recover))
             box.addWidget(card)
 
         # BL-07②：剩余分组（未知 status / 缺 status 等）合并渲染「其他」卡，不静默丢
         self._render_other_group(box, groups, {"new", "dup", "suspect"})
-
-        # 导入按钮（仅 new>0 显示）：确认框 → 受控建 collection（不存在时）→ run_import
-        new_count = counts.get("new", 0)
-        if new_count > 0:
-            irow = QHBoxLayout()
-            imp = QPushButton("📥  导入到 Zotero")
-            imp.setObjectName("primary")
-            imp.setCursor(Qt.PointingHandCursor)
-            imp.setEnabled(not self._running)
-            imp.clicked.connect(lambda: self._on_import_clicked(r))
-            irow.addWidget(imp)
-            if gating:
-                _will, _filt, _rec = self._gate_breakdown(r)
-                hint = ("真实写库（仅导入 AI 判留 %d + 已捞回 %d，滤 %d · 可逆：可移回收站）。"
-                        "点击后先确认。" % (_will - _rec, _rec, _filt))
-            else:
-                hint = "真实写库（新增 · 去重 · 可逆：可移回收站）。点击后先确认。"
-            irow.addWidget(self._muted(hint), 1)
-            box.addLayout(irow)
-            self._action_btns.append(imp)
-
-        # 🤖 DeepSeek 复筛：AI-enabled 刊且有 new 才出。未跑 → 复筛按钮；已跑 → 门控说明。
-        if ai_on and new_count > 0:
-            arow = QHBoxLayout()
-            if not verdicts:
-                aibtn = QPushButton("🤖  DeepSeek 复筛（预览判决）")
-                aibtn.setCursor(Qt.PointingHandCursor)
-                aibtn.setEnabled(not self._running)
-                aibtn.clicked.connect(self._start_ai_filter)
-                arow.addWidget(aibtn)
-                arow.addWidget(self._muted(
-                    "按分类判据逐篇判「主体是否相关」（约 10–30 秒）。"
-                    "本刊已开 AI 复筛，须先跑完才能导入（判滤的默认不导入、可捞回）。"), 1)
-                self._action_btns.append(aibtn)
-            else:
-                note = self._muted(
-                    "🤖 AI 判滤的篇目默认不导入；可在上方逐条 ↩ 捞回或全部捞回。"
-                    "导入按当前判决门控。判据准不准可点上方「调整本类策略」或选左树分类节点调整。")
-                arow.addWidget(note, 1)
-            box.addLayout(arow)
 
         # 护栏⑧：found==0 按 taMismatch 分流
         if r.get("found", 0) == 0:
@@ -992,17 +992,99 @@ class HarvestPage(QWidget):
             clay.addWidget(self._muted("（未命中文献）"))
             box.addWidget(card)
 
-        # 页脚：collection / journal / mode（collection 非 dict 时兜 {}，走「未知」路径）
+        # query 检索式：默认收起，点「查看检索式」才显（不再整行铺开）
+        qtoggle = QPushButton("查看检索式 ▾")
+        qtoggle.setCursor(Qt.PointingHandCursor)
+        qtoggle.setCheckable(True)
+        qtoggle.setStyleSheet(
+            "QPushButton { border:none; padding:2px 0; color:%s; font-size:9pt; }"
+            "QPushButton:hover { color:%s; }" % (style.MUTED, style.ACCENT_DARK))
+        qline = QLabel(r.get("query", "—") or "—")
+        qline.setStyleSheet(
+            "font-family: Consolas, monospace; color:%s; font-size:9pt;" % style.MUTED)
+        qline.setWordWrap(True)
+        qline.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        qline.setVisible(False)
+
+        def _toggle_query(on, btn=qtoggle, label=qline):
+            label.setVisible(on)
+            btn.setText("收起检索式 ▴" if on else "查看检索式 ▾")
+
+        qtoggle.toggled.connect(_toggle_query)
+        box.addWidget(qtoggle)
+        box.addWidget(qline)
+
+        # 页脚：collection / journal / mode（压成一行极淡小字；collection 非 dict 时兜 {}）
         coll = r.get("collection")
         if not isinstance(coll, dict):
             coll = {}
-        foot = self._muted(
+        foot = QLabel(
             "collection key=%s（%s）· journal=%s · mode=%s · dry-run 预览：未写 Zotero、"
-            "未动台账。真实导入属 Slice 3。"
+            "未动台账"
             % (coll.get("key", "—"), "已存在" if coll.get("exists") else "未建",
                r.get("journal", "—"), r.get("mode", "—")))
+        foot.setStyleSheet("color:%s; font-size:8.5pt;" % style.MUTED)
+        foot.setWordWrap(True)
         foot.setTextInteractionFlags(Qt.TextSelectableByMouse)
         box.addWidget(foot)
+
+    def _build_dup_group(self, clay: QVBoxLayout, hdr_text: str, rows: list) -> None:
+        """去重组：默认折叠，表头可点切换 ▾/▴；展开后用紧凑行（标题灰显 + 来源小字）。
+
+        去重篇目「已在库、自动跳过」，不必每条重复药丸——用更轻的行呈现，折叠态不占版面。
+        纯视觉重排（K3 原型），不涉导入 / 门控 / 捞回逻辑。
+        """
+        hdr_btn = QPushButton(hdr_text + "  ▾")
+        hdr_btn.setCursor(Qt.PointingHandCursor)
+        hdr_btn.setCheckable(True)
+        hdr_btn.setStyleSheet(
+            "QPushButton { text-align:left; font-weight:bold; padding:10px 14px; "
+            "color:%s; background:transparent; border:none; }"
+            "QPushButton:hover { background:%s; }" % (style.TEXT, style.ACCENT_SOFT))
+        items_box = QVBoxLayout()
+        items_box.setContentsMargins(0, 0, 0, 0)
+        items_box.setSpacing(0)
+        for it in rows:
+            items_box.addWidget(self._dup_row(it))
+        items_widget = QWidget()
+        items_widget.setObjectName("dup_items_frame")
+        items_widget.setLayout(items_box)
+
+        def _toggle(on, btn=hdr_btn, w=items_widget, base=hdr_text):
+            w.setVisible(on)
+            btn.setText(base + ("  ▴" if on else "  ▾"))
+
+        hdr_btn.toggled.connect(_toggle)
+        clay.addWidget(hdr_btn)
+        clay.addWidget(items_widget)
+        items_widget.setVisible(False)   # addWidget 后再折叠：容器被 visible 父 show 会清 hidden
+
+    def _dup_row(self, it: dict) -> QFrame:
+        """去重紧凑行：标题灰显（弱化「已跳过」）+ 可选判重 / 来源小字；明细进 tooltip。"""
+        row = QFrame()
+        rl = QHBoxLayout(row)
+        rl.setContentsMargins(14, 5, 14, 5)
+        rl.setSpacing(8)
+        title = QLabel(it.get("title") or "（无标题）")
+        title.setWordWrap(True)
+        title.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        title.setStyleSheet("color:%s;" % style.MUTED)
+        rl.addWidget(title, 1)
+        sub = []
+        if it.get("dedupBy"):
+            sub.append("判重:%s" % it["dedupBy"])
+        if it.get("dupSrc"):
+            sub.append("源:%s" % it["dupSrc"])
+        if sub:
+            rl.addWidget(self._muted(" · ".join(sub)))
+        tip = [f"类型: {it.get('type', '—')}"]
+        if it.get("pmid"):
+            tip.append(f"PMID: {it['pmid']}")
+        if it.get("doi"):
+            tip.append(f"DOI: {it['doi']}")
+        tip.append("状态: dup")
+        row.setToolTip("\n".join(tip))
+        return row
 
     # ---------- 导入（Slice 3）----------
 
@@ -1012,7 +1094,7 @@ class HarvestPage(QWidget):
             b.setEnabled(on)
 
     def _start_ai_filter(self) -> None:
-        """🤖 DeepSeek 复筛（6b-1 advisory）：对检索结果的 new 候选按分类判据判 keep/drop。
+        """✦ DeepSeek 复筛（6b-1 advisory）：对检索结果的 new 候选按分类判据判 keep/drop。
 
         结果只标注在审计页、**不拦截导入**。用检索时锁定的 _last_params['journal'] +
         _last_result（不重新检索）；_running 时直接返回（单飞）。判据准不准由 PI 在
@@ -1092,7 +1174,7 @@ class HarvestPage(QWidget):
         if strategy.resolve(journal)["deepseek_enabled"] and self._ai_verdicts is None:
             QMessageBox.information(
                 self, "请先完成 AI 复筛",
-                "本刊已开启 AI 复筛，请先点『🤖 DeepSeek 复筛』完成分析，再导入。")
+                "本刊已开启 AI 复筛，请先点『✦ DeepSeek 复筛』完成分析，再导入。")
             return
         exclude_pmids = self._compute_exclude_pmids()
         will_import, filtered, recovered = self._gate_breakdown(r)
@@ -1417,7 +1499,7 @@ class HarvestPage(QWidget):
             reason.setWordWrap(True)
             reason.setMaximumWidth(180)
             ai_fg, ai_bg = (_NEW_COLOR, _NEW_BG) if keep else (_FAIL_COLOR, _FAIL_BG)
-            ai_pill = QLabel("🤖留" if keep else "🤖滤")
+            ai_pill = QLabel("✦留" if keep else "✦滤")
             ai_pill.setFixedWidth(48)
             ai_pill.setAlignment(Qt.AlignCenter)
             ai_pill.setStyleSheet(

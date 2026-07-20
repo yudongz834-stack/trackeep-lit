@@ -5,13 +5,13 @@
 # 与 policy/exceptions 重叠的信息以主文件为准，本文件只引用不复制。
 
 project: trackeep-lit
-version: 0.4.1
+version: 0.4.2
 standard_version: v1.1.2
 updated: 2026-07-20
 
 lifecycle:
-  current_stage: "5.4-5.6 v0.4.1 AI 复筛分批处理（6b-3）：治一年量单请求截断崩溃（GLM 施工/主驾审核，194 项全绿）"
-  this_change_stage: "健壮性修复：deepseek.classify 分批（20/批）+ efetch 分块（180）+ 单批失败保守保留/全批失败报错 + 批次进度信号。门控逻辑零改动。待 PI GUI 验收"
+  current_stage: "5.4-5.6 v0.4.2 结果页极简重排（存入 Zotero 上移 + 🤖→✦ + 去重/检索式折叠；纯视觉，GLM 施工/主驾审核，198 项全绿）"
+  this_change_stage: "UI 重排（K3 原型落地）：_render_receipt 重排 + 导入按钮上移 + ✦ 图标 + 折叠。业务逻辑零改动（主驾 diff 逐核）。待 PI GUI 验收"
 
 # 本次启用的门禁清单。状态统一 pending-ci：文件已落成、CI 首跑前不视为已通过。
 # ⚠️ 此后仅由 CI 证据回填；agent 手改 status 为 passed 一律无效。
@@ -34,6 +34,9 @@ backlog:
   - { id: BL-05, item: INV 证据缺口逐条补自动断言（各 INV backlog 项）, target: 滚动, ref: [invariants.yaml] }
 
 resolved:
+  - { id: UI-results-redesign, item: "结果页极简重排（K3 原型落地，纯视觉）",
+      resolved_by: "harvest_page._render_receipt 重排：导入按钮『存入 Zotero』上移顶部汇总区（功能不变）+ ✦(U+2726)替 🤖 10 处 + 去重组默认折叠(_build_dup_group/_dup_row)+ query 默认收起 + 页脚极淡；业务逻辑零改动（主驾 diff 逐核导入 connect/_action_btns/门控副标；折叠断言真验非蒙混；4 条 Qt offscreen 断言细节属正当技法）。K3(订阅)出原型→PI 拍板；GLM 施工、主驾审核（五套独立亲跑 198 全绿）。待 PI GUI 验收",
+      date: 2026-07-20 }
   - { id: FEAT-ai-batch, item: "AI 复筛分批处理（6b-3；治一年量单请求截断崩溃）",
       resolved_by: "lit/deepseek.py：efetch 分块 180/次 + classify 分批 20/批逐批判决合并（单批失败重试 1 次→保守标 keep=True『本批复筛失败·默认保留』继续，全批皆失败才 RuntimeError，末次原因无 token 核证 INV-08）；ui/workers.py FuncWorker.progress Signal + run_async on_progress/emit_sink（start 前绑定=结构性消竞态）；横幅显『批 3/8』。门控逻辑零改动。PI 否决 agent 方案（批分类任务分批更稳更省）；GLM 施工、主驾审核（diff + 五套独立亲跑 194 项全绿）。待 PI GUI 验收",
       date: 2026-07-20 }

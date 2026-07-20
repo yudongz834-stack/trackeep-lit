@@ -303,7 +303,7 @@ def import_mash():
         harvest._render_receipt("J Thorac Oncol", _receipt(found=31, new=5), dict(_PARAMS))
         harvest._last_params = dict(_PARAMS)
         app.processEvents()
-        imp_btns = [b for b in harvest._action_btns if "导入" in b.text()]
+        imp_btns = [b for b in harvest._action_btns if "Zotero" in b.text()]
         assert imp_btns, f"round {rnd}: 前置缺导入按钮"
         _eng.import_delay = random.uniform(0.10, 0.20)
         # 确认框一律 Yes：验证连点被 _running 守卫拦，而非被取消框挡掉
@@ -565,7 +565,7 @@ def random_event_storm():
                     if aibtns and not harvest._running:
                         aibtns[0].click()
                 elif action == "import":
-                    impbtns = [b for b in harvest._action_btns if "导入" in b.text()]
+                    impbtns = [b for b in harvest._action_btns if "Zotero" in b.text()]
                     if impbtns:
                         if not harvest._running:
                             import_clicks_nr += 1

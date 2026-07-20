@@ -236,12 +236,12 @@ def render_receipt():
               "inc_ed": False, "inc_lt": False, "topic": None}
     harvest._render_receipt("J Thorac Oncol", r, params)
     app.processEvents()
-    texts = _label_texts(harvest)
-    # 三组分组标题都在，且条目数正确
+    texts = _label_texts(harvest) + _button_texts(harvest)
+    # 三组分组标题都在，且条目数正确（去重表头现为可点折叠按钮 → 合并 label+button 文本源）
     assert any("新增" in t and "5 篇" in t for t in texts), "新增组标题缺失"
     assert any("去重" in t and "3 篇" in t for t in texts), "去重组标题缺失"
     assert any("疑似" in t and "2 篇" in t for t in texts), "疑似组标题缺失"
-    assert any("导入到 Zotero" in t for t in _button_texts(harvest)), "导入按钮缺失"
+    assert any("存入 Zotero" in t for t in _button_texts(harvest)), "导入按钮缺失"
 
 
 check("回执渲染：合成 found=31 分组条目数正确", render_receipt)
@@ -508,7 +508,7 @@ def ai_gate_blocks_import():
     orig_info, st = _patch_information()
     orig_q = _patch_question(QMessageBox.Yes)   # 即使误弹确认框也 Yes，验证被门控拦
     try:
-        impbtns = [b for b in harvest._action_btns if "导入" in b.text()]
+        impbtns = [b for b in harvest._action_btns if "Zotero" in b.text()]
         assert impbtns, "前置：缺导入按钮"
         impbtns[0].click()
         _drain(harvest, 3)
@@ -541,7 +541,7 @@ def ai_gating_excludes_filtered():
     app.processEvents()
     orig_q = _patch_question(QMessageBox.Yes)
     try:
-        impbtns = [b for b in harvest._action_btns if "导入" in b.text()]
+        impbtns = [b for b in harvest._action_btns if "Zotero" in b.text()]
         impbtns[0].click()
         ok = _drain(harvest, 5)
     finally:
@@ -578,7 +578,7 @@ def ai_gating_recover_removes_from_exclude():
     assert "10000" in harvest._recovered
     orig_q = _patch_question(QMessageBox.Yes)
     try:
-        impbtns = [b for b in harvest._action_btns if "导入" in b.text()]
+        impbtns = [b for b in harvest._action_btns if "Zotero" in b.text()]
         impbtns[0].click()
         ok = _drain(harvest, 5)
     finally:
@@ -612,7 +612,7 @@ def ai_disabled_no_gate_full_import():
     orig_info, st = _patch_information()
     orig_q = _patch_question(QMessageBox.Yes)
     try:
-        impbtns = [b for b in harvest._action_btns if "导入" in b.text()]
+        impbtns = [b for b in harvest._action_btns if "Zotero" in b.text()]
         impbtns[0].click()
         ok = _drain(harvest, 5)
     finally:
@@ -711,6 +711,139 @@ def ai_filter_progress_updates_banner():
 
 check("6b-3: AI 复筛分批 → progress 信号到 UI + 横幅副文案「批 done/total」",
       ai_filter_progress_updates_banner)
+
+
+# ============================ 8d. 结果页极简重排（v0.4.2 K3 原型落地）============================
+# 纯视觉重排，业务逻辑零改动：导入按钮上移汇总区 / 去重组默认折叠 / query 默认收起 / 🤖→✦。
+from PySide6.QtWidgets import QLabel, QPushButton, QWidget  # noqa: E402
+
+_PARAMS_R = {"journal": "J Thorac Oncol", "mode": "latest", "reldate_days": 30,
+             "inc_ed": False, "inc_lt": False, "topic": None}
+
+
+def import_button_in_summary_area():
+    # 导入按钮上移到顶部汇总区：存在 + 可点 + _running 随组禁用 + click 仍触发 _on_import_clicked
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+    harvest._running = False
+    harvest._render_receipt("J Thorac Oncol", _receipt(found=31, new=3, dup=1), dict(_PARAMS_R))
+    app.processEvents()
+    impbtns = [b for b in harvest._action_btns if "Zotero" in b.text()]
+    assert impbtns, "顶部汇总区应有导入按钮（存入 Zotero）"
+    imp = impbtns[0]
+    assert imp.isEnabled(), "导入按钮应可点"
+    # _running 时随 _action_btns 整体禁用（单飞护栏，搬位置不改行为）
+    harvest._running = True
+    harvest._set_action_btns_enabled(False)
+    app.processEvents()
+    assert not imp.isEnabled(), "_running 时导入按钮应禁用"
+    harvest._running = False
+    harvest._set_action_btns_enabled(True)
+    # click 触发 _on_import_clicked：AI 开 + 未跑 → 弹门控提醒（证明回调连通、connect 未改）
+    harvest._last_params = dict(_PARAMS_R)
+    orig_info, st = _patch_information()
+    try:
+        imp.click()
+        app.processEvents()
+    finally:
+        QMessageBox.information = orig_info
+    assert st["n"] == 1, f"click 应触发 _on_import_clicked（弹门控提醒），实际 {st['n']}"
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+
+
+check("重排: 导入按钮上移汇总区 + 可点 + _running 禁用 + click 连通",
+      import_button_in_summary_area)
+
+
+def dup_group_collapsible():
+    # 去重组默认折叠（▾），点表头展开（▴）显条目
+    harvest._clear_receipt()        # 清前序测试残留的回执（含 dup_items_frame 容器）
+    app.processEvents()             # DeferredDelete 真正释放，避免遍历命中残留
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+    harvest._render_receipt("J Thorac Oncol", _receipt(found=31, new=2, dup=3, suspect=1),
+                            dict(_PARAMS_R))
+    app.processEvents()
+    dup_btns = [b for b in _walk(harvest.receipt_box)
+                if isinstance(b, QPushButton) and "去重" in b.text()]
+    assert dup_btns, "去重组折叠表头缺失"
+    btn = dup_btns[0]
+    assert "▾" in btn.text(), f"默认应折叠显 ▾：{btn.text()!r}"
+    # isHidden 只查自己、不递归祖先 → 孙辈 QLabel 的 isHidden 不随容器变；
+    # 从当前 dup 条目标题往上定位折叠容器本体，再查它的 isHidden
+    dup_titles = [w for w in _walk(harvest.receipt_box)
+                  if isinstance(w, QLabel) and w.text().startswith("dup 文献")]
+    assert dup_titles, "前置：应有 dup 条目"
+    items_frame = dup_titles[0]
+    while items_frame is not None and items_frame.objectName() != "dup_items_frame":
+        items_frame = items_frame.parentWidget()
+    assert items_frame is not None, "未找到 dup 折叠容器"
+    assert items_frame.isHidden(), "默认应折叠（容器隐藏）"
+    btn.click()
+    app.processEvents()
+    assert "▴" in btn.text(), "展开后应显 ▴"
+    assert not items_frame.isHidden(), "展开后容器应不隐藏"
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+
+
+check("重排: 去重组默认折叠 + 表头可点展开", dup_group_collapsible)
+
+
+def query_collapsible():
+    # query 检索式默认收起，点「查看检索式」展开
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+    harvest._render_receipt("J Thorac Oncol", _receipt(found=31, new=2, dup=0, suspect=0),
+                            dict(_PARAMS_R))
+    app.processEvents()
+    qbtns = [b for b in _walk(harvest.receipt_box)
+             if isinstance(b, QPushButton) and "检索式" in b.text()]
+    assert qbtns, "「查看检索式」按钮缺失"
+    qbtn = qbtns[0]
+    qlabels = [w for w in _walk(harvest.receipt_box)
+               if isinstance(w, QLabel) and "synth[ta]" in w.text()]
+    assert qlabels, "前置：应有 query 文本"
+    assert all(w.isHidden() for w in qlabels), "默认 query 应收起（隐藏）"
+    qbtn.click()
+    app.processEvents()
+    assert all(not w.isHidden() for w in qlabels), "点开后 query 应不隐藏"
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+
+
+check("重排: query 检索式默认收起 + 可点开", query_collapsible)
+
+
+def icons_star_not_robot():
+    # 🤖 全换 ✦：chip_ai（操作面板）+ AI 复筛按钮（receipt）+ 留/滤药丸（receipt）
+    assert "✦" in harvest.chip_ai.text() and "🤖" not in harvest.chip_ai.text(), \
+        f"chip_ai 应用 ✦：{harvest.chip_ai.text()!r}"
+    # 1) 未跑 AI → AI 复筛按钮含 ✦、整页无 🤖
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+    harvest._render_receipt("J Thorac Oncol", _receipt(found=31, new=3, dup=1), dict(_PARAMS_R))
+    app.processEvents()
+    t1 = _label_texts(harvest) + _button_texts(harvest)
+    assert not any("🤖" in t for t in t1), f"回执不应有 🤖：{[t for t in t1 if '🤖' in t]}"
+    assert any("✦" in t and "DeepSeek" in t for t in _button_texts(harvest)), \
+        "AI 复筛按钮应用 ✦"
+    # 2) 跑完 AI（verdicts）→ 留/滤药丸用 ✦留 / ✦滤
+    harvest._ai_verdicts = {"10000": {"keep": False, "reason": "不相关"},
+                            "10001": {"keep": True, "reason": "相关"},
+                            "10002": {"keep": True, "reason": "相关"}}
+    harvest._render_receipt("J Thorac Oncol", _receipt(found=31, new=3), dict(_PARAMS_R))
+    app.processEvents()
+    t2 = _label_texts(harvest)
+    assert not any("🤖" in t for t in t2), f"有判决回执不应有 🤖：{[t for t in t2 if '🤖' in t]}"
+    assert any("✦留" in t for t in t2), "留药丸应用 ✦留"
+    assert any("✦滤" in t for t in t2), "滤药丸应用 ✦滤"
+    harvest._ai_verdicts = None
+    harvest._recovered = set()
+
+
+check("重排: 🤖→✦ 全换（chip / 复筛按钮 / 留滤药丸）", icons_star_not_robot)
 
 
 # ============================ 9. VS-07：反复渲染→清空不累积泄漏 ============================
