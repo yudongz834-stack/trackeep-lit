@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess
 root=Path(__file__).resolve().parents[1]
 paths=set()
-for args in (['diff','--name-only'], ['ls-files','--others','--exclude-standard']):
+for args in (['diff','c58af8d','--name-only'], ['ls-files','--others','--exclude-standard']):
     out=subprocess.check_output(['git','-c','core.quotepath=false',*args],cwd=root).decode('utf-8')
     paths.update(root/p for p in out.splitlines() if p)
 for folder in ('日志/metadata-validation','日志/metadata-batches','日志/metadata-reviews'):
