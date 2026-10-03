@@ -37,7 +37,7 @@ PI 的医学文献桌面进料端：选刊 → PubMed 检索 → Zotero 去重�
 5. **导入用检索时锁定的 `_last_params`**，不读当前 UI 态——防切刊/改配置后导入错对象（Slice 3 设计，VS-06）。
 6. **导入 = 引擎重新完整跑**（不复用预览 items）——天然满足「导入前必是最新检索+去重」+ 崩溃后重跑自动补齐（护栏⑤⑥⑩）。
 7. **`tool="trackeep-lit"`（NCBI 标识）与 schema `trackeep-lit/import-result@1` 是 wire 契约**——2026-07-18 PI 拍板 wire 层随品牌全迁（引擎唯一消费方=本 App，两端原子切换）。
-8. **本 App 硬编码消费 Mecha-Core 内部路径，随 mecha→trackeep 迁移会断**——2026-07-19 迁移把 `.mecha/`→`.trackeep/`、`Mecha-Memex/`→`Trackeep-Memex/`，App 路径常量没跟上 → journals 回退静态 10、strategy 全默认（AI 全关），PI 误判"退化"。已改 4 常量（strategy/overrides/ledger→`.trackeep`，journals→`Trackeep-Memex`）。**未来 stage 改顶层 `Mecha-Core`→`Trackeep-Core` 或 `~/.config/mecha`→时，已随批B（2026-10-03）解除大半：引擎归家入本仓，`MECHA_CORE` 改名 `LEGACY_ROOT`、`ENGINE_PATH` 指本仓 `zotero\import.ps1`；现余外部面＝期刊表（待批C 转 `E:\Trackeep-Obsidian`，`lit/journals.py` 现仍指 `D:\dev\trackeep-memex`）与 `~/.config/mecha` 凭证（zotero.py `ENV_PATH` 仍指旧径，动它须同步搬凭证）**。迁移契约=`Mecha-Core/migration/trackeep-rename-contract.md`（本 App"不在其范围"=迁移 agent 不动本仓，消费方路径由本仓自维护）。
+8. **本 App 硬编码消费 Mecha-Core 内部路径，随 mecha→trackeep 迁移会断**——2026-07-19 迁移把 `.mecha/`→`.trackeep/`、`Mecha-Memex/`→`Trackeep-Memex/`，App 路径常量没跟上 → journals 回退静态 10、strategy 全默认（AI 全关），PI 误判"退化"。已改 4 常量（strategy/overrides/ledger→`.trackeep`，journals→`Trackeep-Memex`）。**未来 stage 改顶层 `Mecha-Core`→`Trackeep-Core` 或 `~/.config/mecha`→时，已随批B（2026-10-03）解除大半：引擎归家入本仓，`MECHA_CORE` 改名 `LEGACY_ROOT`、`ENGINE_PATH` 指本仓 `zotero\import.ps1`；现余外部面＝期刊表（`lit/journals.py` 已改锚 `E:\Trackeep-Obsidian\`，源件待批A/C 落位）与 `~/.config/mecha` 凭证（zotero.py `ENV_PATH` 仍指旧径，动它须同步搬凭证）**。迁移契约=`Mecha-Core/migration/trackeep-rename-contract.md`（本 App"不在其范围"=迁移 agent 不动本仓，消费方路径由本仓自维护）。
 
 ## 依赖（批B 后引擎与三 json 在本仓，余外部＝期刊表与凭证；历史沿革见"不走回头路"⑧）
 
@@ -47,6 +47,6 @@ PI 的医学文献桌面进料端：选刊 → PubMed 检索 → Zotero 去重�
 | 本仓 `.trackeep/journal-overrides.json` | 单刊例外表 | 本仓可写（原子写） |
 | 本仓 `.trackeep/strategy.json` | 分类采集策略 | 本仓可写（原子写） |
 | 本仓 `.trackeep/zotero-import-ledger.json` | 采集台账 | **只读**（引擎写） |
-| `Trackeep-Memex/00-系统/期刊来源表.md`（`lit/journals.py` 现指 `D:\dev\trackeep-memex\…`；批C 迁库后同改锚 `E:\Trackeep-Obsidian\00-系统\期刊来源表.md`） | 74 刊来源（5 分类） | 只读解析 |
+| `E:\Trackeep-Obsidian\00-系统\期刊来源表.md`（批B 补单改锚；源件待批A/C 落位前 journals.load() 走静态 10 回退） | 74 刊来源（5 分类） | 只读解析 |
 | `~/.config/mecha/secrets/zotero.env` | Zotero 凭证 | 只进请求头（迁移未及，仍 `mecha`） |
 | `DEEPSEEK_TOKEN`（Windows 用户环境变量） | 复筛凭证 | 只进请求头 |
