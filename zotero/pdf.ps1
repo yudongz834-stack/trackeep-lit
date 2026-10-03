@@ -2,7 +2,7 @@
   pdf.ps1 — 由文献标识符解析出其 PDF 在 Zotero 本地 storage 的绝对路径。
 
   用途：PI 不手动搬 PDF。给 Zotero item key / DOI / PMID / 标题 之一，本脚本只读
-        Zotero Web API 定位条目 → 找 PDF 附件 → 拼出本地路径，供 forge-docling 原地读取。
+        Zotero Web API 定位条目 → 找 PDF 附件 → 拼出本地路径，供下游原地读取。
 
   纪律：只 GET；不写 Zotero、不动条目、不碰 zotero.sqlite。API key 仅用于 HTTP 头、不回显。
 
