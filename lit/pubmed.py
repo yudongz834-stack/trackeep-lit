@@ -1,5 +1,6 @@
 """PubMed 只读检索预览。规则入口在项目 AGENTS.md；不加载 Zotero 或模型凭证。"""
 import argparse
+import copy
 import datetime as dt
 import hashlib
 import json
@@ -181,6 +182,13 @@ def metadata(ids, report=None):
                      for n in a.findall('./MedlineCitation/CommentsCorrectionsList/CommentsCorrections')]
             dates = [ET.tostring(n, encoding='unicode') for path in ('./MedlineCitation/Article/Journal/JournalIssue/PubDate',
                      './MedlineCitation/Article/ArticleDate', './PubmedData/History/PubMedPubDate') for n in a.findall(path)]
+            date_sources = {}
+            for name, path in [('electronic', './MedlineCitation/Article/ArticleDate[@DateType="Electronic"]'),
+                               ('issue', './MedlineCitation/Article/Journal/JournalIssue/PubDate')]:
+                nodes = a.findall(path)
+                values = [ET.tostring(n, encoding='unicode') for n in nodes]
+                present = any(''.join(n.itertext()).strip() for n in nodes)
+                date_sources[name] = {'status':'reported' if present else 'missing', 'xml':values}
             rows.append(pmid)
             if pmid in out:
                 raise RuntimeError('EFetch 返回重复 PMID，拒绝覆盖')
@@ -191,7 +199,7 @@ def metadata(ids, report=None):
               'journal': text('./MedlineCitation/Article/Journal/ISOAbbreviation'),
               'journal_title': text('./MedlineCitation/Article/Journal/Title'),
               'nlm_id': text('./MedlineCitation/MedlineJournalInfo/NlmUniqueID'),
-              'types': types, 'dates': dates, 'retraction_links': links,
+              'types': types, 'dates': dates, 'date_sources': date_sources, 'retraction_links': links,
               'publication_status': text('./PubmedData/PublicationStatus'),
               'volume': text('./MedlineCitation/Article/Journal/JournalIssue/Volume'),
               'issue': text('./MedlineCitation/Article/Journal/JournalIssue/Issue'),
@@ -212,8 +220,20 @@ def preview(plan):
               'metadata_batches': [], 'articles': [], 'review_reasons': [], 'retrieval_complete': False,
               'relevance_validated': False}
     try:
-        clause, lo, hi, journal = prepare(plan)
-        ids = sorted(collect(clause, lo, hi, (plan.get('date') or {}).get('field'), report), key=int)
+        effective = copy.deepcopy(plan)
+        defaulted = (isinstance(effective,dict) and effective.get('kind')=='journal'
+                     and isinstance(effective.get('date'),dict) and 'field' not in effective['date'])
+        if defaulted:
+            effective['date']['field']='dp'
+        clause, lo, hi, journal = prepare(effective)
+        field = (effective.get('date') or {}).get('field')
+        report['effective_plan'] = effective
+        report['date_policy'] = {'field':field, 'origin':'default' if defaulted else 'explicit',
+          'limitation': '仅电子日期，缺电子日期的记录可能漏收' if field=='epdat' else
+                        '仅印刷日期，尚未编期或缺印刷日期的记录可能漏收' if field=='ppdat' else
+                        '发表日期候选集，不等于首次上线日期或持续增量追踪' if field=='dp' else
+                        '按显式指定的时间范围检索'}
+        ids = sorted(collect(clause, lo, hi, field, report), key=int)
         report['pmids'] = ids
         report['articles'] = metadata(ids, report)
         if journal:

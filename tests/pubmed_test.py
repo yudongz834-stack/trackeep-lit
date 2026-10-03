@@ -232,5 +232,39 @@ class PubMedTests(unittest.TestCase):
         p.compare_previous(r,[old])
         self.assertEqual(r['status'],'blocked')
 
+    def test_journal_default_dp_recorded_without_mutating_input(self):
+        plan=copy.deepcopy(PLAN); del plan['date']['field']
+        r=self.run_plan(plan=plan)
+        self.assertEqual(r['status'],'retrieval_verified')
+        self.assertNotIn('field',plan['date'])
+        self.assertEqual(r['effective_plan']['date']['field'],'dp')
+        self.assertEqual(r['date_policy']['origin'],'default')
+        self.assertIn('[dp]',r['searches'][0]['query'])
+        self.assertEqual(r['effective_plan']['screening_location'],'undecided')
+
+    def test_explicit_publication_date_overrides_default(self):
+        for field in ('epdat','ppdat'):
+            plan=copy.deepcopy(PLAN); plan['date']['field']=field
+            r=self.run_plan(plan=plan)
+            self.assertEqual(r['date_policy']['origin'],'explicit')
+            self.assertIn('['+field+']',r['searches'][0]['query'])
+            self.assertIn('漏收',r['date_policy']['limitation'])
+        plan['date']['field']=''
+        self.assertEqual(p.preview(plan)['status'],'blocked')
+
+    def test_missing_dates_explicit_not_invented(self):
+        r=self.run_plan()
+        self.assertEqual(r['articles'][0]['date_sources'],{
+          'electronic':{'status':'missing','xml':[]},'issue':{'status':'missing','xml':[]}})
+        raw,_=xml()
+        empty=raw.replace(b'<Journal>',b'<ArticleDate DateType="Electronic"/><Journal>')
+        self.assertEqual(self.run_plan(meta=(empty,{}))['articles'][0]['date_sources']['electronic']['status'],'missing')
+        raw,_=xml()
+        raw=raw.replace(b'<Journal>',b'<ArticleDate DateType="Electronic"><Year>2026</Year><Month>07</Month><Day>08</Day></ArticleDate><Journal><JournalIssue><PubDate><Year>2026</Year><Month>Sep</Month></PubDate></JournalIssue>')
+        r=self.run_plan(meta=(raw,{}))
+        dates=r['articles'][0]['date_sources']
+        self.assertIn('<Day>08</Day>',dates['electronic']['xml'][0])
+        self.assertNotIn('<Day>',dates['issue']['xml'][0])
+
 if __name__=='__main__':
     unittest.main(verbosity=2)
