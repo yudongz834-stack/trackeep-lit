@@ -1,5 +1,15 @@
 # Trackeep Literature 当前接手状态
 
+## 桌面交付核对追加（2026-10-03，覆盖前文“未确认同步”）
+
+本机 Zotero9.0.6 API 已读到两篇正确父项与两份附件，PMID/DOI/标题/关联一致；但 API 返回的两个 storage 文件路径均不存在。现有桌面附件同步配置为 WebDAV，本批上传后端为 Zotero Storage，不能把云端附件成功等同于桌面文件可用。尝试系统 open-pdf URI 因未注册失败；改用已有 Zotero 可执行文件 -url 打开指定两份附件后复查仍无文件。没有修改账户/凭证/全局同步配置或注册表，也没有向 storage 目录自行塞文件或改库。尚缺“本机全文文件可用”这一环，具体桌面下载错误未取得，不能声称完全诊断。证据：日志/fulltext-validation/desktop-verification.json、desktop-sync-boundary.json。最初标题句末点差异导致的严格字符串误报亦保留为 desktop-verification-before-normalization.json，改用既有规范化比较并核PMID后确认题录无误。
+
+后续需要确定如何沿用户既有 WebDAV 路径完成这两份文件的交付，或明确授权其他受支持的本地附件写入方式；本次仅核对，不开新功能。用户无需自行执行下面命令，它们用于后续 Agent 接手。
+
+现成 Agent 命令从 D:\trackeep-lit 运行：`E:\Python\python.exe -m lit.pubmed --plan <计划JSON>`；`-m lit.metadata_batch --preview <检索回执> --pmids <明确PMID列表>`（只预演，具名授权后才加 --apply）；`-m lit.batch_review --batch <题录回执> --decisions <决定JSON>`；`-m lit.fulltext_batch --review <复核回执> --downloads <官方下载凭据>`（只预演，具名授权后才加 --apply）。检索计划编写、相关性判断/决定JSON、官方来源定位和下载仍由 Agent 编排。全文入口依赖已有PDF、下载证据及当前既有PyMuPDF；此次下载脚本含已关闭tab，不是通用下载器。工作区/核对本机全文.py 仅只读核对本批两篇。
+
+旧GUI仍走原有桌面流程，未接这些新校验与入库后复核；本批没有做插件或一个自然语言命令包办全部的产品。当前交付是可复用的分段命令和两篇云端实测，桌面文件闭环仍未完成。
+
 2026-10-03：本批两篇已完成核验检索、题录导入、入库后复核及官方全文挂接。检索2 → 题录新增2 → 保留2／排除0／待核0 → 官方PDF2 → 附件新增2；题录和附件分别真实重跑，均新增0。
 
 PMID42420446：父项WD9F8D8E，附件XT8K8X34；PMID42816625：父项IU8CWQD2，附件JBKB7SJZ。两份均37页，云端文件读回SHA256等于原件，父项内容/标签/目录保持不变。官方下载路径：第一篇PMC现行云主文、第二篇Nature官网。原件在全文目录。
@@ -121,3 +131,9 @@ PMID42420446：父项WD9F8D8E，附件XT8K8X34；PMID42816625：父项IU8CWQD2�
 - D:\trackeep-lit\规则\示例\nature-month.json
 - D:\trackeep-lit\规则\示例\stem-cell-topic.json
 - D:\trackeep-lit\阶段日志.md
+- D:\trackeep-lit\工作区\核对本机全文.py
+- D:\trackeep-lit\工作区\补充桌面核对交接.py
+- D:\trackeep-lit\日志\fulltext-validation\desktop-before-open.json
+- D:\trackeep-lit\日志\fulltext-validation\desktop-sync-boundary.json
+- D:\trackeep-lit\日志\fulltext-validation\desktop-verification-before-normalization.json
+- D:\trackeep-lit\日志\fulltext-validation\desktop-verification.json
