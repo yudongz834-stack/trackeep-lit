@@ -91,7 +91,7 @@ function Get-Bucket([string[]]$pubtypes, [string]$itemType) {
   if ($itemType -and $articleTypes -notcontains $itemType) { return '清理候选' }
   $pt = (@($pubtypes) -join '|')
   if (-not $pt) { return '保留候选' }   # 未匹配到 PubMed —— 默认保留，列摘要提醒
-  if ($pt -match '(?i)(published erratum|retraction of publication|retracted publication|expression of concern)') { return '清理候选' }
+  if ($pt -match '(?i)(published erratum|retraction of publication|retraction notice|retracted publication|expression of concern)') { return '清理候选' }
   if ($pt -match '(?i)\bletter\b')  { return '清理候选' }
   if ($pt -match '(?i)editorial')   { return '短文候选' }
   if ($pt -match '(?i)\bcomment\b') { return '清理候选' }   # Editorial 先判，故 Editorial+Comment 的真编者按仍归短文

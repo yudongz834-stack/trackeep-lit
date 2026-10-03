@@ -124,7 +124,7 @@ else {
 # pubtype 策略由配置/开关驱动：默认只要 article/review 且有摘要；editorial/letter 按需附加（原 JTO 硬编码已迁进 journal-overrides.json）
 $dropTypes = @('comment[PT]')
 if (-not $wantLetter) { $dropTypes += 'letter[PT]' }
-$dropTypes += @('published erratum[PT]', 'retraction of publication[PT]', 'retracted publication[PT]')
+$dropTypes += @('published erratum[PT]', 'retraction notice[PT]', 'retracted publication[PT]')  # 撤稿通知 2025 改名（旧名 retraction of publication 全库 0 命中，实测 2026-10-04）
 $ptDrop = '(' + ($dropTypes -join ' OR ') + ')'
 $incParts = @('((journal article[PT] OR review[PT]) AND hasabstract)')
 if ($wantEditorial) { $incParts += 'editorial[PT]' }
