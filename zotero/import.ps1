@@ -2,6 +2,8 @@
   import.ps1 — PubMed → Zotero 自动导入器（v1）
 
   一条命令完成一本刊一个检索窗（-Month 月 / -Year 整年 / -ReldateDays 近 N 天，三选一）：
+    检索规则唯一正文＝..\规则\PubMed检索规范_v1.0_20261003.md（2026-10-04 PI 裁定全线单源）；
+    本脚本＝其中「before-import 前置过滤」位置的执行体（声明见 SOP §流程第1步）。
     1) 检索——清洗查询跑 PubMed esearch：默认只要 article/review 且有摘要(hasabstract)；
        JTO 特例额外保留 editorial（含 Controversy 辩论文，实测被标为 editorial[PT]）。
     2) 取元数据——efetch 拿每篇 DOI / 摘要 / 题录。
