@@ -15,5 +15,6 @@ tests/_tmp_*
 日志/metadata-reviews/
 日志/fulltext-validation/
 日志/fulltext-batches/
+日志/native-zotero-validation/
 全文/
 .trackeep/zotero-import-ledger.json
