@@ -74,7 +74,7 @@ def _run_engine(journal, *, reldate_days=None, month=None, year=None,
     # 护栏：spawn 前预检引擎脚本在不在——缺就给人话，别让 powershell 抛天书「找不到文件」
     if not config.ENGINE_PATH.exists():
         raise RuntimeError(
-            "引擎脚本未找到：%s\n（检查 Mecha-Core 是否就位、路径是否正确）"
+            "引擎脚本未找到：%s\n（检查引擎脚本是否就位、路径是否正确）"
             % config.ENGINE_PATH)
 
     argv = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",

@@ -2,7 +2,7 @@
 
 # Trackeep Lit PyInstaller 打包规格（对齐 mecha-quant/build/MechaQuant.spec）。
 # PySide6 的 Qt plugins / 二进制由 PyInstaller 内置 hook 自动收集（同机已验证可打包 PySide6）。
-# 运行时外部读取（zotero-import.ps1 / .mecha/*.json / 期刊表 / zotero.env）全是绝对路径，不打进 exe。
+# 运行时外部读取（引擎 zotero\import.ps1 / .trackeep/*.json / 期刊表 / zotero.env）全是绝对路径，不打进 exe；批B 后引擎与三 json 已入本仓。
 # 本项目无 app.ico → 用默认图标（icon=[]）。
 
 

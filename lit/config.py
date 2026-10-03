@@ -12,7 +12,7 @@ if getattr(sys, "frozen", False):
     ROOT = Path(sys.executable).resolve().parent
 else:
     ROOT = Path(__file__).resolve().parent.parent
-ENGINE_PATH = Path(r"D:\dev\trackeep-scripts\zotero\import.ps1")
-# 历史模块仍消费此别名；配置与只读台账统一归当前工程。
-MECHA_CORE = ROOT
+ENGINE_PATH = Path(r"D:\trackeep-lit\zotero\import.ps1")
+# 历史别名（原名 MECHA_CORE，2026-10-03 批B 除名改名）；指向仓库根，.trackeep 三 json 的落点。
+LEGACY_ROOT = ROOT
 STATE_DIR = ROOT / ".trackeep"

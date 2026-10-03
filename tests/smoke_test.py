@@ -2,7 +2,7 @@
 """冒烟测试：全离线，断言 lit/ 离线逻辑链路不变量。
 
 断言来源：.project/invariants.yaml（INV-01~11）+ .project/vulnerable-scenarios.yaml。
-绝不联网、绝不真 spawn 引擎、绝不读写 Mecha-Core 真实文件——所有 json/md/台账一律
+绝不联网、绝不真 spawn 引擎、绝不读写引擎真实文件——所有 json/md/台账一律
 patch 模块级 *_PATH 常量到 tests/_tmp_* 临时文件，脚本末尾自清理。
 
 运行：venv\\Scripts\\python.exe tests\\smoke_test.py

@@ -5,7 +5,7 @@
 lit/{strategy,overrides,ledger,engine}.py 的合并 / 解析 / 往返 / 窗口契约。每个属性
 ≥500 例随机输入；SEED 固定可复现（母法 7.4）；失败打印最小反例输入便于复现。
 
-纯逻辑测试，无需 Qt；绝不联网、绝不真 spawn 引擎、绝不写 Mecha-Core 真实文件——所有
+纯逻辑测试，无需 Qt；绝不联网、绝不真 spawn 引擎、绝不写引擎真实文件——所有
 json / 台账 / 期刊表一律 patch 模块级 *_PATH 到 tests/_tmp_* 临时路径，脚本末尾自清理。
 
 运行：venv\\Scripts\\python.exe tests\\property_test.py

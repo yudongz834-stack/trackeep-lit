@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""并发/竞态升档实测：不弹窗、不联网、不真 spawn 引擎、不碰 Mecha-Core 真实文件。
+"""并发/竞态升档实测：不弹窗、不联网、不真 spawn 引擎、不碰引擎真实文件。
 
 把 INV-09（单飞）+ VS-06（_last_params 锁定）+ VS-07（渲染清空无泄漏）从 gui_test 的
 单次/3 轮量级升到 ≥50 轮（稳定优先档），并全程叠加 random.uniform 时序扰动（母法 7.4：
@@ -52,7 +52,7 @@ def _tmp(name: str) -> Path:
     return p
 
 
-# ---- 真实文件全桩到临时路径（绝不读写 Mecha-Core / 凭证）----
+# ---- 真实文件全桩到临时路径（绝不读写引擎 / 凭证）----
 from lit import deepseek, engine, journals, ledger, overrides, strategy  # noqa: E402
 
 _OV = _tmp("overrides.json")

@@ -5,7 +5,7 @@
 真崩就如实 [FAIL] 并入末尾产品缺陷候选清单（只报不修：产品代码不在本测试的改动面）。
 
 绝不联网（urllib 全程网闸 + DeepSeek 局部 mock）、绝不真 spawn 引擎（subprocess.run 换桩）、
-绝不读写 Mecha-Core 真实文件（所有 json/md/台账 patch 模块级 *_PATH 常量到 tests/_tmp_adv，
+绝不读写引擎真实文件（所有 json/md/台账 patch 模块级 *_PATH 常量到 tests/_tmp_adv，
 末尾自清理）。涉 Qt 的回执渲染用例：offscreen + TRACKEEP_SELFTEST 前置（与 gui_test 一致）。
 
 断言来源：.project/invariants.yaml（INV-03/04/06/08 等）+ .project/vulnerable-scenarios.yaml。
@@ -83,7 +83,7 @@ _urlreq.urlopen = _block_net   # 默认网闸；DeepSeek 用例临时换桩、�
 _ENV_TOKEN_ORIG = os.environ.get("DEEPSEEK_TOKEN")
 os.environ["DEEPSEEK_TOKEN"] = "adv-test-sentinel-not-real"
 
-# 真实文件全桩到临时路径（绝不读写 Mecha-Core / 凭证）
+# 真实文件全桩到临时路径（绝不读写引擎 / 凭证）
 _OV = _tmp("overrides.json")
 _ST = _tmp("strategy.json")
 _LED = _tmp("ledger.json")

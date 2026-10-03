@@ -17,7 +17,7 @@ import tempfile
 
 from lit import config, journals, overrides
 
-STRATEGY_PATH = config.MECHA_CORE / ".trackeep" / "strategy.json"
+STRATEGY_PATH = config.LEGACY_ROOT / ".trackeep" / "strategy.json"
 
 # 单分类的策略默认（无 strategy.json 或该分类缺失时的基线）
 CATEGORY_DEFAULT = {

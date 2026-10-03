@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""界面离屏回归：不弹窗、不联网、不真 spawn 引擎、不碰 Mecha-Core 真实文件。
+"""界面离屏回归：不弹窗、不联网、不真 spawn 引擎、不碰引擎真实文件。
 
 断言来源：.project/invariants.yaml（INV-02/04/09/11）+ .project/vulnerable-scenarios.yaml
 （VS-06/07 + 受控建 VS-09）。所有 json/md/台账一律 patch 模块级常量到 tests/_tmp_*；
@@ -30,7 +30,7 @@ def _tmp(name: str) -> Path:
     return p
 
 
-# ---- 真实文件全桩到临时路径（绝不读写 Mecha-Core / 凭证）----
+# ---- 真实文件全桩到临时路径（绝不读写引擎 / 凭证）----
 from lit import config, deepseek, engine, journals, ledger, overrides, strategy, zotero  # noqa: E402
 
 _OV = _tmp("overrides.json")

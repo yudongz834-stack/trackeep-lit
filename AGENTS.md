@@ -49,7 +49,7 @@
 
 ## 2. 本项目红线（浓缩自 CLAUDE.md「红线」节；细节以 CLAUDE.md 为准）
 
-1. **不改 Mecha-Core**：引擎 `zotero\import.ps1` 只读 spawn 调用，绝不重写为 Python；台账 `zotero-import-ledger.json` 只读（锚点只归引擎前移）。`journal-overrides.json` / `strategy.json` 是本 App 的可写配置（原子写）。
+1. **不改引擎**： `zotero\import.ps1` 只读 spawn 调用，绝不重写为 Python；台账 `zotero-import-ledger.json` 只读（锚点只归引擎前移）。`journal-overrides.json` / `strategy.json` 是本 App 的可写配置（原子写）。
 2. **dry-run 绝不 `-Execute`**：真实写 Zotero 只能由用户点「导入」+ 确认框触发（INV-01/02）；受控建 collection 必须确认、禁静默。
 3. **凭证不外泄**：`zotero.env` / `DEEPSEEK_TOKEN` 只进请求头——不 print、不落日志、不进异常文本、不进 git（INV-08）。
 4. **JSON 契约是接线真相**：`TRACKEEP_JSON` 前缀行 + schema `trackeep-lit/import-result@1`（2026-07-18 PI 拍板 wire 层随品牌全迁——引擎与 App 两端原子切换，无兼容包袱）。
@@ -64,7 +64,7 @@ git 开发提交与 push（单执行体纪律，见 EX-01）；应急预授权�
 误导入批次移回收站——执行后 24h 内补报 PI）。
 
 **必停请示（§3.4 + 本项目红线）：** 任何真实 `-Execute` 导入 / 真建 collection（属真实用户数据写，
-测试与施工中一律禁；日常使用由 PI 在界面上自行触发）；改 Mecha-Core 任何文件；改引擎 JSON 契约
+测试与施工中一律禁；日常使用由 PI 在界面上自行触发）；改引擎（zotero\import.ps1）任何文件；改引擎 JSON 契约
 （=改结论口径，须与引擎侧同步、PI 拍板）；force-push main（禁）；外发含凭证/完整文献库数据的材料。
 
 ## 4. CI 与证据位置
