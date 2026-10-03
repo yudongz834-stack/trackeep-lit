@@ -94,6 +94,7 @@ jobs:
           python tools/check_map.py --check
             python tests/pubmed_test.py
             python tests/metadata_test.py
+            python tests/fulltext_test.py
 
       # 本项目测试自带合成数据 + 全 mock（引擎 spawn / 联网 / Mecha-Core 路径全部 patch），
       # 无需数据注入步。CI 无 Mecha-Core：journals 走静态兜底、测试内 patch 路径到 temp。
