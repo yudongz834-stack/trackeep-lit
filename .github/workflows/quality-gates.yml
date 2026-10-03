@@ -89,6 +89,11 @@ jobs:
       - name: Install locked dependencies
         run: python -m pip install -r requirements-lock.txt
 
+      - name: PubMed 只读护栏与架构事实
+        run: |
+          python tools/check_map.py --check
+          python tests/pubmed_test.py
+
       # 本项目测试自带合成数据 + 全 mock（引擎 spawn / 联网 / Mecha-Core 路径全部 patch），
       # 无需数据注入步。CI 无 Mecha-Core：journals 走静态兜底、测试内 patch 路径到 temp。
       # shell: bash 显式声明 = 启用 pipefail——否则 tee 会吞掉测试脚本的失败退出码

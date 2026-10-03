@@ -4,6 +4,8 @@
 本文件 = 项目纪律与已踩坑固化决策**。开工先读 AGENTS.md + [PROJECT-CONTRACT.md](./PROJECT-CONTRACT.md) + 本文件；
 当前状态看 [阶段日志.md](./阶段日志.md) 顶部。
 
+PubMed 检索规则与只读预览入口见 [AGENTS.md](./AGENTS.md) 的「PubMed 检索入口」；不得将旧引擎预览视作新检索校验已生效。
+
 ## 定位一句话
 
 PI 的医学文献桌面进料端：选刊 → PubMed 检索 → Zotero 去重预览 → 一键导入。

@@ -8,3 +8,5 @@ build/
 dist/
 tests/_tmp_*
 .mutmut-cache
+日志/pubmed-preview/
+日志/pubmed-validation/

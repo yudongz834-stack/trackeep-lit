@@ -1,0 +1,9 @@
+{
+  "kind": "topic",
+  "journal": "Nature",
+  "query": "42420446[pmid]",
+  "concepts": [{"name": "同一论文跨月身份专测；不是主题召回策略"}],
+  "date": {"field": "dp", "start": "2026-07-01", "end": "2026-07-31"},
+  "screening_location": "undecided",
+  "known_pmids": ["42420446"]
+}

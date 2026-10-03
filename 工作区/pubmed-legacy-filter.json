@@ -1,0 +1,9 @@
+{
+  "kind": "journal",
+  "journal": "Nature",
+  "date": {"field": "dp", "start": "2026-09-01", "end": "2026-09-30"},
+  "selection_mode": "query-filtered",
+  "filter_query": "((journal article[PT] OR review[PT]) AND hasabstract) NOT (comment[PT] OR letter[PT] OR published erratum[PT] OR retraction of publication[PT] OR retracted publication[PT])",
+  "filter_reason": "只读复现旧引擎错误，预期阻断；不是推荐策略",
+  "screening_location": "undecided"
+}

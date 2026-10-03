@@ -4,6 +4,12 @@
 **AGENTS.md = 生产规范流程入口；CLAUDE.md = 项目纪律与已踩坑固化决策**。二者互指不重复。
 任何 Agent（Claude / GLM / Codex / 其他）开工先读本文件 + [PROJECT-CONTRACT.md](./PROJECT-CONTRACT.md) + CLAUDE.md。
 
+## PubMed 检索入口（2026-10-03）
+
+使用本管道检索前，读[PubMed 检索规范](规则/PubMed检索规范_v1.0_20261003.md)，再执行其中的只读预览入口。它是检索规则唯一正文；当前只交付检索阶段，前端/入库后筛选策略尚未定案，后续生产导入、全文及插件施工仍暂停。当前接手状态与产出清单见 [HANDOFF.md](HANDOFF.md)。
+
+施工定位先读[架构图与故障入口](规则/架构.md)；收口运行 `tools/check_map.py --check`，不以旧地图猜新入口。
+
 ## 0. 母法与合同位置
 
 - **母法**：《AI-Agent 软件生产规范》**v1.1.2**

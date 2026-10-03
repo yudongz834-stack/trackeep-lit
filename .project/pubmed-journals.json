@@ -1,0 +1,12 @@
+{
+  "verified_on": "2026-10-03",
+  "journals": [
+    {"name":"Nature","ta":"Nature","nlm_id":"0410462","aliases":["Nature"],"issn":["0028-0836","1476-4687"],"source":"https://www.ncbi.nlm.nih.gov/nlmcatalog/410462"},
+    {"name":"Science","ta":"Science","nlm_id":"0404511","aliases":["Science"],"issn":["0036-8075","1095-9203"],"source":"https://www.ncbi.nlm.nih.gov/nlmcatalog/404511"},
+    {"name":"Cell","ta":"Cell","nlm_id":"0413066","aliases":["Cell"],"issn":["0092-8674","1097-4172"],"source":"https://www.ncbi.nlm.nih.gov/nlmcatalog/413066"},
+    {"name":"NEJM","ta":"N Engl J Med","nlm_id":"0255562","aliases":["NEJM","N Engl J Med","The New England journal of medicine"],"issn":["0028-4793","1533-4406"],"source":"https://www.ncbi.nlm.nih.gov/nlmcatalog/255562"},
+    {"name":"Lancet","ta":"Lancet","nlm_id":"2985213R","aliases":["Lancet","The Lancet"],"issn":["0140-6736","1474-547X"],"source":"https://www.ncbi.nlm.nih.gov/nlmcatalog/446079"},
+    {"name":"JAMA","ta":"JAMA","nlm_id":"7501160","aliases":["JAMA"],"issn":["0098-7484","1538-3598"],"source":"https://www.ncbi.nlm.nih.gov/nlmcatalog/7501160"},
+    {"name":"BMJ","ta":"BMJ","nlm_id":"8900488","aliases":["BMJ","The BMJ"],"issn":["0959-8138","1756-1833"],"source":"https://www.ncbi.nlm.nih.gov/nlmcatalog?cmd=PureSearch&db=journals&term=%228900488%22%5BNLM+ID%5D"}
+  ]
+}

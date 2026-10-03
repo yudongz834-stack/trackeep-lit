@@ -1,0 +1,8 @@
+{
+  "kind": "journal",
+  "journal": "Nature",
+  "date": {"field": "dp", "start": "2026-09-01", "end": "2026-09-30"},
+  "selection_mode": "broad",
+  "screening_location": "undecided",
+  "known_pmids": ["42420446"]
+}
