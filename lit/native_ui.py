@@ -14,7 +14,7 @@ def window():
     for candidate in Desktop(backend='uia').windows():
         try:
             executable = Path(psutil.Process(candidate.process_id()).exe())
-            if (executable == Path('E:/Software/zotero_APP/zotero.exe')
+            if (executable == Path('E:/Software/Zotero/zotero.exe')
                     and candidate.element_info.class_name == 'MozillaWindowClass'
                     and len([c for c in candidate.descendants(control_type='Tree')
                              if c.element_info.automation_id == 'item-tree-main-default']) == 1):

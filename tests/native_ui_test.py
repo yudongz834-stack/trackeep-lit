@@ -85,7 +85,7 @@ class NativeWindows(unittest.TestCase):
         desktop = Mock()
         desktop.windows.return_value = [reader, dialog, main]
         process = Mock()
-        process.exe.return_value = 'E:/Software/zotero_APP/zotero.exe'
+        process.exe.return_value = 'E:/Software/Zotero/zotero.exe'
         with patch.dict(sys.modules, {'pywinauto': SimpleNamespace(Desktop=lambda **kwargs: desktop),
                                      'psutil': SimpleNamespace(Process=lambda pid: process, Error=RuntimeError)}):
             self.assertIs(ui.window(), main)
