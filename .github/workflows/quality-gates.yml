@@ -92,9 +92,21 @@ jobs:
       - name: PubMed 只读护栏与架构事实
         run: |
           python tools/check_map.py --check
-            python tests/pubmed_test.py
-            python tests/metadata_test.py
-            python tests/fulltext_test.py
+          python tests/pubmed_test.py
+          python tests/metadata_test.py
+          python tests/fulltext_test.py
+
+      - name: 共享流程、现役采集台与原生全文护栏（离线替身）
+        shell: bash
+        env:
+          QT_QPA_PLATFORM: offscreen
+          TRACKEEP_SELFTEST: "1"
+          TRACKEEP_CI: "1"
+        run: |
+          python tests/workflow_test.py 2>&1 | tee workflow.log
+          python tests/workflow_gui_test.py 2>&1 | tee workflow-gui.log
+          python tests/native_fulltext_test.py 2>&1 | tee native-fulltext.log
+          python tests/native_ui_test.py 2>&1 | tee native-ui.log
 
       # 本项目测试自带合成数据 + 全 mock（引擎 spawn / 联网 / Mecha-Core 路径全部 patch），
       # 无需数据注入步。CI 无 Mecha-Core：journals 走静态兜底、测试内 patch 路径到 temp。
@@ -160,6 +172,10 @@ jobs:
               "stress_pass": grab("stress.log", r'(\d+/\d+ 项通过)'),
               "adversarial_pass": grab("adversarial.log", r'(\d+/\d+ 项通过)'),
               "property_pass": grab("property.log", r'(\d+/\d+ 项通过)'),
+              "workflow_cases": grab("workflow.log", r'Ran (\d+) tests'),
+              "workflow_gui_cases": grab("workflow-gui.log", r'Ran (\d+) tests'),
+              "native_fulltext_cases": grab("native-fulltext.log", r'Ran (\d+) tests'),
+              "native_ui_cases": grab("native-ui.log", r'Ran (\d+) tests'),
               "stress_seed": grab("stress.log", r'seed=(\d+)'),
               "property_seed": grab("property.log", r'seed=(\d+)'),
               "ci_skips": grab("gui.log", r'跳过 (\d+) 次'),
@@ -172,6 +188,10 @@ jobs:
               m = re.match(r'(\d+)/(\d+)', summary[key])
               if not m or m.group(1) != m.group(2):
                   print(f"::error::{key} 未全过: {summary[key]}")
+                  sys.exit(1)
+          for key in ("workflow_cases", "workflow_gui_cases", "native_fulltext_cases", "native_ui_cases"):
+              if not str(summary[key]).isdigit() or int(summary[key]) < 1:
+                  print(f"::error::{key} 未取得测试数量")
                   sys.exit(1)
           PY
 
@@ -186,6 +206,10 @@ jobs:
             stress.log
             adversarial.log
             property.log
+            workflow.log
+            workflow-gui.log
+            native-fulltext.log
+            native-ui.log
           if-no-files-found: error
 
   secret-scan:
@@ -275,6 +299,10 @@ jobs:
                   "stress_pass": summary.get("stress_pass", "?"),
                   "adversarial_pass": summary.get("adversarial_pass", "?"),
                   "property_pass": summary.get("property_pass", "?"),
+                  "workflow_cases": summary.get("workflow_cases", "?"),
+                  "workflow_gui_cases": summary.get("workflow_gui_cases", "?"),
+                  "native_fulltext_cases": summary.get("native_fulltext_cases", "?"),
+                  "native_ui_cases": summary.get("native_ui_cases", "?"),
                   "seeds": {"stress": summary.get("stress_seed", "?"),
                             "property": summary.get("property_seed", "?")},
                   "ci_skips": summary.get("ci_skips", "?"),

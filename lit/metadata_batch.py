@@ -10,7 +10,7 @@ import subprocess
 import sys
 import uuid
 from lit import pubmed
-from lit.library import Library, exact, matching
+from lit.library import Library, exact, matching, doi
 
 ROOT = Path(__file__).resolve().parents[1]
 ENGINE = Path(r'D:\dev\trackeep-scripts\zotero-import.ps1')
@@ -33,8 +33,8 @@ def load_scope(path, pmids):
             report.get('status') != 'retrieval_verified' or report.get('retrieval_complete') is not True or
             report.get('read_only') is not True):
         raise ValueError('只接收完整、无待核警告的核验报告')
-    if not 1 <= len(pmids) <= 3 or len(set(pmids)) != len(pmids) or any(not re.fullmatch(r'[1-9]\d*', p) for p in pmids):
-        raise ValueError('本阶段须显式指定 1 至 3 个不同 PMID')
+    if not pmids or len(set(pmids)) != len(pmids) or any(not re.fullmatch(r'[1-9]\d*', p) for p in pmids):
+        raise ValueError('须显式指定非空且不重复的 PMID')
     rows = report['articles']
     ids = report['pmids']
     if len(rows) != len(ids) or len(set(ids)) != len(ids) or set(ids) != {a['pmid'] for a in rows}:
@@ -42,14 +42,20 @@ def load_scope(path, pmids):
     if any(type(report['counts'].get(k)) is not int or report['counts'][k] != len(rows) for k in ('unique_pmids', 'metadata')):
         raise ValueError('源报告计数不一致')
     selected = [a for a in rows if a['pmid'] in pmids]
+    identifiers = {}
+    for a in selected:
+        if a.get('doi'):
+            identifiers.setdefault(doi(a['doi']),set()).add(a['pmid'])
+    if any(len(ids)>1 for ids in identifiers.values()):
+        raise ValueError('同 DOI 对应不同 PMID，保留待核')
     if len(selected) != len(pmids):
         raise ValueError('指定 PMID 不全在已核报告中')
     plan = report.get('effective_plan', report['plan'])
     if plan.get('screening_location') != 'after-import':
         raise ValueError('源计划未采用本阶段入库后复核顺序，须更新计划并重做预览')
-    journal = plan.get('journal')
+    journal = plan.get('journal') or selected[0].get('journal')
     if not journal or any(not a.get('nlm_id') or not a.get('title') for a in selected):
-        raise ValueError('本阶段需要已核期刊身份')
+        raise ValueError('需要已核期刊身份；多刊须按 NLM 身份分组')
     verified_journal = pubmed.resolve_journal(journal)
     if any(a['nlm_id'] != verified_journal['nlm_id'] for a in selected):
         raise ValueError('源报告题录期刊与计划不一致')
@@ -62,12 +68,27 @@ def engine_call(articles, journal, collection, pin, apply):
            '-StateDir', str(ROOT), '-ExpectedRecordsPath', str(pin), '-EmitJson']
     if apply:
         cmd.append('-Execute')
-    result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace',
+    result = subprocess.run(cmd, capture_output=True,
                             timeout=600, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    def decode(value):
+        if isinstance(value,str):
+            return value
+        try:
+            return value.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            return value.decode('gb18030', errors='replace')
     # 不把引擎原始输出/错误写日志，避免依赖异常中夹带请求头。
     if result.returncode:
-        raise RuntimeError('原引擎未正常完成；须读库核对写入状态')
-    lines = [s[len('TRACKEEP_JSON '):] for s in result.stdout.splitlines() if s.startswith('TRACKEEP_JSON ')]
+        diagnostic = decode(result.stderr)
+        # 某些宿主把 PowerShell 中文异常以系统代码页输出；仅用于匹配固定错误白名单。
+        known = {'指定目录不存在':'目标集合不存在或不符合原引擎的期刊集合约束',
+                 '题录身份':'原引擎重新取得的题录身份不符合预览',
+                 '另一个导入正在执行':'另一个原引擎导入正在执行',
+                 '缺 secret 文件':'原引擎所需凭证文件不可达'}
+        reason = next((message for marker,message in known.items() if marker in diagnostic),
+                      '未取得有效回执，须读库核对写入状态')
+        raise RuntimeError(f'原引擎失败（退出码 {result.returncode}）：{reason}')
+    lines = [s[len('TRACKEEP_JSON '):] for s in decode(result.stdout).splitlines() if s.startswith('TRACKEEP_JSON ')]
     if len(lines) != 1:
         raise RuntimeError('原引擎缺唯一机器回执；须读库核对')
     receipt = json.loads(lines[0])
@@ -104,7 +125,10 @@ def run(args, folder):
         out['articles'] = articles
         out['metadata_batches'] = probe['metadata_batches']
         lib = Library()
-        cols = [c for c in lib.all('/collections') if c['data']['name'] == journal]
+        target = getattr(args, 'collection_key', None)
+        if target and not re.fullmatch(r'[A-Z0-9]{8}', target):
+            raise ValueError('目标集合编号格式错误')
+        cols = [c for c in lib.all('/collections') if (c['key'] == target if target else c['data']['name'] == journal)]
         if len(cols) != 1:
             raise ValueError('目标期刊目录不存在或重名；本阶段不新建目录')
         collection = cols[0]['key']
@@ -112,8 +136,12 @@ def run(args, folder):
         rows = lib.all('/items?includeTrashed=1')
         pending = []
         for a in articles:
-            hits = matching(rows, a)
+            all_hits = matching(rows, a)
+            hits = [r for r in all_hits if not r['data'].get('deleted')]
+            if not hits:
+                hits = all_hits
             item = {'pmid': a['pmid'], 'doi': a['doi'], 'title': a['title'], 'review': 'pending'}
+            item['ignored_trashed_keys'] = [r['key'] for r in all_hits if r['data'].get('deleted') and r not in hits]
             if hits:
                 item['keys'] = [r['key'] for r in hits]
                 if len(hits) != 1 or not exact(hits[0], a):
@@ -131,18 +159,23 @@ def run(args, folder):
                 pending.append(a)
             out['items'].append(item)
         save(path, out)
-        if pending:
-            pin = folder / 'expected.json'
-            save(pin, pending)
-            out['dry_run'] = engine_call(pending, journal, collection, pin, False)
+        out['chunks'] = []
+        for start in range(0, len(pending), 50):
+            chunk = pending[start:start + 50]
+            pin = folder / f'expected-{start:06d}.json'
+            save(pin, chunk)
+            out['dry_run'] = engine_call(chunk, journal, collection, pin, False)
+            chunk_record = {'pmids': [a['pmid'] for a in chunk], 'dry_run': out['dry_run']}
+            out['chunks'].append(chunk_record)
             save(path, out)
             if any(i['status'] != 'new' for i in out['dry_run']['items']):
                 raise ValueError('引擎与库查重结论不一致，停止写入')
             if args.apply:
-                out['receipt'] = engine_call(pending, journal, collection, pin, True)
+                out['receipt'] = engine_call(chunk, journal, collection, pin, True)
+                chunk_record['receipt'] = out['receipt']
                 save(path, out)
                 # 按引擎确认为本批创建的编号读回，不以“先前没见过”认领条目。
-                for a in pending:
+                for a in chunk:
                     ri = next(i for i in out['receipt']['items'] if i['pmid'] == a['pmid'])
                     item = next(i for i in out['items'] if i['pmid'] == a['pmid'])
                     if ri['status'] != 'imported':

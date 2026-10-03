@@ -8,7 +8,7 @@
 
 ## 1. 每次先形成检索计划
 
-Agent 把用户意图写为 JSON 计划，交给 `lit/pubmed.py`。自然语言转检索式目前由 Agent 完成，没有隐藏的模型改写服务。
+现役 GUI 与 Agent 共用 `lit.workflow.Workflow.dispatch`：明确期刊／日期／PMID 用 `plan`，中文主题用 `plan_natural` 复用已配置模型形成英文查询及概念拆分；先展示可读计划再 `search`。没有模型配置或生成失败时明确阻断，不能把中文原句冒充已核查询。Agent负责参数，用户无需手写JSON。底层只读 `lit/pubmed.py` 仍可独立预览。
 
 必须说明：①期刊采集或主题检索；②期刊身份或概念范围；③起止日期及生效日期字段（按刊省略字段时采用下文已定默认，主题仍须显式指定），主题确实不限时则显式 `all_time: true`；④检索前过滤条件和理由；⑤筛选位置 `undecided` / `before-import` / `after-import` / `split`；⑥已知应命中的 PMID（如果有）。患者身份信息不得进入检索式。
 
@@ -22,7 +22,7 @@ Agent 把用户意图写为 JSON 计划，交给 `lit/pubmed.py`。自然语言�
 
 退出码：`0`＝检索集合、题录及适用身份核对通过；`2`＝已取回但有警告或召回验证待核；`1`＝阻断。即使为 0，`relevance_validated` 仍为 false，不表示主题相关性已通过人工判断。每次运行落独立 JSON，包含输入、服务端解释、错误/警告、PMID、题录、分片与计数；失败也留证。
 
-旧 GUI 和旧 PowerShell 按刊检索尚未接入本规范的完整校验，**不能把旧界面回执当本阶段合格预览**。Agent 使用以上入口；原 PowerShell 引擎已补精确身份护栏，少量实测走 `lit.metadata_batch`，受独立复核约束。具名两篇的全文续接见下文；通用自动下载和插件封装尚未完成。
+现役主窗已改接共享 workflow，MCP／项目Skill也调用同核心；旧 HarvestPage 仅留历史回归。原 PowerShell 引擎只接共享服务已核的明确题录，不以其旧按刊预览替代上述核验。本轮授权与验收见 [.project/unified-workflow-task.md](../.project/unified-workflow-task.md)，真实 GUI/MCP 全链路与独立复核仍在进行；入口已实现不等于产品已验收。
 
 ## 2. 期刊采集：先核刊，再核时间
 
@@ -34,7 +34,7 @@ Agent 把用户意图写为 JSON 计划，交给 `lit/pubmed.py`。自然语言�
 
 **官方事实**：期刊字段 `[TA]`（Journal）可以用完整刊名或标准缩写；只有 ISSN 的查询可能漏掉不含 ISSN 的旧记录。查询用已核实的标准缩写，返回题录用 `MedlineJournalInfo/NlmUniqueID` 校验，二者不同职责。[NLM 检索帮助](https://pubmed.ncbi.nlm.nih.gov/help/#searching-by-journal)
 
-七刊 Nature、Science、Cell、NEJM、Lancet、JAMA、BMJ 的身份正本是 [pubmed-journals.json](../.project/pubmed-journals.json)，每条附 NLM Catalog 来源；不要在别处另抄一套缩写/ID。**已实现**：只接受表内明确别名，逐条核 NLM ID；缺失或不符即阻断。其余刊需先核官方记录再扩表。
+七刊 Nature、Science、Cell、NEJM、Lancet、JAMA、BMJ 的身份正本是 [pubmed-journals.json](../.project/pubmed-journals.json)，每条附 NLM Catalog 来源；不要在别处另抄一套缩写/ID。**已实现**：表内明确别名直接解析；其余刊名通过官方 NLM Catalog 动态核验，歧义或身份缺失阻断。展示用 Memex 期刊表不替代官方身份，返回题录仍逐条核 NLM ID。
 
 历史边界：主刊不自动包含系列刊、分刊、前身或摘要版。BMJ 主刊与 Academic edition 是不同记录；Lancet 的 Catalog 网页编号也不是 NLM ID。回溯更名前年份须另核前身集合，不因为本表七刊可用就声称覆盖所有历史。Nature 官方记录注明 PubMed 选择性收录，所以“PubMed 取齐”不能称“全刊收齐”。[Nature Catalog](https://www.ncbi.nlm.nih.gov/nlmcatalog/410462)
 
@@ -71,7 +71,7 @@ Agent 把用户意图写为 JSON 计划，交给 `lit/pubmed.py`。自然语言�
 3. 组内 OR，组间 AND，每组加括号。自由词逐个标 `[tiab]`，主题词标 `[Mesh]`；仅标题用 `[ti]` 会更窄，须有理由。MeSH 默认扩展下位词，`[mh:noexp]` 仅在明确要限制时使用。
 4. NOT 可能删掉同时讨论两类对象的相关文献，原则上先用正向条件；确需 NOT 时记录理由并抽查排除集合。不能凭“看起来不相关”把标题词变成全局排除词。
 5. 字段、引号、截词会改变自动映射。`*` 前至少四个字符，通配符不替你补 MeSH；无效短语可能被拆词或忽略引号。检查服务端 QueryTranslation，不能只看自己写的原式。[语法与映射](https://pubmed.ncbi.nlm.nih.gov/help/#searching-for-a-phrase)
-6. 用至少一篇明确应命中的已知 PMID 验证召回；缺失时分拆概念组定位哪项误排，并保存修前/修后计划。没有已知文章时仍可探索，但标为未完成召回验证。命中种子不是总体召回率证据；再抽看相关与不相关样本，决定是前端收紧还是后端筛选。
+6. 用至少一篇明确应命中的已知 PMID 验证召回；缺失时分拆概念组定位哪项误排，并保存修前/修后计划。没有已知文章时仍可探索，但标为未完成召回验证。共享流程允许数量与身份已核的此类题录进入入库后复核；这一豁免不包含NCBI警告、身份冲突或取齐失败。命中种子不是总体召回率证据；再抽看相关与不相关样本，决定是前端收紧还是后端筛选。
 
 可运行的[主题示例](示例/stem-cell-topic.json)将“Nature 2026 年 9 月造血干细胞移植”拆成 MeSH 与英美拼写自由词，并带已知 PMID；这是检索演示，不是生物医学总筛选规则。每次概念调整要有漏检/误检实例或用户范围变化，不做无目标的反复改词。
 
@@ -93,11 +93,11 @@ EFetch 每批 150，检查该批返回 PMID 集合与请求完全相同；重复
 
 只想识别时可用 `hasretractionin OR retracted publication[pt]` 与 `hasretractionof OR retraction notice[pt]` 分别查原文/通知，不能只排通知就声称剔除了被撤研究。默认检索预览保留二者并标记，不擅自删除；关注声明、勘误、撤稿后重发不得一律当成撤稿。**已实现**仅对原文与通知打布尔标记并保留全部关系；其余关系判断与 Zotero 处置待后续阶段。
 
-交接原始 PMID 集合、检索计划、每步计数和来源报告；每一步过滤记录 `PMID＋决定＋理由＋规则版本＋发生位置`。前端已排除的内容不得在后端统计中再次记成新排除。导入数量、去重数量、全文数量分别报告，不混作“检索成功数”。**当前有界试运行已接通题录、入库后复核与保留项全文**：`lit.metadata_batch` 只接明确1–3 PMID，调用原 PowerShell 引擎；`lit.batch_review` 重新只读查库，输出保留/排除/待核和有效候选清单，不永久删除或合并。失败留回执。真实两篇与同批重跑的独立验收见阶段日志；全量差集自动处理、含旧附件笔记条目的实库保护、通用自动下载及插件均未完成。
+交接原始 PMID 集合、检索计划、每步计数和来源报告；每一步过滤记录 `PMID＋决定＋理由＋规则版本＋发生位置`。前端已排除的内容不得在后端统计中再次记成新排除。导入数量、去重数量、全文数量分别报告，不混作“检索成功数”。**现役共享流程**：`workflow` 按已核题录分组调用 `lit.metadata_batch` 和原 PowerShell 引擎；`lit.batch_review` 读回身份、重复与撤稿，输出保留／排除／待核。`review_ai` 复用模型，缺摘要、无结论或失败均待核。明确授权的 `apply_cleanup` 只允许可恢复处置本批可验证新建项，已有资料及带子项对象保护；不永久删除或合并。此前两篇实测见阶段日志，本轮完整产品实机验收另见交接，不把旧样例外推。
 
-本批全文入口为 `lit.fulltext_batch`：先校验复核回执与原批次哈希，仅 keep 项继续；官方下载凭据的 DOI/标题、源 PubMed PMID 映射、PDF 首页标题和完整 DOI、Zotero 父项一致才可挂接。PDF 必须可解析且含研究正文，HTML/XML、参考文献冒认和补充材料不算主文。先查旧附件，实际读取并核验，已存在则复用；新附件使用官方上传协议，读回原件核 SHA256，父项内容不变才成功。失败逐项留证，不静默当成功。本批首篇取现行 PMC 云元数据主文 pdf_url，第二篇取 Nature 页面 citation_pdf_url；未使用退休的 oa.fcgi。官方来源定位与下载仍由 Agent 有界执行，当前下载脚本是本次运行记录，不能当通用下载器重放。
+**前序两篇云端试运行（历史兼容入口，非本机默认）**使用 `lit.fulltext_batch`：先校验复核回执与原批次哈希，仅 keep 项继续；官方下载凭据的 DOI/标题、源 PubMed PMID 映射、PDF 首页标题和完整 DOI、Zotero 父项一致才可挂接。PDF 必须可解析且含研究正文，HTML/XML、参考文献冒认和补充材料不算主文。先查旧附件，实际读取并核验，已存在则复用；新附件使用官方上传协议，读回原件核 SHA256，父项内容不变才成功。失败逐项留证，不静默当成功。本批首篇取现行 PMC 云元数据主文 pdf_url，第二篇取 Nature 页面 citation_pdf_url；未使用退休的 oa.fcgi。官方来源定位与下载仍由 Agent 有界执行，当前下载脚本是本次运行记录，不能当通用下载器重放。
 
-**桌面交付闸门**：先确认用户当前附件同步后端。本机现为WebDAV，`lit.fulltext_batch`的上传后端为Zotero Storage，两者不可混作一次交付。后续Agent不得直接以云端成功收口：须核本地API原父项/附件key、实际文件存在与身份哈希、阅读器可打开。本批已通过Zotero原生“定位文件”补回同key两份附件，独立确认各父项仅一份、父项资料不变；未直接写内部storage/数据库或改同步配置。此原生UI补救未封成通用命令，WebDAV远端同步另列未验证。
+**桌面交付闸门**：先确认用户当前附件同步后端。本机现为WebDAV，`lit.fulltext_batch`的上传后端为Zotero Storage，两者不可混作一次交付。后续Agent不得直接以云端成功收口：须核本地API原父项/附件key、实际文件存在与身份哈希、阅读器可打开。本批已通过Zotero原生“定位文件”补回同key两份附件，独立确认各父项仅一份、父项资料不变；未直接写内部storage/数据库或改同步配置。此处描述前序有界UI补救；本轮已新增共享原生编排，实际验收状态见交接。WebDAV远端同步仍另列未验证。
 
 ### 5.1 本机原生功能优先（2026-10-03 实测）
 
@@ -110,7 +110,7 @@ EFetch 每批 150，检查该批返回 PMID 集合与请求完全相同；重复
 3. 原生查找没有取得全文而已有合法官方 PDF 时，先验证源文件并重查子项，再选该父项→附件菜单“附加文件…”（存储副本），随后做同样读回验证。来源/身份不清或访问受限则待核，不绕过。
 4. 原生“附加文件”**不会按相同文件自动去重**：本次同父项同 PDF 实际重做，附件从1增至2、两键同哈希。必须由 Agent 在写入前检查；随后只读护栏重跑新增0。不要把此护栏称为原生去重。查找成功后菜单入口消失，本次没有执行第二次查找，不宣称实测二次下载去重。
 
-这是可复用的 Agent 原生 UI 流程，尚非一个自动命令。9.0.6 本地 API 用于只读核验；[官方本地 API 文档](https://www.zotero.org/support/dev/web_api/v3/local_api)的写能力从10开始，不能把内部JavaScript或未来版本当当前稳定外部写接口。无需新增下载器、插件或升级。现有云端附件命令保留，但不可默认为当前 WebDAV 的本机交付路径。原生存储副本语义见[官方附件说明](https://www.zotero.org/support/attaching_files)。此次仅两篇样本，未证明所有出版社可取、WebDAV远端或其他设备可读。
+本轮将此顺序接为共享 `fulltext` 动作（`run_id`＋显式 `apply:true`），GUI与MCP均调用 `lit/native_fulltext.py`；原生控件桥位于 `lit/native_ui.py`。官方补充当前覆盖PMC主文与Nature路径，其余出版社优先依赖Zotero原生能力，访问失败保留缺全文，不承诺普适下载。9.0.6 本地 API 用于只读核验；[官方本地 API 文档](https://www.zotero.org/support/dev/web_api/v3/local_api)的写能力从10开始，不能把内部JavaScript或未来版本当当前稳定外部写接口。未安装或升级Zotero插件；项目内Agent插件包装与宿主安装是两回事，当前可发现，不宣称已安装。现有云端附件命令保留，但不可默认为当前 WebDAV 的本机交付路径。原生存储副本语义见[官方附件说明](https://www.zotero.org/support/attaching_files)。此次仅两篇样本，未证明所有出版社可取、WebDAV远端或其他设备可读。
 
 ## 6. 已定与待定
 

@@ -1,5 +1,7 @@
 # Trackeep Lit — 项目合同（PROJECT-CONTRACT）
 
+2026-10-03 双入口完整交付的本轮具名授权与验收以 [.project/unified-workflow-task.md](.project/unified-workflow-task.md) 为准：GUI确认写入，Agent可在用户明确授权的范围内经共享流程显式 `apply:true`；不把下文历史“只由GUI触发”限制误用于本轮授权。只读预览绝不真实写入、原引擎归属、凭证保护及禁止全库清理等边界不变。规则正文仍只在既有唯一规范维护。
+
 > 母法：《AI-Agent 软件生产规范》v1.1.2（`D:\dev\trackeep-design\AI-Agent软件生产规范-v1.1-定稿.md`）。
 > 本文件是附录 A 在本项目的实例化（应然层）。机器版义务清单见 `.project/policy.yaml`；
 > 实然状态见 `.project/manifest.yaml`；不变量/脆弱场景/例外见 `.project/` 同名文件。

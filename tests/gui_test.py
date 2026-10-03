@@ -148,7 +148,9 @@ win = MainWindow()
 win.show()
 app.processEvents()
 
-harvest = win.pages[page_index("采集台")]
+# 历史采集组件保留独立回归；现役主窗的新流程另由 workflow_gui_test 验证。
+from ui.pages.harvest_page import HarvestPage
+harvest = HarvestPage()
 
 
 def _drain(page, timeout=10.0):

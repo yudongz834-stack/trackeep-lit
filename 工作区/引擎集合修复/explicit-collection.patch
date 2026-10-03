@@ -1,0 +1,11 @@
+--- a/zotero-import.ps1
++++ b/zotero-import.ps1
+@@ -261,7 +261,7 @@
+ 
+ # --- 4) collection key（按期刊名匹配）---
+ $collKey = ''; $cols = @(Zot-GetAll '/collections')
+-$cm = @($cols | Where-Object { $_.data.name -eq $Journal }); if ($cm.Count -eq 1) { $collKey = $cm[0].key }; if ($CollectionKey) { if (-not @($cols | Where-Object { $_.key -eq $CollectionKey -and $_.data.name -ceq $Journal }).Count) { throw '指定目录不存在' }; $collKey = $CollectionKey }
++$cm = @($cols | Where-Object { $_.data.name -eq $Journal }); if ($cm.Count -eq 1) { $collKey = $cm[0].key }; if ($CollectionKey) { if (@($cols | Where-Object { $_.key -ceq $CollectionKey }).Count -ne 1) { throw '指定目录不存在或编号不唯一' }; $collKey = $CollectionKey }
+ $collMsg = if ($collKey) { "collection「$Journal」key=$collKey" } else { "⚠ 未找到 collection「$Journal」(先跑 zotero-journals.ps1)；导入将不归集" }
+ 
+ # --- 5) 报告 ---

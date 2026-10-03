@@ -11,27 +11,29 @@ from lit.metadata_batch import ROOT, save
 
 
 def review(batch, decisions, lib):
-    if batch.get('schema') != 'trackeep-literature/metadata-batch@1' or batch.get('status') != 'metadata_verified':
+    if batch.get('schema') != 'trackeep-literature/metadata-batch@1' or batch.get('status') not in ('metadata_verified','review_required'):
         raise ValueError('只复核已读回验证的题录批次')
     articles = batch['articles']
-    if (not isinstance(decisions, list) or len(decisions) != len(articles) or
-            {d.get('pmid') for d in decisions} != {a['pmid'] for a in articles}):
-        raise ValueError('每个批次 PMID 必须有且仅有一条复核决定')
+    if (not isinstance(decisions, list) or any(not isinstance(d,dict) for d in decisions) or
+            len({d.get('pmid') for d in decisions}) != len(decisions) or
+            not {d.get('pmid') for d in decisions}.issubset({a['pmid'] for a in articles})):
+        raise ValueError('复核决定不得重复或超出批次范围')
     all_rows = lib.all('/items?includeTrashed=1')
     result = {'schema':'trackeep-literature/batch-review@1', 'created_at':dt.datetime.now(dt.timezone.utc).isoformat(),
               'rule_version':'PubMed检索规范 v1.0 / 2026-10-03 入库后复核', 'location':'after-import',
               'cleanup_method':'effective_candidate_list', 'zotero_mutations':0, 'fulltext_status':'not_started', 'items':[]}
     for a in articles:
-        decision = next(d for d in decisions if d['pmid'] == a['pmid'])
+        decision = next((d for d in decisions if d['pmid'] == a['pmid']),
+                        {'pmid':a['pmid'],'decision':'pending','reason':'尚无逐篇复核结论'})
         if decision.get('decision') not in ('keep','exclude','pending') or not isinstance(decision.get('reason'),str) or not decision['reason'].strip():
             raise ValueError('决定必须为保留/排除/待核并附理由')
         imported = next(i for i in batch['items'] if i['pmid'] == a['pmid'])
-        hits = matching(all_rows,a)
+        hits = [r for r in matching(all_rows,a) if not r['data'].get('deleted')]
         item = {'pmid':a['pmid'],'doi':a['doi'],'title':a['title'],'source':a['source'],
                 'retraction_links':a.get('retraction_links',a.get('links',[])), 'requested_decision':decision,
                 'decision':decision['decision'],'reason':decision['reason'], 'keys':[r['key'] for r in hits]}
         if (len(hits) != 1 or not exact(hits[0],a) or hits[0]['key'] not in imported.get('keys',[]) or
-                batch['collection']['key'] not in hits[0]['data'].get('collections',[]) or hits[0]['data'].get('deleted')):
+                imported.get('collection_key', batch.get('collection',{}).get('key')) not in hits[0]['data'].get('collections',[]) or hits[0]['data'].get('deleted')):
             item.update(decision='pending',reason='读回身份、目录或重复状态变化，保护原资料待核')
         elif a.get('retracted') or a.get('retraction_notice'):
             item.update(decision='exclude',reason='撤稿原文或通知：保留来源，从有效研究候选中排除')

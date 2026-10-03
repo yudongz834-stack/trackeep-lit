@@ -26,7 +26,10 @@ def verify_pdf(blob, article):
             raise ValueError('PDF 加密或不足以确认完整研究正文')
         texts=[p.get_text() for p in doc]
         first=texts[0]
-        front=re.split(r'\b(?:references|bibliography)\b',first,flags=re.I)[0]
+        # 只在独立章节标题处截断；摘要中的 prior references 不是参考文献节。
+        front=re.split(r'^[ \t]*(?:(?:\d+(?:\.\d+)*|[IVXLCDM]+)[.)]?[ \t]+)?'
+                       r'(?:references(?:[ \t]+and[ \t]+notes)?|bibliography)[ \t]*[:.]?[ \t]*$',
+                       first,flags=re.I|re.M)[0]
         identifiers={x.rstrip('.,;)') for x in re.findall(r'10\.\d{4,9}/[-._;()/:a-z0-9]+',front.lower())}
         if norm(article['title']) not in norm(front[:800]) or doi(article['doi']) not in identifiers:
             raise ValueError('PDF 首页标题或 DOI 与父题录不一致')

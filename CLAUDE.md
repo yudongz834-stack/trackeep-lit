@@ -1,5 +1,7 @@
 # Trackeep Lit — 项目纪律（CLAUDE.md）
 
+2026-10-03 双入口完整交付的本轮具名授权与验收以 [.project/unified-workflow-task.md](.project/unified-workflow-task.md) 为准：GUI确认写入，Agent可在用户明确授权的范围内经共享流程显式 `apply:true`；不把下文历史“只由GUI触发”限制误用于本轮授权。只读预览绝不真实写入、原引擎归属、凭证保护及禁止全库清理等边界不变。规则正文仍只在既有唯一规范维护。
+
 2026-10-03 的有限题录导入与原引擎修复按 [.project/metadata-trial.md](.project/metadata-trial.md) 的本轮具名授权执行；历史约束的其余范围不变。
 
 与 [AGENTS.md](./AGENTS.md) 分工：**AGENTS.md = 生产规范流程入口（母法/合同/红线内联/门禁）；

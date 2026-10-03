@@ -197,7 +197,9 @@ win = MainWindow()
 win.show()
 app.processEvents()
 
-harvest = win.pages[page_index("采集台")]
+# 保留全部历史压力断言；现役 WorkflowPage 的线程连点在 workflow_gui_test 单独验证。
+from ui.pages.harvest_page import HarvestPage
+harvest = HarvestPage()
 
 
 def _drain(page, timeout=5.0):

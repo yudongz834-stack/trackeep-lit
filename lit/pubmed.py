@@ -43,10 +43,29 @@ def journals():
 
 
 def resolve_journal(value):
+    if not isinstance(value, str) or not value.strip() or len(value) > 200 or any(c in value for c in '"[]\r\n'):
+        raise ValueError('期刊名为空或含检索控制字符')
     hits = [j for j in journals() if value.casefold() in {a.casefold() for a in j['aliases'] + [j['ta']]}]
-    if len(hits) != 1:
-        raise ValueError('期刊未在已核实七刊表中；不能猜测身份')
-    return hits[0]
+    if len(hits) == 1:
+        return hits[0]
+    result = {}
+    for field in ('Title Abbreviation','ISSN','Title'):
+        query = f'"{value}"[{field}]'
+        raw, _ = request(BASE + 'esearch.fcgi?' + urllib.parse.urlencode(dict(db='nlmcatalog', term=query, retmode='json', retmax=2)))
+        result = json.loads(raw).get('esearchresult', {})
+        if str(result.get('count')) != '0':
+            break
+    if str(result.get('count')) != '1' or len(result.get('idlist', [])) != 1:
+        raise ValueError('NLM 期刊目录未找到唯一身份，请提供准确刊名、缩写或 ISSN')
+    uid = result['idlist'][0]
+    raw, _ = request(BASE + 'efetch.fcgi?' + urllib.parse.urlencode(dict(db='nlmcatalog', id=uid, retmode='xml')))
+    records = ET.fromstring(raw).findall('NLMCatalogRecord')
+    if len(records) != 1 or not records[0].findtext('NlmUniqueID') or not records[0].findtext('MedlineTA'):
+        raise ValueError('NLM 期刊目录缺少身份或标准缩写')
+    node = records[0]
+    return {'name': node.findtext('TitleMain/Title', ''), 'ta': node.findtext('MedlineTA'),
+            'nlm_id': node.findtext('NlmUniqueID'), 'aliases': [value],
+            'source': 'https://www.ncbi.nlm.nih.gov/nlmcatalog/' + uid}
 
 
 def esearch(query, report):
@@ -90,7 +109,7 @@ def prepare(plan):
     if not isinstance(plan, dict):
         raise ValueError('检索计划必须为 JSON 对象')
     allowed={'kind','journal','date','selection_mode','screening_location','known_pmids',
-             'filter_query','filter_reason','query','concepts','all_time'}
+             'filter_query','filter_reason','query','concepts','all_time','pmids'}
     if set(plan)-allowed:
         raise ValueError('计划含不支持的字段，拒绝静默忽略：'+', '.join(sorted(set(plan)-allowed)))
     for name in ('journal', 'query', 'filter_query', 'filter_reason'):
@@ -98,10 +117,18 @@ def prepare(plan):
             raise ValueError(f'{name} 必须为字符串')
     if 'all_time' in plan and not isinstance(plan['all_time'], bool):
         raise ValueError('all_time 必须为布尔值')
-    if plan.get('kind') not in ('journal', 'topic'):
-        raise ValueError('kind 必须为 journal 或 topic')
+    if plan.get('kind') not in ('journal', 'topic', 'articles'):
+        raise ValueError('kind 必须为 journal、topic 或 articles')
     if plan.get('screening_location') not in ('undecided', 'before-import', 'after-import', 'split'):
         raise ValueError('必须明确筛选位置，尚未决定请填 undecided')
+    if plan['kind'] == 'articles':
+        ids = plan.get('pmids')
+        if (not isinstance(ids, list) or not ids or len(ids) != len(set(ids)) or
+                any(not isinstance(p, str) or not re.fullmatch(r'[1-9][0-9]*', p) for p in ids)):
+            raise ValueError('指定文章须提供不重复的 PMID 列表')
+        if any(plan.get(k) for k in ('journal','date','query','filter_query','selection_mode','all_time')):
+            raise ValueError('指定文章不能暗带期刊、日期或过滤条件')
+        return ' OR '.join(p + '[PMID]' for p in ids), None, None, None
     date = plan.get('date')
     if date is not None:
         if not isinstance(date, dict):
@@ -235,7 +262,8 @@ def preview(plan):
                         '仅印刷日期，尚未编期或缺印刷日期的记录可能漏收' if field=='ppdat' else
                         '发表日期候选集，不等于首次上线日期或持续增量追踪' if field=='dp' else
                         '按显式指定的时间范围检索'}
-        ids = sorted(collect(clause, lo, hi, field, report), key=int)
+        ids = (sorted(effective['pmids'], key=int) if effective['kind'] == 'articles'
+               else sorted(collect(clause, lo, hi, field, report), key=int))
         report['pmids'] = ids
         report['articles'] = metadata(ids, report)
         if journal:

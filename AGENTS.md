@@ -1,5 +1,7 @@
 # Trackeep Lit — Agent 运行入口（AGENTS.md）
 
+2026-10-03 双入口完整交付的本轮具名授权与验收以 [.project/unified-workflow-task.md](.project/unified-workflow-task.md) 为准：GUI确认写入，Agent可在用户明确授权的范围内经共享流程显式 `apply:true`；不把下文历史“只由GUI触发”限制误用于本轮授权。只读预览绝不真实写入、原引擎归属、凭证保护及禁止全库清理等边界不变。规则正文仍只在既有唯一规范维护。
+
 2026-10-03 本轮少量真实题录试运行及原引擎修复的具名授权、范围和验收见 [.project/metadata-trial.md](.project/metadata-trial.md)；这是本次任务对下文历史 GUI/引擎只读约束的限定例外，不扩展为全库操作授权。
 
 本文件是 Agent 在本仓的**规范流程入口**（母法附录 C.2 形制）。与 [CLAUDE.md](./CLAUDE.md) 分工：

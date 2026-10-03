@@ -62,3 +62,28 @@ class Library:
                 if len({x['key'] for x in rows}) != len(rows):
                     raise RuntimeError('Zotero 分页出现重复，须重查')
                 return rows
+
+    def trash_created(self, row, article):
+        """调用方已核批次归属；再次核身份和子项，以版本条件可逆入回收站。"""
+        key = row['key']
+        if not re.fullmatch(r'[A-Z0-9]{8}', key):
+            raise ValueError('条目编号无效')
+        current = self.get('/items/' + key)
+        if not exact(current, article) or current['data'].get('deleted'):
+            raise ValueError('排除前身份变化，保留待核')
+        if self.all('/items/' + key + '/children'):
+            raise ValueError('条目带有附件或笔记，保护原资料')
+        try:
+            headers = {**self.headers, 'Content-Type':'application/json',
+                       'If-Unmodified-Since-Version':str(current['version'])}
+            req = urllib.request.Request(self.base + '/items/' + key,
+                    data=b'{"deleted":1}', headers=headers, method='PATCH')
+            with urllib.request.build_opener(NoRedirect).open(req, timeout=90) as response:
+                if response.status != 204:
+                    raise RuntimeError('可逆排除回执异常')
+        except Exception:
+            raise RuntimeError('可逆排除未确认，需读回核查') from None
+        after = self.get('/items/' + key)
+        if not after['data'].get('deleted'):
+            raise RuntimeError('回收站读回未确认')
+        return after

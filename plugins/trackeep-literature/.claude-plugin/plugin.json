@@ -1,0 +1,7 @@
+{
+  "name": "trackeep-literature",
+  "version": "1.0.0",
+  "description": "共用 Trackeep Literature 核心的文献工作流",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

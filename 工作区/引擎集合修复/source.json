@@ -1,0 +1,10 @@
+{
+  "source": "D:\\dev\\trackeep-scripts\\zotero-import.ps1",
+  "sha256": "1a9a11808e26e07898eec62f3a3d75e3575d17828a80cf3066578584246683dd",
+  "replacement_count": 1,
+  "external_file_modified": true,
+  "after_sha256": "588d7fa5fe7d9c7147b35a5e468f0fe418d14b50dfea8fbab320ba904f08ea14",
+  "local_commit": "7926c73",
+  "published": false,
+  "validation": "独立6种集合匹配反例、实际dry-run、两篇隔离集合真实导入"
+}

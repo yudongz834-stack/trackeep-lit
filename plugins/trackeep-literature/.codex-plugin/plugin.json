@@ -1,0 +1,8 @@
+{
+  "name": "trackeep-literature",
+  "version": "1.0.0",
+  "description": "共用现有采集台的文献检索、复核与本机 Zotero 全文流程",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {"displayName": "Trackeep Literature", "shortDescription": "检索、题录、复核与本机全文"}
+}

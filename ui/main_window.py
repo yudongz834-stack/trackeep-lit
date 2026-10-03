@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (QHBoxLayout, QListWidget, QListWidgetItem,
                                QMainWindow, QStackedWidget, QWidget)
 
 from lit import config
-from ui.pages.harvest_page import HarvestPage
+from ui.pages.workflow_page import WorkflowPage
 from ui.pages.help_page import HelpPage
 from ui.pages.settings_page import SettingsPage
 
@@ -53,7 +53,7 @@ class MainWindow(QMainWindow):
         # 右侧页面（顺序与 _PAGES 一一对应）
         self.stack = QStackedWidget()
         self.pages = [
-            HarvestPage(),
+            WorkflowPage(),
             SettingsPage(),
             HelpPage(),
         ]
@@ -71,6 +71,11 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         """关窗前给后台线程（检索）几秒收尾，避免退出报错。"""
+        if any(w.isRunning() for page in self.pages for w in getattr(page, "_workers", [])):
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "任务正在运行", "请等待当前操作结束再关闭，以保留完整回执。")
+            event.ignore()
+            return
         for w in list(getattr(self, "_workers", [])):
             w.wait(5000)
         for page in self.pages:

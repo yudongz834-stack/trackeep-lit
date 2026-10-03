@@ -9,10 +9,11 @@
 读不到 / 解析空 → 回退内嵌静态胸外 10（采集台不崩，Slice 1 行为）。
 """
 import re
+from pathlib import Path
 
 from lit import config
 
-JOURNAL_TABLE = config.MECHA_CORE / "Trackeep-Memex" / "00-系统" / "期刊来源表.md"
+JOURNAL_TABLE = Path(r"D:\dev\trackeep-memex\00-系统\期刊来源表.md")
 
 # 5 个来源分类 —— 顺序即左树分组顺序（对齐期刊来源表收录统计）
 CATEGORIES = [

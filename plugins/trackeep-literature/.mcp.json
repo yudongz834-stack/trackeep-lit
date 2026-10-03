@@ -1,0 +1,3 @@
+{
+  "mcpServers": {"trackeep-literature": {"command": "E:\\Python\\python.exe", "args": ["D:\\trackeep-lit\\plugins\\trackeep-literature\\server.py"]}}
+}

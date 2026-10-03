@@ -1,81 +1,60 @@
 # Trackeep Literature
 
-原生功能已实测：Zotero“查找全文”和“附加文件”均能完成本机交付；后续按[唯一规范§5.1](规则/PubMed检索规范_v1.0_20261003.md)优先走原生流程。重复附加会产生重复附件，须先核已有文件。两份临时题录及3份测试附件已移回收站，原交付未变；详细证据见交接与阶段日志。
+现有文献采集台与 Agent 共用一条流程：明确计划 → PubMed 检索核验 → 导入前核重 → Zotero 题录入库 → 相关性、重复与撤稿复核 → 保留项本机全文。
 
-2026-10-03：Agent 入口按 [PubMed 唯一规范](规则/PubMed检索规范_v1.0_20261003.md) 执行核验检索 → 原引擎题录导入 → 入库后复核 → 保留项全文。已完成两篇题录及官方 PDF 挂接，读回核对一致，同批重跑新增0。范围与授权见 [题录试运行](.project/metadata-trial.md) 和 [全文续接](.project/fulltext-task.md)，证据见 [阶段日志](阶段日志.md)。通用自动下载、插件封装和旧 GUI 接入尚未完成。
+本轮候选实现已接入共享服务，正在做真实 GUI／MCP 全链路与独立验收，尚不宣称完整交付或正式发布。授权、判据与限制见 [.project/unified-workflow-task.md](.project/unified-workflow-task.md)；当前证据和待办见 [HANDOFF.md](HANDOFF.md)。此前两篇原生全文样例不替代本轮产品验收。
 
-本机交付已补验：两份PDF经Zotero原生“定位文件”补入原附件，阅读器实际打开且独立验收通过。当前桌面使用WebDAV；云端附件命令使用Zotero Storage，不能单凭该命令成功宣称本机可用。后续Agent须先核目标存储后端及本机文件，不能盲目重放云端上传。本批未单独验WebDAV远端文件或其他设备。
+## 打开采集台
 
-医学文献素材库的**桌面进料端**（原名 mecha-lit/机甲文献，2026-07-18 品牌重构）：
-选刊 → PubMed 检索 → Zotero 全库去重预览 → 一键导入。
-调用 Mecha-Core 的 `zotero-import.ps1` 引擎干活，自身只管界面与编排。
+双击项目内 `Trackeep Lit.pyw`；也可在本项目执行：
 
-治理入口：[AGENTS.md](./AGENTS.md)（规范流程 + 红线）· [PROJECT-CONTRACT.md](./PROJECT-CONTRACT.md)（合同，S1/R2/C1）·
-[CLAUDE.md](./CLAUDE.md)（项目纪律）· [阶段日志.md](./阶段日志.md)（当前状态）。
-
-## 怎么跑
-
-开发调试：
-
-```
-venv\Scripts\python.exe gui.py
+```powershell
+& .\venv\Scripts\python.exe .\gui.py
 ```
 
-日常使用：双击 `Trackeep Lit.vbs`（静默启动，无黑窗；用 `venv\Scripts\pythonw.exe`）。
+存量 `Trackeep Lit.vbs` 暂保留兼容，不再作为新建启动器方案。正式工程为 `D:\trackeep-lit`。
 
-起窗自检（3 秒自动退出，退出码 0 = 整窗能拉起）：`TRACKEEP_SELFTEST=1` 环境变量下跑 gui.py。
+采集台支持既有分类期刊表、额外刊名核验、最近60天、按年月回填、中文主题和明确 PMID。先看生成的计划，再核验检索；读取并选择已有集合，核重后确认存入 Zotero。双击题录可读摘要，逐篇填写保留、排除、待核及理由，也可用已配置的 DeepSeek 复核。保存复核后获取全文；错误和待核保留在批次中，可恢复后重试。
 
-测试两件套（每改动必跑）：
+新主窗只调用 `lit.workflow.Workflow.dispatch`。旧 `HarvestPage` 保留历史回归，不是当前导航中的生产导入入口。旧分类策略和筛选前排除规则不自动套入新流程；查询计划与入库后复核要求在当前批次中明确。
 
+## Agent、Skill 和 MCP
+
+项目发现入口为 [.agents/skills/trackeep-literature/SKILL.md](.agents/skills/trackeep-literature/SKILL.md)，唯一技能正文位于 [插件包](plugins/trackeep-literature/skills/trackeep-literature/SKILL.md)。本机插件列表已实测发现 `trackeep-literature@trackeep-local` 1.0.0；状态为未安装、未启用，不代表当前客户端已经加载该技能。
+
+支持本机 stdio MCP 的客户端可连接项目内 `plugins/trackeep-literature/mcp.json` 所描述的服务；可安装包位于 `plugins/trackeep-literature/`。未修改受保护客户端配置、账号或全局安装。不同宿主需各自适配，远程 ChatGPT 不能仅凭本包访问本机。
+
+Agent 优先用 `literature_dispatch(action,payload)`；未接 MCP 时可调用同核心命令：
+
+```powershell
+& E:\Python\python.exe -m lit.workflow --help
+& E:\Python\python.exe -m lit.workflow list_runs
+& E:\Python\python.exe .\plugins\trackeep-literature\server.py
 ```
-venv\Scripts\python.exe tests\smoke_test.py
-venv\Scripts\python.exe tests\gui_test.py
+
+最后一条启动 MCP stdio 服务，由客户端管理。Agent 负责形成参数，用户不需要手写 JSON。动作和顺序以技能正文及[唯一检索规范](规则/PubMed检索规范_v1.0_20261003.md)为准。
+
+## 运行边界
+
+- 题录写入复用 `D:\dev\trackeep-scripts\zotero-import.ps1`，不是第二套导入引擎。GUI确认后才写；Agent 写入须在用户已授权范围内，并显式 `apply:true`。
+- 同 PMID 跨月记录已见或字段变化；身份冲突待核，不按标题自动合并。缺摘要、缺模型结论不自动排除。
+- 全文先只读核已有本机文件，再调用 Zotero 原生查找；官方补充目前覆盖 PMC 主文及 Nature 路径，失败明确记录，不承诺所有出版社可取。原生添加本身不去重，护栏在共享服务。
+- 本机 Zotero 9.0.6／WebDAV 用只读本地 API 验收和 Windows 原生界面写入；不直接写数据库或内部存储。Zotero Storage 云上传不作为本机完成条件，WebDAV远端和其他设备另列未验证。
+- 排除项保留来源和理由；可恢复清理仅限明确授权对象，不永久删除，不覆盖已有附件、笔记、标签或集合。
+
+## 依赖、记录与验证
+
+GUI 复用已批准 `venv` 中的 PySide6；原生桥与 PDF 解析复用公共棚 `E:\Python`。Zotero 必须运行且本地 API 可用。中文主题计划及 AI 相关性复核使用现有 `DEEPSEEK_TOKEN`；按刊／PMID不需要模型。凭证由现有模块读取，只进请求头。
+
+期刊来源表为 `D:\dev\trackeep-memex\00-系统\期刊来源表.md`，展示不代表身份已通过；正式身份仍由 PubMed／NLM核验。批次与失败回执保存到 `日志/workflow-runs/`，官方补充文件到 `全文/原生补充/`，均属运行数据。
+
+```powershell
+& .\venv\Scripts\python.exe tests\workflow_test.py
+& .\venv\Scripts\python.exe tests\workflow_gui_test.py
+& .\venv\Scripts\python.exe tests\native_fulltext_test.py
+& .\venv\Scripts\python.exe tests\smoke_test.py
+& .\venv\Scripts\python.exe tests\gui_test.py
+& .\venv\Scripts\python.exe tools\check_map.py --check
 ```
 
-## 功能
-
-- **左树单脊柱**：点分类节点 → 该分类采集策略表单（pubtype / PubMed 主题过滤 / DeepSeek 判据，
-  写 `strategy.json`）；点期刊叶子 → 操作面板 + 审计页（生效策略摘要 = 分类默认 ⊕ 单刊例外 resolve）。
-- **采集最新**：按刊从 PubMed edat 拉近期文献，Zotero 全库去重，审计页预览（新增/去重/疑似分组清单）。
-  采集窗口从台账自动算（上次采集 +30 天缓冲，首次 60 天）。
-- **回填历史**：按年/月回填某刊历史文献；命中达 1000 上限时橙字告警建议改按月（防静默截断）。
-- **旧桌面 AI 复筛**：检索后按分类判据判断相关性并参与导入门控（6b-2 已实现）。新 Agent 流程按唯一规范采用入库后复核；PubMed 只读入口不调用 AI。
-- **真实导入**：审计页点「导入」→ 确认框 → 写 Zotero + 台账；可逆（Zotero 回收站）；失败可幂等重试；
-  collection 不存在时受控建（确认才建，禁静默）。
-- **单刊例外**：Editorial/Letter/主题过滤按刊写回 `journal-overrides.json`，与默认不同的刊显示「例外」小标。
-
-检索/导入都在后台线程跑（不卡 UI）；dry-run 预览绝不写 Zotero，真实导入仅点「导入」/「重试」触发。
-16 条护栏内建，正式清单见 `.project/invariants.yaml`（11 条系统不变量）。
-
-## 依赖（外部资源，不在本仓库）
-
-| 资源 | 用途 |
-|---|---|
-| `Mecha-Core/scripts/zotero-import.ps1` | 检索/导入引擎（spawn 调用，本仓库不改它） |
-| `Mecha-Core/.mecha/journal-overrides.json` | 单刊例外表（本仓库可写，原子写） |
-| `Mecha-Core/.mecha/strategy.json` | 分类采集策略（本仓库可写，原子写） |
-| `Mecha-Core/.mecha/zotero-import-ledger.json` | 采集台账（引擎写、本仓库只读算窗口） |
-| `~/.config/mecha/secrets/zotero.env` | Zotero API 凭证（受控建 collection 用） |
-| `DEEPSEEK_TOKEN`（Windows 用户环境变量） | DeepSeek 复筛凭证 |
-| `Mecha-Memex/00-系统/期刊来源表.md` | 74 刊来源（5 分类，只读解析） |
-
-运行时：Python 3.13 + PySide6（版本锁定见 `requirements-lock.txt`）。
-PubMed 走 E-utilities（免 key）；Zotero 走官方 API。
-
-## 结构
-
-```
-gui.py              入口（QApplication + 主窗 + 自检钩子 TRACKEEP_SELFTEST）
-lit/                数据层：引擎桥（engine）/ 期刊表（journals）/ 台账（ledger）/
-                    例外表（overrides）/ 策略（strategy）/ Zotero API（zotero）/
-                    DeepSeek 复筛（deepseek）/ 配置常量（config）
-ui/                 主窗（main_window）/ 样式（style）/ 后台线程（workers）
-ui/pages/           采集台（harvest_page）/ 分类策略表单件（category_form）/
-                    设置（settings_page）/ 说明（help_page）
-tests/              smoke_test（离线逻辑链路）+ gui_test（离屏界面回归）
-.project/           规范五件套（policy/manifest/invariants/vulnerable-scenarios/exceptions）
-.github/workflows/  CI 四门禁（governance/tests/secret-scan/evidence）
-archives/           Slice 施工期历史文档（SPEC/SLICE*/brief 等，只读追溯）
-Trackeep Lit.vbs    双击启动器（pythonw，无黑窗）
-Trackeep Lit.spec   PyInstaller 打包规格（打包收尾待排，BL-03）
-```
+这些离线／离屏测试不替代真实 Zotero 验收。CI 接线见 `.github/workflows/quality-gates.yml`；本地通过不等于远端 CI 已运行。施工定位见[架构图](规则/架构.md)，历史证据见[阶段日志](阶段日志.md)，规则入口见 [AGENTS.md](AGENTS.md)。

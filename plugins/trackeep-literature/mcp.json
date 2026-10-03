@@ -1,0 +1,4 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {"trackeep-literature": {"type": "stdio", "command": "E:\\Python\\python.exe", "args": ["D:\\trackeep-lit\\plugins\\trackeep-literature\\server.py"]}}
+}

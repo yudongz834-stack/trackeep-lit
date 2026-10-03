@@ -9,7 +9,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget)
 
-from lit import config, journals, ledger, overrides, zotero
+from lit import config, pubmed, journals, zotero
 
 _OK = "#2F9E44"    # 存在：绿
 _BAD = "#C92A2A"   # 缺失：红
@@ -30,21 +30,19 @@ class SettingsPage(QWidget):
 
         lay.addWidget(self._card("版本", [
             ("应用", "%s v%s" % (config.APP_NAME, config.VERSION)),
-            ("Mecha-Core 根", str(config.MECHA_CORE)),
+            ("Trackeep Literature 工程", str(config.ROOT)),
         ]))
         lay.addWidget(self._card("关键路径与连通", [
             ("导入引擎 zotero-import.ps1", _path_html(config.ENGINE_PATH)),
-            ("例外表 journal-overrides.json", _path_html(overrides.OVERRIDES_PATH)),
-            ("采集台账 zotero-import-ledger.json", _path_html(ledger.LEDGER_PATH)),
+            ("共享批次与失败记录", _path_html(config.ROOT / '日志' / 'workflow-runs')),
+            ("既有期刊来源表", _path_html(journals.JOURNAL_TABLE)),
             ("Zotero 凭证 zotero.env", _path_html(zotero.ENV_PATH)),
         ]))
 
-        data = journals.load()
-        total = sum(len(v) for v in data.values())
-        cats = sum(1 for v in data.values() if v)
+        total = len(pubmed.journals())
         lay.addWidget(self._card("期刊载入", [
-            ("载入刊数", "%d 本 · %d 个分类" % (total, cats)),
-            ("默认刊", journals.DEFAULT_JOURNAL),
+            ("已核实预置期刊", "%d 本；其他期刊可在采集台输入并核验" % total),
+            ("检索口径", "按刊默认出版日期宽口径，电子上线及卷期日期均保留"),
         ]))
 
         lay.addStretch(1)

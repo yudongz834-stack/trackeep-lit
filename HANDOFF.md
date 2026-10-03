@@ -1,204 +1,97 @@
 # Trackeep Literature 当前接手状态
 
-## 最新验证：Zotero 两条原生全文路径（2026-10-03）
+## 当前：双入口候选，第二篇原生附加待复验（2026-10-03）
 
-用户要求“验一下，它的自带功能很重要”。现用 Zotero9.0.6、原有WebDAV设置，Agent亲自完成原生UI操作；没有升级、装插件、改同步设置或直接写storage/数据库。唯一可复用流程写回《PubMed检索规范》§5.1，优先原生，保留写前核重及本机读回。
+PI已授权把现有采集台与Agent Skill／MCP接成完整流程。验收契约为 [.project/unified-workflow-task.md](.project/unified-workflow-task.md)。此页描述候选代码当前态；真实 GUI／MCP 从输入到本机全文、重跑、限定测试清理和独立终验尚在进行，不能写成已全部通过。
 
-| 路径 | 输入与父项 | 实测结果 |
-|---|---|---|
-| 查找全文 | PMID42420446临时副本QMZ3QGFM，起始0附件 | 原生下载Nature PDF，YAW2DYA9，imported_url，37页；标题/DOI/哈希通过 |
-| 存储副本 | PMID42816625临时副本K8ZWW5TD；全文\\42816625.pdf | 原生附加文件生成UICJITSE，imported_file，37页；身份/哈希通过 |
-| 原生重复附加 | 同父项、同文件再次执行 | 新增WH83RRD9，附件1→2、同哈希；原生不去重 |
-| Agent写前护栏 | 两父项实际文件再次只读验证 | 有合格PDF则跳过；新增0。不是原生幂等 |
+**当前阻点**：第二篇 PMID35357919 已完成真实MCP检索、题录导入与复核；官方Science作者稿已保存、30页、身份及哈希通过，但原生文件框识别失败，尚无本机附件。原因是 Zotero9 公共文件框位于主窗的 UIA 子树，由另一 Zotero 子进程承载。代码已按窗口owner、程序路径及控件唯一性修复，独立12项测试与实际归属函数反例通过；真实重跑待关闭前次遗留的空“选择文件”窗口。桌面工具未将此子进程框暴露为可操作窗口，点击被拒绝；当前不可宣称无需人工介入的第二篇端到端验收通过。
 
-查找完成后右键入口消失，没有实际执行第二次查找，不能宣称已测重复下载去重。当前9.0.6没有受支持的本地外部写API；本次是原生GUI成功+只读API验收，尚非通用自动命令。只证明两个样本；未核WebDAV远端或其他设备。
+来源接口曾返回429，已停止重复身份转换请求。后续按成功回执中已核官方地址新下载，证据 `日志/unified-live-validation/science-official-file.json` 明确标记新下载；后续只用 `工作区/缓存全文复验.py` 复验该文件并经真实stdio MCP重跑，不重新下载。原文件 `全文/原生补充/35357919-b2d13d10041d4873.pdf`，SHA256 `b2d13d10041d4873479388f69e577b266bf2b31c1daf807bef5dfde6937046ff`，MD5与PMC一致。两个测试父项C6WXAFZ4／5ATM3SFJ目前保留，清理脚本已独审但未执行；不可写成已清理。
 
-SHA256：42420446 = c0c10e691579ee9cdc47fb61dc0ff52bca58a96a91b797aa2b4fb0b3f4121266；42816625 = a346ec1af676aafcb59867d0e3673b8036bbeaee911206020babcab98ef88d9f。独立复核保护基线确认原父项WD9F8D8E/IU8CWQD2、原附件XT8K8X34/JBKB7SJZ及本地文件保持不变。
+正式工程 `D:\trackeep-lit`，原引擎 `D:\dev\trackeep-scripts\zotero-import.ps1`。GUI入口为 `Trackeep Lit.pyw` 或既有venv执行 `gui.py`；现役页面是 `WorkflowPage`，不再从主窗进入旧无新护栏的 `HarvestPage`。
 
-测试清理仅5个精确键：QMZ3QGFM、YAW2DYA9、K8ZWW5TD、UICJITSE、WH83RRD9，官方API PATCH deleted=1逐项读回；禁止永久删除。保留空测试目录75X3U7JU。临时准备与清理脚本仅作本次操作记录，带禁止盲重跑保护，不是常规入口。
+## 已接入的能力与边界
 
-证据目录：D:\trackeep-lit\日志\native-zotero-validation。native-actions.json记录GUI操作；独立首次、重复、清理证据与guarded-repeat.json分别证明不同结论。未将UI截图另存归档。基础回归88/88、GUI29/29通过；无远端CI、无push或发布。
+GUI与MCP同调 `Workflow.dispatch`：计划、检索、核重、确认题录写入、复核、仅保留项全文、状态及批次恢复。按刊支持分类来源表、额外刊名核验、年月或最近60天；中文主题经现有DeepSeek生成明确计划，未配置或失败则报错；PMID和期刊计划无模型依赖。
 
+身份、日期、计数与检索解释由PubMed模块统一校验；同PMID跨月比较历史快照，身份冲突待核。模型无结论与缺摘要保持pending。全文先核现有本机PDF，原生查找后才考虑官方PMC／Nature补充并原生附加；回执区分已有、核验完成、缺全文、待核和失败。原生桥实际可靠性仍须本轮真机结果支撑，不能拿离线替身代替。
 
-## 最新交付：两篇本机全文已可用（2026-10-03）
+项目Skill指针、MCP stdio服务、插件声明与启动包装已在项目内。本机插件列表以临时配置实测发现 `trackeep-literature@trackeep-local` 1.0.0，状态为未安装、未启用。**未安装到受保护客户端，未修改账号或全局配置**。未验证的宿主不能声称开箱即用；远程ChatGPT不自动具有本机访问能力。唯一技能正文在插件目录，项目`.agents`仅指针。入口与使用见 [README](README.md)。
 
-桌面缺文件问题已通过 Zotero 自带“找不到文件→检索/定位文件”流程解决。Agent 逐一选择已校验官方PDF，由 Zotero 自己补回原附件存储：PMID42420446／XT8K8X34、PMID42816625／JBKB7SJZ。两份均在本机阅读器实际打开、显示37页；本地API给出的文件真实存在，SHA256与官方原件一致。没有新建附件、直接写storage/数据库、升级软件或改变现有WebDAV设置，用户无需手动搬文件。证据：日志/fulltext-validation/desktop-verification.json、desktop-relink-actions.json；独立本机验收见 independent-desktop-acceptance.json。
+## 证据和剩余验收
 
-此前错误是只验了Zotero Storage云端而未核用户WebDAV桌面交付，失败记录保留。现已完成本批本机可读交付；WebDAV远端文件没有另行下载核验，不能将UI同步错误标志消失称为远端验收。旧GUI仍未接新Agent护栏，命令复用范围与需Agent编排的环节见下方历史核对中的入口说明；桌面定位操作也是本次Agent执行原生UI，尚非一个通用自动管道。
+GUI施工证据：`日志/workflow-gui-validation/`。独立复核亲跑初轮130项针对性测试、smoke88、历史GUI29、对抗70、压力6（含现役页面真实QThread连点／失败恢复50轮）、属性5均通过。后续增量原生UI10、原生全文19、现役GUI23共52项通过；共享PDF校验9项及独立引用章节反例通过。各轮有重叠，不能简单相加当作独立测试总数。离屏1040×760、40长题录截图只证明布局可读。
 
-## 桌面交付核对历史（当时文件未到本机；已由上方定位修复关闭）
+CI已接共享流程、现役GUI、原生UI及原生全文测试并保存日志；远端未运行。架构机器块以 `tools/check_map.py --write/--check`生成。第一篇GUI实测 PMID34265844 已经计划、检索、集合确认、题录导入、保留复核、原生查找并验证12页本机PDF；父项C6WXAFZ4、附件SGRCQN5E。实际stdio MCP重复导入新增0，重新复核后全文复验仍为同一附件，新增0。证据位于 `日志/unified-live-validation/`；第二篇及清理终验结果在下文补记。
 
-本机 Zotero9.0.6 API 已读到两篇正确父项与两份附件，PMID/DOI/标题/关联一致；但 API 返回的两个 storage 文件路径均不存在。现有桌面附件同步配置为 WebDAV，本批上传后端为 Zotero Storage，不能把云端附件成功等同于桌面文件可用。尝试系统 open-pdf URI 因未注册失败；改用已有 Zotero 可执行文件 -url 打开指定两份附件后复查仍无文件。没有修改账户/凭证/全局同步配置或注册表，也没有向 storage 目录自行塞文件或改库。尚缺“本机全文文件可用”这一环，具体桌面下载错误未取得，不能声称完全诊断。证据：日志/fulltext-validation/desktop-verification.json、desktop-sync-boundary.json。最初标题句末点差异导致的严格字符串误报亦保留为 desktop-verification-before-normalization.json，改用既有规范化比较并核PMID后确认题录无误。
+原引擎只作显式集合编号兼容修复，未另造导入引擎：`D:\dev\trackeep-scripts` 本机提交 `7926c73`，看板收尾 `51e4f85`；独立6种匹配反例、真实dry-run及两篇隔离导入通过，未推送。补丁及哈希记录在 `工作区/引擎集合修复/`，完整原文件备份只留本地不入库。
 
-后续需要确定如何沿用户既有 WebDAV 路径完成这两份文件的交付，或明确授权其他受支持的本地附件写入方式；本次仅核对，不开新功能。用户无需自行执行下面命令，它们用于后续 Agent 接手。
+收到协调会话将模型更正为 **GPT-6.1 Sol High** 的通知后，继续完成失败批次GUI恢复、中文计数、官方来源分阶段诊断与有限重试、PDF身份误判修复及本轮实机收尾；没有重新开始已完成工作。此处记录通知后的工作边界，不声称自行验证了运行时模型身份。
 
-现成 Agent 命令从 D:\trackeep-lit 运行：`E:\Python\python.exe -m lit.pubmed --plan <计划JSON>`；`-m lit.metadata_batch --preview <检索回执> --pmids <明确PMID列表>`（只预演，具名授权后才加 --apply）；`-m lit.batch_review --batch <题录回执> --decisions <决定JSON>`；`-m lit.fulltext_batch --review <复核回执> --downloads <官方下载凭据>`（只预演，具名授权后才加 --apply）。检索计划编写、相关性判断/决定JSON、官方来源定位和下载仍由 Agent 编排。全文入口依赖已有PDF、下载证据及当前既有PyMuPDF；此次下载脚本含已关闭tab，不是通用下载器。工作区/核对本机全文.py 仅只读核对本批两篇。
+## 前序样例是历史证据
 
-旧GUI仍走原有桌面流程，未接这些新校验与入库后复核；本批没有做插件或一个自然语言命令包办全部的产品。当前交付是可复用的分段命令和两篇云端实测，桌面文件闭环仍未完成。
+两篇原交付 PMID42420446／42816625的父项WD9F8D8E／IU8CWQD2、附件XT8K8X34／JBKB7SJZ保持保护。本轮不得清理它们。先前云Storage与本机WebDAV错配，已用原生定位修复；原件与失败史见阶段日志及 `日志/fulltext-validation/`。
 
-2026-10-03：本批两篇已完成核验检索、题录导入、入库后复核及官方全文挂接。检索2 → 题录新增2 → 保留2／排除0／待核0 → 官方PDF2 → 附件新增2；题录和附件分别真实重跑，均新增0。
+前序原生试验在临时父项QMZ3QGFM／K8ZWW5TD完成查找、存储副本及重复附加验证；原生重复附件确实增加1，护栏读回跳过新增0。两父项及YAW2DYA9／UICJITSE／WH83RRD9已进入回收站，空测试集合75X3U7JU保留。证据 `日志/native-zotero-validation/independent-final-acceptance.json`。本轮真实测试将使用明确隔离对象，处置以新回执为准。WebDAV远端和其他设备始终未单独验收。
 
-PMID42420446：父项WD9F8D8E，附件XT8K8X34；PMID42816625：父项IU8CWQD2，附件JBKB7SJZ。两份均37页，云端文件读回SHA256等于原件，父项内容/标签/目录保持不变。官方下载路径：第一篇PMC现行云主文、第二篇Nature官网。原件在全文目录。
+## 本轮产出清单（候选；每行一个绝对路径）
 
-正式路径 D:\trackeep-lit，分支 codex/pubmed-rules；原题录引擎唯一正身 D:\dev\trackeep-scripts\zotero-import.ps1，本全文阶段未改动。唯一筛选规范为 规则/PubMed检索规范_v1.0_20261003.md；具名授权为 .project/metadata-trial.md 与 .project/fulltext-task.md。旧GUI未接新护栏，通用自动下载、存量更新、增量追踪及插件未完成。
-
-全文创建：日志/fulltext-batches/20261003-151747-7ee932e7/report.json；重跑：20261003-152244-de96ea4a/report.json。独立40探针及实际验收见 日志/fulltext-validation/independent-review.json、independent-live-acceptance.json。本地6＋15＋38＋88＋29＋70项和地图检查通过，见 final-verification.json；未运行远端CI、未发布。完整前序证据与失败史见阶段日志。
-
-本批无真实排除项及原有附件笔记，相关拦截/旧资料保护仅合成验证。独立实际复核依执行回执核云端读回并独立解析本地PDF，没有确认桌面同步。初次静态下载HTML被拒，旧oa.fcgi未调用。既往PMID4误建仍在回收站，本轮未处理；题录阶段首次只读预演失败根因仍未知。旧隔离全管道原型仍保留，不是交付入口。下载脚本引用已关闭的临时tab，仅作此次运行记录。
-
-## 本轮及前序产出清单
-
-- D:\dev\trackeep-scripts\zotero-import.ps1
-- D:\trackeep-lit\.github\workflows\quality-gates.yml
-- D:\trackeep-lit\.gitignore
-- D:\trackeep-lit\.project\fulltext-task.md
-- D:\trackeep-lit\.project\metadata-trial.md
-- D:\trackeep-lit\.trackeep\zotero-import-ledger.json
-- D:\trackeep-lit\AGENTS.md
-- D:\trackeep-lit\CLAUDE.md
-- D:\trackeep-lit\HANDOFF.md
-- D:\trackeep-lit\README.md
-- D:\trackeep-lit\lit\batch_review.py
-- D:\trackeep-lit\lit\fulltext.py
-- D:\trackeep-lit\lit\fulltext_batch.py
-- D:\trackeep-lit\lit\library.py
-- D:\trackeep-lit\lit\metadata_batch.py
-- D:\trackeep-lit\lit\pubmed.py
-- D:\trackeep-lit\lit\zotero.py
-- D:\trackeep-lit\tests\fulltext_test.py
-- D:\trackeep-lit\tests\metadata_test.py
-- D:\trackeep-lit\tests\pubmed_test.py
-- D:\trackeep-lit\全文\42420446.pdf
-- D:\trackeep-lit\全文\42816625.pdf
-- D:\trackeep-lit\工作区\下载本批官方全文.py
-- D:\trackeep-lit\工作区\全文来源探测.py
-- D:\trackeep-lit\工作区\升级精确导入.py
-- D:\trackeep-lit\工作区\收口全文验证.py
-- D:\trackeep-lit\工作区\收口题录验证.py
-- D:\trackeep-lit\工作区\更新全文交接.py
-- D:\trackeep-lit\工作区\更新题录交接.py
-- D:\trackeep-lit\工作区\独立复核\fulltext_batch_probe.py
-- D:\trackeep-lit\工作区\独立复核\fulltext_boundaries.py
-- D:\trackeep-lit\工作区\独立复核\fulltext_candidate.py
-- D:\trackeep-lit\工作区\独立复核\fulltext_close.py
-- D:\trackeep-lit\工作区\独立复核\fulltext_live_acceptance.py
-- D:\trackeep-lit\工作区\独立复核\fulltext_prereview.py
-- D:\trackeep-lit\工作区\独立复核\metadata_bridge.py
-- D:\trackeep-lit\工作区\独立复核\metadata_close.py
-- D:\trackeep-lit\工作区\独立复核\metadata_engine.ps1
-- D:\trackeep-lit\工作区\独立复核\metadata_live_acceptance.py
-- D:\trackeep-lit\工作区\独立复核\metadata_live_failure.py
-- D:\trackeep-lit\工作区\独立复核\metadata_postreview.py
-- D:\trackeep-lit\工作区\独立复核\metadata_prereview.py
-- D:\trackeep-lit\工作区\落实筛选顺序.py
-- D:\trackeep-lit\工作区\诊断题录预演.py
-- D:\trackeep-lit\工作区\题录试运行复核决定.json
-- D:\trackeep-lit\日志\fulltext-batches\20261003-151203-00e3f8d6\report.json
-- D:\trackeep-lit\日志\fulltext-batches\20261003-151747-7ee932e7\report.json
-- D:\trackeep-lit\日志\fulltext-batches\20261003-152244-de96ea4a\report.json
-- D:\trackeep-lit\日志\fulltext-batches\attachment.lock
-- D:\trackeep-lit\日志\fulltext-validation\42420446-first.png
-- D:\trackeep-lit\日志\fulltext-validation\42816625-first.png
-- D:\trackeep-lit\日志\fulltext-validation\final-adversarial.log
-- D:\trackeep-lit\日志\fulltext-validation\final-fulltext.log
-- D:\trackeep-lit\日志\fulltext-validation\final-gui.log
-- D:\trackeep-lit\日志\fulltext-validation\final-map.log
-- D:\trackeep-lit\日志\fulltext-validation\final-metadata.log
-- D:\trackeep-lit\日志\fulltext-validation\final-pubmed.log
-- D:\trackeep-lit\日志\fulltext-validation\final-smoke.log
-- D:\trackeep-lit\日志\fulltext-validation\final-verification.json
-- D:\trackeep-lit\日志\fulltext-validation\independent-batch-results.json
-- D:\trackeep-lit\日志\fulltext-validation\independent-boundary-results.json
-- D:\trackeep-lit\日志\fulltext-validation\independent-candidate-before-fix.json
-- D:\trackeep-lit\日志\fulltext-validation\independent-candidate-results.json
-- D:\trackeep-lit\日志\fulltext-validation\independent-live-acceptance.json
-- D:\trackeep-lit\日志\fulltext-validation\independent-review.json
-- D:\trackeep-lit\日志\fulltext-validation\independent-test-plan.json
-- D:\trackeep-lit\日志\fulltext-validation\official-downloads.json
-- D:\trackeep-lit\日志\fulltext-validation\pmc-metadata.json
-- D:\trackeep-lit\日志\fulltext-validation\source-probe.json
-- D:\trackeep-lit\日志\fulltext-validation\zotero-status.json
-- D:\trackeep-lit\日志\metadata-batches\20261003-144428-615da5bc\expected.json
-- D:\trackeep-lit\日志\metadata-batches\20261003-144428-615da5bc\report.json
-- D:\trackeep-lit\日志\metadata-batches\20261003-145208-a76b30d3\expected.json
-- D:\trackeep-lit\日志\metadata-batches\20261003-145208-a76b30d3\report.json
-- D:\trackeep-lit\日志\metadata-batches\20261003-145307-7128c01c\expected.json
-- D:\trackeep-lit\日志\metadata-batches\20261003-145307-7128c01c\report.json
-- D:\trackeep-lit\日志\metadata-batches\20261003-145432-2b6d0965\expected.json
-- D:\trackeep-lit\日志\metadata-batches\20261003-145432-2b6d0965\report.json
-- D:\trackeep-lit\日志\metadata-batches\20261003-145542-09f4f670\report.json
-- D:\trackeep-lit\日志\metadata-reviews\review-1141862b.json
-- D:\trackeep-lit\日志\metadata-validation\adversarial.log
-- D:\trackeep-lit\日志\metadata-validation\final-adversarial.log
-- D:\trackeep-lit\日志\metadata-validation\final-gui.log
-- D:\trackeep-lit\日志\metadata-validation\final-map.log
-- D:\trackeep-lit\日志\metadata-validation\final-metadata.log
-- D:\trackeep-lit\日志\metadata-validation\final-pubmed.log
-- D:\trackeep-lit\日志\metadata-validation\final-smoke.log
-- D:\trackeep-lit\日志\metadata-validation\final-verification.json
-- D:\trackeep-lit\日志\metadata-validation\gui.log
-- D:\trackeep-lit\日志\metadata-validation\independent-bridge-results-before-fix.json
-- D:\trackeep-lit\日志\metadata-validation\independent-bridge-results.json
-- D:\trackeep-lit\日志\metadata-validation\independent-engine-results-before-fix.json
-- D:\trackeep-lit\日志\metadata-validation\independent-engine-results.json
-- D:\trackeep-lit\日志\metadata-validation\independent-live-acceptance.json
-- D:\trackeep-lit\日志\metadata-validation\independent-live-failure-review.json
-- D:\trackeep-lit\日志\metadata-validation\independent-postreview-results-before-fix.json
-- D:\trackeep-lit\日志\metadata-validation\independent-postreview-results.json
-- D:\trackeep-lit\日志\metadata-validation\independent-prereview.json
-- D:\trackeep-lit\日志\metadata-validation\independent-review.json
-- D:\trackeep-lit\日志\metadata-validation\live-dryrun-diagnosis.json
-- D:\trackeep-lit\日志\metadata-validation\metadata.log
-- D:\trackeep-lit\日志\metadata-validation\pubmed.log
-- D:\trackeep-lit\日志\metadata-validation\smoke.log
-- D:\trackeep-lit\日志\pubmed-preview\20261003-144356-a9213f2b.json
-- D:\trackeep-lit\规则\PubMed检索规范_v1.0_20261003.md
-- D:\trackeep-lit\规则\架构.md
-- D:\trackeep-lit\规则\示例\nature-month.json
-- D:\trackeep-lit\规则\示例\stem-cell-topic.json
-- D:\trackeep-lit\阶段日志.md
-- D:\trackeep-lit\工作区\核对本机全文.py
-- D:\trackeep-lit\工作区\补充桌面核对交接.py
-- D:\trackeep-lit\日志\fulltext-validation\desktop-before-open.json
-- D:\trackeep-lit\日志\fulltext-validation\desktop-sync-boundary.json
-- D:\trackeep-lit\日志\fulltext-validation\desktop-verification-before-normalization.json
-- D:\trackeep-lit\日志\fulltext-validation\desktop-verification.json
-- D:\trackeep-lit\工作区\收口本机交付.py
-- D:\trackeep-lit\工作区\独立复核\fulltext_desktop_acceptance.py
-- D:\trackeep-lit\日志\fulltext-validation\desktop-before-relink.json
-- D:\trackeep-lit\日志\fulltext-validation\desktop-relink-actions.json
-- D:\trackeep-lit\日志\fulltext-validation\independent-desktop-acceptance.json
-
-## 本轮原生验证文件清单（完整绝对路径）
-
-独立终验：本地5项均deleted=1，原件未变；云端仅依据执行方逐项回执，独立审查未访问云端。一次性测试脚本不作为产品命令，不使用python -O运行。
-
-- D:\trackeep-lit\.gitignore
-- D:\trackeep-lit\工作区\独立复核\native_cleanup_scope.py
-- D:\trackeep-lit\工作区\独立复核\native_final_acceptance.py
-- D:\trackeep-lit\工作区\独立复核\native_find_verify.py
-- D:\trackeep-lit\工作区\独立复核\native_stored_verify.py
-- D:\trackeep-lit\工作区\独立复核\native_zotero_snapshot.py
-- D:\trackeep-lit\工作区\原生全文测试收尾.py
-- D:\trackeep-lit\工作区\原生全文测试准备.py
-- D:\trackeep-lit\规则\PubMed检索规范_v1.0_20261003.md
-- D:\trackeep-lit\阶段日志.md
-- D:\trackeep-lit\日志\native-zotero-validation\cleanup.json
-- D:\trackeep-lit\日志\native-zotero-validation\fixture.json
-- D:\trackeep-lit\日志\native-zotero-validation\guarded-repeat.json
-- D:\trackeep-lit\日志\native-zotero-validation\gui.txt
-- D:\trackeep-lit\日志\native-zotero-validation\independent-after-cleanup.json
-- D:\trackeep-lit\日志\native-zotero-validation\independent-cleanup-scope.json
-- D:\trackeep-lit\日志\native-zotero-validation\independent-copies-before.json
-- D:\trackeep-lit\日志\native-zotero-validation\independent-final-acceptance.json
-- D:\trackeep-lit\日志\native-zotero-validation\independent-find-first-verification.json
-- D:\trackeep-lit\日志\native-zotero-validation\independent-find-first.json
-- D:\trackeep-lit\日志\native-zotero-validation\independent-plan.json
-- D:\trackeep-lit\日志\native-zotero-validation\independent-protected-baseline.json
-- D:\trackeep-lit\日志\native-zotero-validation\independent-stored-first-verification.json
-- D:\trackeep-lit\日志\native-zotero-validation\independent-stored-first.json
-- D:\trackeep-lit\日志\native-zotero-validation\independent-stored-repeat.json
-- D:\trackeep-lit\日志\native-zotero-validation\native-actions.json
-- D:\trackeep-lit\日志\native-zotero-validation\smoke.txt
-- D:\trackeep-lit\HANDOFF.md
-- D:\trackeep-lit\README.md
+```text
+D:\trackeep-lit\.project\unified-workflow-task.md
+D:\trackeep-lit\README.md
+D:\trackeep-lit\HANDOFF.md
+D:\trackeep-lit\阶段日志.md
+D:\trackeep-lit\规则\架构.md
+D:\trackeep-lit\规则\PubMed检索规范_v1.0_20261003.md
+D:\trackeep-lit\.github\workflows\quality-gates.yml
+D:\trackeep-lit\.gitignore
+D:\trackeep-lit\Trackeep Lit.pyw
+D:\trackeep-lit\lit\config.py
+D:\trackeep-lit\lit\journals.py
+D:\trackeep-lit\lit\workflow.py
+D:\trackeep-lit\lit\pubmed.py
+D:\trackeep-lit\lit\metadata_batch.py
+D:\trackeep-lit\lit\batch_review.py
+D:\trackeep-lit\lit\library.py
+D:\trackeep-lit\lit\deepseek.py
+D:\trackeep-lit\lit\native_fulltext.py
+D:\trackeep-lit\lit\native_ui.py
+D:\trackeep-lit\lit\native_pdf.py
+D:\trackeep-lit\lit\mcp_server.py
+D:\trackeep-lit\ui\main_window.py
+D:\trackeep-lit\ui\pages\workflow_page.py
+D:\trackeep-lit\ui\pages\settings_page.py
+D:\trackeep-lit\ui\pages\help_page.py
+D:\trackeep-lit\tests\workflow_test.py
+D:\trackeep-lit\tests\workflow_gui_test.py
+D:\trackeep-lit\tests\native_fulltext_test.py
+D:\trackeep-lit\tests\native_ui_test.py
+D:\trackeep-lit\tests\fulltext_test.py
+D:\trackeep-lit\tests\gui_test.py
+D:\trackeep-lit\tests\stress_test.py
+D:\trackeep-lit\.agents\skills\trackeep-literature\SKILL.md
+D:\trackeep-lit\plugins\trackeep-literature\.mcp.json
+D:\trackeep-lit\plugins\trackeep-literature\mcp.json
+D:\trackeep-lit\plugins\trackeep-literature\plugin.json
+D:\trackeep-lit\plugins\trackeep-literature\server.py
+D:\trackeep-lit\plugins\trackeep-literature\.claude-plugin\plugin.json
+D:\trackeep-lit\plugins\trackeep-literature\.codex-plugin\plugin.json
+D:\trackeep-lit\plugins\trackeep-literature\skills\trackeep-literature\SKILL.md
+D:\trackeep-lit\日志\workflow-gui-validation\gui_test.py.log
+D:\trackeep-lit\日志\workflow-gui-validation\narrow-40-rows.png
+D:\trackeep-lit\日志\workflow-gui-validation\smoke_test.py.log
+D:\trackeep-lit\日志\workflow-gui-validation\workflow_gui_test.py.log
+D:\trackeep-lit\AGENTS.md
+D:\trackeep-lit\PROJECT-CONTRACT.md
+D:\trackeep-lit\CLAUDE.md
+D:\trackeep-lit\lit\fulltext.py
+D:\trackeep-lit\.agents\plugins\marketplace.json
+D:\trackeep-lit\工作区\验证统一MCP.py
+D:\trackeep-lit\工作区\核验双入口本机交付.py
+D:\trackeep-lit\工作区\补充已核官方全文.py
+D:\trackeep-lit\工作区\缓存全文复验.py
+D:\trackeep-lit\工作区\双入口测试收尾.py
+D:\trackeep-lit\工作区\引擎集合修复\source.json
+D:\trackeep-lit\工作区\引擎集合修复\explicit-collection.patch
+D:\trackeep-lit\工作区\引擎集合修复\verify-collection.ps1
+```
