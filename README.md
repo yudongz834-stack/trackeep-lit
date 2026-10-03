@@ -46,7 +46,7 @@ Agent 优先用 `literature_dispatch(action,payload)`；未接 MCP 时可调用�
 
 GUI 复用已批准 `venv` 中的 PySide6；原生桥与 PDF 解析复用公共棚 `E:\Python`。Zotero 必须运行且本地 API 可用。中文主题计划及 AI 相关性复核使用现有 `DEEPSEEK_TOKEN`；按刊／PMID不需要模型。凭证由现有模块读取，只进请求头。
 
-期刊来源表为 `D:\dev\trackeep-memex\00-系统\期刊来源表.md`，展示不代表身份已通过；正式身份仍由 PubMed／NLM核验。批次与失败回执保存到 `日志/workflow-runs/`，官方补充文件到 `全文/原生补充/`，均属运行数据。
+期刊来源表为 `E:\Trackeep-Obsidian\00-系统\期刊来源表.md`（批B 补单改锚；源件落位前解析走静态回退），展示不代表身份已通过；正式身份仍由 PubMed／NLM核验。批次与失败回执保存到 `日志/workflow-runs/`，官方补充文件到 `全文/原生补充/`，均属运行数据。
 
 ```powershell
 & .\venv\Scripts\python.exe tests\workflow_test.py

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from lit import config
 
-JOURNAL_TABLE = Path(r"D:\dev\trackeep-memex\00-系统\期刊来源表.md")
+JOURNAL_TABLE = Path(r"E:\Trackeep-Obsidian\00-系统\期刊来源表.md")
 
 # 5 个来源分类 —— 顺序即左树分组顺序（对齐期刊来源表收录统计）
 CATEGORIES = [
