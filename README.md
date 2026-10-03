@@ -2,7 +2,7 @@
 
 现有文献采集台与 Agent 共用一条流程：明确计划 → PubMed 检索核验 → 导入前核重 → Zotero 题录入库 → 相关性、重复与撤稿复核 → 保留项本机全文。
 
-本轮候选实现已接入共享服务，正在做真实 GUI／MCP 全链路与独立验收，尚不宣称完整交付或正式发布。授权、判据与限制见 [.project/unified-workflow-task.md](.project/unified-workflow-task.md)；当前证据和待办见 [HANDOFF.md](HANDOFF.md)。此前两篇原生全文样例不替代本轮产品验收。
+本机 GUI／stdio MCP 已分别走通检索、题录、复核和本机全文，并完成重复执行不新增的实测；独立席直接读取实际PDF核验。项目插件已验证可发现，尚未安装或启用。授权与限制见 [.project/unified-workflow-task.md](.project/unified-workflow-task.md)，验收及清理证据见 [HANDOFF.md](HANDOFF.md)。当前为本机候选交付，未推送或正式发布。
 
 ## 打开采集台
 

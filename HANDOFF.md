@@ -1,12 +1,18 @@
 # Trackeep Literature 当前接手状态
 
-## 当前：双入口候选，第二篇原生附加待复验（2026-10-03）
+## 当前：双入口本机实测完成，未发布（2026-10-03）
 
-PI已授权把现有采集台与Agent Skill／MCP接成完整流程。验收契约为 [.project/unified-workflow-task.md](.project/unified-workflow-task.md)。此页描述候选代码当前态；真实 GUI／MCP 从输入到本机全文、重跑、限定测试清理和独立终验尚在进行，不能写成已全部通过。
+PI已授权把现有采集台与Agent Skill／MCP接成完整流程。验收契约为 [.project/unified-workflow-task.md](.project/unified-workflow-task.md)。GUI和真实stdio MCP各自完成检索、题录、复核到本机全文；同批次在采集台与Agent显示一致，重复执行新增0。独立席直接读取PDF、正文身份、父子关系与哈希确认通过。项目插件可发现但未安装／启用；不同客户端、WebDAV远端、其他设备不在本轮实测结论内。
 
-**当前阻点**：第二篇 PMID35357919 已完成真实MCP检索、题录导入与复核；官方Science作者稿已保存、30页、身份及哈希通过，但原生文件框识别失败，尚无本机附件。原因是 Zotero9 公共文件框位于主窗的 UIA 子树，由另一 Zotero 子进程承载。代码已按窗口owner、程序路径及控件唯一性修复，独立12项测试与实际归属函数反例通过；真实重跑待关闭前次遗留的空“选择文件”窗口。桌面工具未将此子进程框暴露为可操作窗口，点击被拒绝；当前不可宣称无需人工介入的第二篇端到端验收通过。
+**第二篇实机结果**：PMID35357919经原生“添加附件→附加文件”存储副本路线交付，父5ATM3SFJ、唯一子X33B248I，30页。`20261003-172501-916134-fulltext.json` 记录自动挂接及本机验证，`172515-860525-fulltext.json` 重跑返回已有全文、同键同哈希、0新增。独立席另起stdio status核对完成。采集台刷新同批次也显示指定PMID和全文已核验，见 `gui-shared-complete.png`。
 
-来源接口曾返回429，已停止重复身份转换请求。后续按成功回执中已核官方地址新下载，证据 `日志/unified-live-validation/science-official-file.json` 明确标记新下载；后续只用 `工作区/缓存全文复验.py` 复验该文件并经真实stdio MCP重跑，不重新下载。原文件 `全文/原生补充/35357919-b2d13d10041d4873.pdf`，SHA256 `b2d13d10041d4873479388f69e577b266bf2b31c1daf807bef5dfde6937046ff`，MD5与PMC一致。两个测试父项C6WXAFZ4／5ATM3SFJ目前保留，清理脚本已独审但未执行；不可写成已清理。
+修复历史保留：Zotero9文件框由另一子进程承载，现按原生owner、程序路径和唯一控件识别；UIA设置焦点不足以激活主窗，现显式请求置前、最多1秒等严格同HWND，拒绝时零点击。最新独立原生UI14项及系统拒绝激活反例通过。旧版失败遗留的空框曾由PI点取消一次；之后最终成功运行由程序完成挂接，PI没有手动选择PDF或添加附件。不得抹掉这次调试人工介入，也不得把它误写成最终挂接需要手工完成。
+
+来源接口曾返回429，已停止重复身份转换请求。后续按成功回执中已核官方地址新下载，证据 `日志/unified-live-validation/science-official-file.json` 明确标记新下载；最终挂接使用已保存文件的缓存复验，没有重新下载。原文件 `全文/原生补充/35357919-b2d13d10041d4873.pdf`，SHA256 `b2d13d10041d4873479388f69e577b266bf2b31c1daf807bef5dfde6937046ff`，MD5与PMC一致。
+
+**测试收尾**：经独立核对范围后，SGRCQN5E、C6WXAFZ4、X33B248I、5ATM3SFJ四键已用版本条件PATCH可恢复入回收站，逐项云端读回deleted=1，证据 `cleanup.json`；保留测试集合75X3U7JU。`local-delivery.json`和批次完成状态是清理前验收快照，不能当成清理后的现存测试文件承诺。两篇原交付文献保持保护。
+
+独立终验 `independent-final-acceptance.json` 判决PASS、无未关闭发现：四键本机／云端均已删除标记，测试集合两端有效条目均0，无同步待决；原WD9F8D8E／IU8CWQD2的父项、子项数据及实际PDF哈希与保护基线一致。独立席只读、未参与真实写入。
 
 正式工程 `D:\trackeep-lit`，原引擎 `D:\dev\trackeep-scripts\zotero-import.ps1`。GUI入口为 `Trackeep Lit.pyw` 或既有venv执行 `gui.py`；现役页面是 `WorkflowPage`，不再从主窗进入旧无新护栏的 `HarvestPage`。
 

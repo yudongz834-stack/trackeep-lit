@@ -22,7 +22,7 @@
 
 退出码：`0`＝检索集合、题录及适用身份核对通过；`2`＝已取回但有警告或召回验证待核；`1`＝阻断。即使为 0，`relevance_validated` 仍为 false，不表示主题相关性已通过人工判断。每次运行落独立 JSON，包含输入、服务端解释、错误/警告、PMID、题录、分片与计数；失败也留证。
 
-现役主窗已改接共享 workflow，MCP／项目Skill也调用同核心；旧 HarvestPage 仅留历史回归。原 PowerShell 引擎只接共享服务已核的明确题录，不以其旧按刊预览替代上述核验。本轮授权与验收见 [.project/unified-workflow-task.md](../.project/unified-workflow-task.md)，真实 GUI/MCP 全链路与独立复核仍在进行；入口已实现不等于产品已验收。
+现役主窗已改接共享 workflow，MCP／项目Skill也调用同核心；旧 HarvestPage 仅留历史回归。原 PowerShell 引擎只接共享服务已核的明确题录，不以其旧按刊预览替代上述核验。本轮授权见 [.project/unified-workflow-task.md](../.project/unified-workflow-task.md)；GUI及真实stdio MCP各一篇全链路、重复执行不新增和独立PDF验收见[交接](../HANDOFF.md)。项目插件仅验证可发现，未安装／启用；样本成功不代表所有出版社或其他设备均已验收。
 
 ## 2. 期刊采集：先核刊，再核时间
 

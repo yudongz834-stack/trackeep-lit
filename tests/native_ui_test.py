@@ -1,5 +1,6 @@
 """原生窗口识别的合成回归，不读取或操作真实桌面。"""
 import sys
+import ctypes
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
@@ -32,16 +33,31 @@ class NativeWindows(unittest.TestCase):
         ownership.start()
         self.addCleanup(ownership.stop)
 
+    def test_activation_calls_win32_then_confirms_foreground(self):
+        main, user32 = Mock(), Mock()
+        main.handle = 123
+        with patch.object(ctypes, 'windll', SimpleNamespace(user32=user32), create=True), patch.object(ui, 'foreground') as check:
+            ui.activate_main(main)
+        main.set_focus.assert_called_once()
+        user32.SetForegroundWindow.assert_called_once_with(123)
+        check.assert_called_once_with(main, 'after_activate')
+
+    def test_activation_cannot_bypass_foreground_denial(self):
+        main, user32 = Mock(), Mock()
+        with patch.object(ctypes, 'windll', SimpleNamespace(user32=user32), create=True), patch.object(ui, 'foreground', side_effect=RuntimeError('拒绝前台')), patch.object(ui.time, 'monotonic', side_effect=[0, 2]):
+            with self.assertRaisesRegex(RuntimeError, '拒绝前台'):
+                ui.activate_main(main)
+
     def test_focus_is_verified_before_mouse_input(self):
         main, row = Mock(), Mock()
-        with patch.object(ui, 'foreground') as check, patch.object(ui, 'selected', return_value=row):
+        with patch.object(ui, 'activate_main') as activate, patch.object(ui, 'foreground') as check, patch.object(ui, 'selected', return_value=row):
             self.assertIs(ui.focus_target(main, 'title', 'doi', '123'), row)
-        main.set_focus.assert_called_once()
+        activate.assert_called_once_with(main)
         self.assertEqual(check.call_count, 2)
 
     def test_lost_foreground_stops_before_selection(self):
         main = Mock()
-        with patch.object(ui, 'foreground', side_effect=RuntimeError('前台丢失')), patch.object(ui, 'selected') as selected:
+        with patch.object(ui, 'activate_main'), patch.object(ui, 'foreground', side_effect=RuntimeError('前台丢失')), patch.object(ui, 'selected') as selected:
             with self.assertRaisesRegex(RuntimeError, '前台'):
                 ui.focus_target(main, 'title', 'doi', '123')
         selected.assert_not_called()

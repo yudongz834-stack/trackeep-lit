@@ -33,33 +33,63 @@ def one(elements, label):
     return values[0]
 
 
-def foreground(main):
+def foreground(main, stage='foreground'):
     """鼠标输入落在前台窗口；UIA 找到后台控件并不等于可安全点击。"""
     import ctypes
     user32 = ctypes.windll.user32
     user32.GetForegroundWindow.restype = ctypes.c_void_p
-    if user32.GetForegroundWindow() != main.handle:
-        raise RuntimeError('Zotero 不在前台，停止原生输入')
+    handle = user32.GetForegroundWindow()
+    if handle != main.handle:
+        pid = ctypes.c_ulong()
+        user32.GetWindowThreadProcessId.argtypes = (ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong))
+        user32.GetWindowThreadProcessId(handle, ctypes.byref(pid))
+        user32.GetWindow.restype = ctypes.c_void_p
+        user32.GetWindow.argtypes = (ctypes.c_void_p, ctypes.c_uint)
+        name = ctypes.create_unicode_buffer(128)
+        user32.GetClassNameW.argtypes = (ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int)
+        user32.GetClassNameW(handle, name, len(name))
+        raise RuntimeError('Zotero 不在前台，停止原生输入；阶段=' + stage
+                           + '；main=' + str(main.handle) + '；foreground=' + str(handle)
+                           + '；pid=' + str(pid.value) + '；class=' + name.value
+                           + '；owner=' + str(user32.GetWindow(handle, 4)))
+
+
+def activate_main(main):
+    """UIA SetFocus 只设置控件焦点，主窗激活仍须 Win32 前台核验。"""
+    import ctypes
+    user32 = ctypes.windll.user32
+    user32.SetForegroundWindow.argtypes = (ctypes.c_void_p,)
+    main.set_focus()
+    user32.SetForegroundWindow(main.handle)
+    deadline = time.monotonic() + 1
+    while True:
+        try:
+            foreground(main, 'after_activate')
+            return
+        except RuntimeError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(.1)
 
 
 def focus_target(main, title, doi, pmid):
-    main.set_focus()
-    foreground(main)
+    activate_main(main)
+    foreground(main, 'before_identity')
     row = selected(main, title, doi, pmid)
-    foreground(main)
+    foreground(main, 'after_identity')
     return row
 
 
 def find_menu(main, title, doi, pmid, timeout=3):
     deadline = time.monotonic() + timeout
     while True:
-        foreground(main)
+        foreground(main, 'context_menu_wait')
         selected(main, title, doi, pmid)
         matches = [x for x in main.descendants(control_type='MenuItem')
                    if x.is_visible() and x.is_enabled()
                    and x.window_text() in ('查找全文', 'Find Full Text', 'Find Available PDF')]
         if len(matches) == 1:
-            foreground(main)
+            foreground(main, 'context_menu_ready')
             return matches[0]
         if len(matches) > 1 or time.monotonic() >= deadline:
             raise RuntimeError('查找全文菜单无法唯一确认：匹配数=' + str(len(matches)) + '，前台主窗已核对')
@@ -151,7 +181,7 @@ def run(payload):
     if payload['action'] == 'find':
         # click_input 最终注入屏幕鼠标，必须先前置并核验窗口，不能只信 UIA 定位。
         row = focus_target(main, title, payload['doi'], payload['pmid'])
-        foreground(main)
+        foreground(main, 'before_context_click')
         row.click_input(button='right')
         menu = find_menu(main, title, payload['doi'], payload['pmid'])
         menu.invoke()

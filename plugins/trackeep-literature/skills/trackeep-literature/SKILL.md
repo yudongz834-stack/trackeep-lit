@@ -9,7 +9,7 @@ description: 使用现有 Trackeep 文献管道按期刊、年份、主题或文
 
 1. `plan_natural` 接收 `{"text":"用户原话"}`；或 `plan` 接收明确计划。将检索日期口径、范围和查询呈现给用户；原话有歧义时先缩小歧义，不替用户猜全面历史导入。
 2. `search` 接收 `run_id`，核验完整计数与题录身份；存在异常、身份冲突时留待核。
-3. 用户已授权范围内，`import` 使用同一 `run_id`，先 `apply:false` 核重再 `apply:true`。由核心绑定检索快照和目标集合，不能另行构造 Zotero 写请求。
+3. 用 `collections` 读取已有集合，按用户范围选择 `collection_key`；`import` 每次均传同一 `run_id` 与该 `collection_key`，先 `apply:false` 核重，再在已授权范围内 `apply:true`。由核心绑定检索快照和目标集合，不能另行构造 Zotero 写请求或静默建集合。
 4. `review` 为本批每个 PMID 给出 `keep/exclude/pending` 与理由；不确定或缺摘要留 pending。`review_ai` 可使用现有配置的复筛能力，失败不改成排除。`apply_cleanup` 仅在用户授权可恢复清理时使用。
 5. `fulltext` 使用 `run_id` 和 `apply:true`，仅处理保留项。核心先检查本机真实文件，再触发 Zotero 原生查找，必要时使用已核官方文件原生附加。重复附件导入本身不会核重，绝不绕过核心护栏。
 6. `status` 读回相同批次，报告取得、已存在、排除、待核、缺全文和失败的真实数量；云端附件记录不代表本机全文成功。
