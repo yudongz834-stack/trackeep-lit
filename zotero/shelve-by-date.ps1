@@ -75,8 +75,14 @@ $index = @{}
 foreach ($c in $allCols) { $index["$($c.data.name)@$($c.data.parentCollection)"] = $c.key }
 function Find-Sub($name, $parentKey) { if ($parentKey) { $index["$name@$parentKey"] } else { $null } }
 
-# --- 2. 顶层条目（带 version / collections / date）---
-$items = Zot-Get "/collections/$CollectionKey/items/top?itemType=-attachment&limit=100"
+# --- 2. 顶层条目（带 version / collections / date；翻页拉全——limit=100 单页会静默漏尾巴，实测 2026-10-04 JTO 132 条坐实）---
+$items = @(); $s = 0
+while ($true) {
+  $pg = @(Zot-Get "/collections/$CollectionKey/items/top?itemType=-attachment&limit=100&start=$s")
+  $items += $pg
+  if ($pg.Count -lt 100) { break }
+  $s += 100
+}
 Write-Host ("条目数：{0}" -f $items.Count)
 $mode = if ($Apply) { 'APPLY（真写）' } else { 'DRY-RUN（仅预览，未写）' }
 Write-Host "==== 模式：$mode ====`n"
