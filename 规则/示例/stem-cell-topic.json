@@ -1,9 +1,26 @@
 {
   "kind": "topic",
   "journal": "Nature",
-  "date": {"field": "dp", "start": "2026-09-01", "end": "2026-09-30"},
+  "date": {
+    "field": "dp",
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  },
   "query": "\"Hematopoietic Stem Cell Transplantation\"[Mesh] OR (hematopoietic[tiab] AND transplant*[tiab]) OR (haematopoietic[tiab] AND transplant*[tiab])",
-  "concepts": [{"name": "造血干细胞移植", "mesh": "Hematopoietic Stem Cell Transplantation", "free_words": ["hematopoietic", "haematopoietic", "transplant*"], "rationale": "主题词加自由词；自由词较宽，相关性留待抽样核查"}],
-  "screening_location": "undecided",
-  "known_pmids": ["42420446"]
+  "concepts": [
+    {
+      "name": "造血干细胞移植",
+      "mesh": "Hematopoietic Stem Cell Transplantation",
+      "free_words": [
+        "hematopoietic",
+        "haematopoietic",
+        "transplant*"
+      ],
+      "rationale": "主题词加自由词；自由词较宽，相关性留待抽样核查"
+    }
+  ],
+  "screening_location": "after-import",
+  "known_pmids": [
+    "42420446"
+  ]
 }

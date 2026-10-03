@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-ENV_PATH = Path.home() / ".config" / "mecha" / "secrets" / "zotero.env"
+ENV_PATH = Path.home() / ".config" / "trackeep" / "secrets" / "zotero.env"
 API_BASE = "https://api.zotero.org"
 _TIMEOUT = 30
 
@@ -28,7 +28,7 @@ def _load_env() -> tuple[str, str]:
         if not ln or ln.startswith("#") or "=" not in ln:
             continue
         k, _, v = ln.partition("=")
-        k, v = k.strip(), v.strip()
+        k, v = k.strip(), v.strip().strip("\"'")
         if k == "ZOTERO_USER_ID":
             uid = v
         elif k == "ZOTERO_API_KEY":

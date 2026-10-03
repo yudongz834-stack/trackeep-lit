@@ -75,12 +75,20 @@ class PubMedTests(unittest.TestCase):
     def test_wrong_journal_blocks(self):
         self.assertEqual(self.run_plan(meta=xml(nlm='wrong'))['status'],'blocked')
 
-    def test_no_default_date_or_screening_or_mode(self):
-        for field in ('date','selection_mode','screening_location'):
+    def test_no_default_date_or_mode(self):
+        for field in ('date','selection_mode'):
             plan=copy.deepcopy(PLAN); del plan[field]
             with patch.object(p,'request') as req:
                 self.assertEqual(p.preview(plan)['status'],'blocked')
                 req.assert_not_called()
+
+    def test_screening_default_preserves_explicit_undecided(self):
+        plan=copy.deepcopy(PLAN); del plan['screening_location']
+        result=self.run_plan(plan=plan)
+        self.assertEqual(result['effective_plan']['screening_location'], 'after-import')
+        self.assertNotIn('screening_location', plan)
+        plan['screening_location']='undecided'
+        self.assertEqual(self.run_plan(plan=plan)['effective_plan']['screening_location'], 'undecided')
 
     def test_bad_dates_and_journal_rejected(self):
         for date in ({'field':'bad','start':'2026-01-01','end':'2026-02-01'},

@@ -221,6 +221,8 @@ def preview(plan):
               'relevance_validated': False}
     try:
         effective = copy.deepcopy(plan)
+        if isinstance(effective, dict) and 'screening_location' not in effective:
+            effective['screening_location'] = 'after-import'
         defaulted = (isinstance(effective,dict) and effective.get('kind')=='journal'
                      and isinstance(effective.get('date'),dict) and 'field' not in effective['date'])
         if defaulted:

@@ -10,3 +10,7 @@ tests/_tmp_*
 .mutmut-cache
 日志/pubmed-preview/
 日志/pubmed-validation/
+日志/metadata-validation/
+日志/metadata-batches/
+日志/metadata-reviews/
+.trackeep/zotero-import-ledger.json

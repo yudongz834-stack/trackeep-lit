@@ -1,5 +1,7 @@
 # Trackeep Lit — Agent 运行入口（AGENTS.md）
 
+2026-10-03 本轮少量真实题录试运行及原引擎修复的具名授权、范围和验收见 [.project/metadata-trial.md](.project/metadata-trial.md)；这是本次任务对下文历史 GUI/引擎只读约束的限定例外，不扩展为全库操作授权。
+
 本文件是 Agent 在本仓的**规范流程入口**（母法附录 C.2 形制）。与 [CLAUDE.md](./CLAUDE.md) 分工：
 **AGENTS.md = 生产规范流程入口；CLAUDE.md = 项目纪律与已踩坑固化决策**。二者互指不重复。
 任何 Agent（Claude / GLM / Codex / 其他）开工先读本文件 + [PROJECT-CONTRACT.md](./PROJECT-CONTRACT.md) + CLAUDE.md。

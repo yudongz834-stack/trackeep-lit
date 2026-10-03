@@ -1,5 +1,7 @@
 # Trackeep Lit — 项目纪律（CLAUDE.md）
 
+2026-10-03 的有限题录导入与原引擎修复按 [.project/metadata-trial.md](.project/metadata-trial.md) 的本轮具名授权执行；历史约束的其余范围不变。
+
 与 [AGENTS.md](./AGENTS.md) 分工：**AGENTS.md = 生产规范流程入口（母法/合同/红线内联/门禁）；
 本文件 = 项目纪律与已踩坑固化决策**。开工先读 AGENTS.md + [PROJECT-CONTRACT.md](./PROJECT-CONTRACT.md) + 本文件；
 当前状态看 [阶段日志.md](./阶段日志.md) 顶部。

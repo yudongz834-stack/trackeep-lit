@@ -1,8 +1,13 @@
 {
   "kind": "journal",
   "journal": "Nature",
-  "date": {"start": "2026-09-01", "end": "2026-09-30"},
+  "date": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  },
   "selection_mode": "broad",
-  "screening_location": "undecided",
-  "known_pmids": ["42420446"]
+  "screening_location": "after-import",
+  "known_pmids": [
+    "42420446"
+  ]
 }
