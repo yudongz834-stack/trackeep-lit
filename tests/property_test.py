@@ -8,8 +8,8 @@ lit/{strategy,overrides,ledger,engine}.py 的合并 / 解析 / 往返 / 窗口�
 纯逻辑测试，无需 Qt；绝不联网、绝不真 spawn 引擎、绝不写引擎真实文件——所有
 json / 台账 / 期刊表一律 patch 模块级 *_PATH 到 tests/_tmp_* 临时路径，脚本末尾自清理。
 
-运行：venv\\Scripts\\python.exe tests\\property_test.py
-      PROPERTY_SEED=7 venv\\Scripts\\python.exe tests\\property_test.py
+运行：E:\\Python\\python.exe tests\\property_test.py
+      PROPERTY_SEED=7 E:\\Python\\python.exe tests\\property_test.py
 """
 import copy
 import json

@@ -2,12 +2,12 @@
 
 2026-10-04 起：GUI／MCP 入口退役归档（`archives/gui-mcp-20261004`，PI 裁），**Agent 直驱脚本/引擎为唯一现役门**。下文 2026-10-03 授权注记按史实读，「GUI 确认写入」场景已不存在，写入一律走显式执行口径（`-Execute`／`apply:true`）。
 
-2026-10-03 双入口完整交付的本轮具名授权与验收以 [.project/unified-workflow-task.md](.project/unified-workflow-task.md) 为准：GUI确认写入，Agent可在用户明确授权的范围内经共享流程显式 `apply:true`；不把下文历史“只由GUI触发”限制误用于本轮授权。只读预览绝不真实写入、原引擎归属、凭证保护及禁止全库清理等边界不变。规则正文仍只在既有唯一规范维护。
+2026-10-03 双入口完整交付的本轮具名授权与验收以 [.project/unified-workflow-task.md](archives/gui-mcp-20261004/.project/unified-workflow-task.md) 为准：GUI确认写入，Agent可在用户明确授权的范围内经共享流程显式 `apply:true`；不把下文历史“只由GUI触发”限制误用于本轮授权。只读预览绝不真实写入、原引擎归属、凭证保护及禁止全库清理等边界不变。规则正文仍只在既有唯一规范维护。
 
-2026-10-03 的有限题录导入与原引擎修复按 [.project/metadata-trial.md](.project/metadata-trial.md) 的本轮具名授权执行；历史约束的其余范围不变。
+2026-10-03 的有限题录导入与原引擎修复按 [.project/metadata-trial.md](archives/gui-mcp-20261004/.project/metadata-trial.md) 的本轮具名授权执行；历史约束的其余范围不变。
 
 与 [AGENTS.md](./AGENTS.md) 分工：**AGENTS.md = 生产规范流程入口（母法/合同/红线内联/门禁）；
-本文件 = 项目纪律与已踩坑固化决策**。开工先读 AGENTS.md + [PROJECT-CONTRACT.md](./PROJECT-CONTRACT.md) + 本文件；
+本文件 = 项目纪律与已踩坑固化决策**。开工先读 AGENTS.md + [PROJECT-CONTRACT.md](archives/gui-mcp-20261004/PROJECT-CONTRACT.md) + 本文件；
 当前状态看 [阶段日志.md](./阶段日志.md) 顶部。
 
 PubMed 检索规则与只读预览入口见 [AGENTS.md](./AGENTS.md) 的「PubMed 检索入口」；不得将旧引擎预览视作新检索校验已生效。

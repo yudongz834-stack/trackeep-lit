@@ -2,17 +2,17 @@
 
 2026-10-04 起：GUI／MCP 入口退役归档（`archives/gui-mcp-20261004`，PI 裁），**Agent 直驱脚本/引擎为唯一现役门**。下文 2026-10-03 授权注记按史实读，「GUI 确认写入」场景已不存在，写入一律走显式执行口径（`-Execute`／`apply:true`）。
 
-2026-10-03 双入口完整交付的本轮具名授权与验收以 [.project/unified-workflow-task.md](.project/unified-workflow-task.md) 为准：GUI确认写入，Agent可在用户明确授权的范围内经共享流程显式 `apply:true`；不把下文历史“只由GUI触发”限制误用于本轮授权。只读预览绝不真实写入、原引擎归属、凭证保护及禁止全库清理等边界不变。规则正文仍只在既有唯一规范维护。
+2026-10-03 双入口完整交付的本轮具名授权与验收以 [.project/unified-workflow-task.md](archives/gui-mcp-20261004/.project/unified-workflow-task.md) 为准：GUI确认写入，Agent可在用户明确授权的范围内经共享流程显式 `apply:true`；不把下文历史“只由GUI触发”限制误用于本轮授权。只读预览绝不真实写入、原引擎归属、凭证保护及禁止全库清理等边界不变。规则正文仍只在既有唯一规范维护。
 
-2026-10-03 本轮少量真实题录试运行及原引擎修复的具名授权、范围和验收见 [.project/metadata-trial.md](.project/metadata-trial.md)；这是本次任务对下文历史 GUI/引擎只读约束的限定例外，不扩展为全库操作授权。
+2026-10-03 本轮少量真实题录试运行及原引擎修复的具名授权、范围和验收见 [.project/metadata-trial.md](archives/gui-mcp-20261004/.project/metadata-trial.md)；这是本次任务对下文历史 GUI/引擎只读约束的限定例外，不扩展为全库操作授权。
 
 本文件是 Agent 在本仓的**规范流程入口**（母法附录 C.2 形制）。与 [CLAUDE.md](./CLAUDE.md) 分工：
 **AGENTS.md = 生产规范流程入口；CLAUDE.md = 项目纪律与已踩坑固化决策**。二者互指不重复。
-任何 Agent（Claude / GLM / Codex / 其他）开工先读本文件 + [PROJECT-CONTRACT.md](./PROJECT-CONTRACT.md) + CLAUDE.md。
+任何 Agent（Claude / GLM / Codex / 其他）开工先读本文件 + [PROJECT-CONTRACT.md](archives/gui-mcp-20261004/PROJECT-CONTRACT.md) + CLAUDE.md。
 
 ## PubMed 检索入口（2026-10-03）
 
-使用本管道检索前，读[PubMed 检索规范](规则/PubMed检索规范_v1.0_20261003.md)，再执行其中的只读预览入口。它是检索规则唯一正文；筛选顺序已定，两篇题录、入库后复核及官方全文附件试运行完成。全文具名授权与边界见 [.project/fulltext-task.md](.project/fulltext-task.md)，不扩展为全库或插件授权。当前接手状态与产出清单见 [HANDOFF.md](HANDOFF.md)。
+使用本管道检索前，读[PubMed 检索规范](规则/PubMed检索规范_v1.0_20261003.md)，再执行其中的只读预览入口。它是检索规则唯一正文；筛选顺序已定，两篇题录、入库后复核及官方全文附件试运行完成。全文具名授权与边界见 [.project/fulltext-task.md](archives/gui-mcp-20261004/.project/fulltext-task.md)，不扩展为全库或插件授权。当前接手状态与产出清单见 [HANDOFF.md](HANDOFF.md)。
 
 施工定位先读[架构图与故障入口](规则/架构.md)；收口运行 `tools/check_map.py --check`，不以旧地图猜新入口。
 
@@ -20,9 +20,8 @@
 
 - **母法**：《AI-Agent 软件生产规范》**v1.1.2**
   `D:\dev\trackeep-design\AI-Agent软件生产规范-v1.1-定稿.md`（核心规范单一权威版本）
-- **项目合同**：[PROJECT-CONTRACT.md](./PROJECT-CONTRACT.md)（分级 S1/**R2**/C1 / 预算 / 预授权 / 测试缺省值；R1→R2 PI 2026-07-18 拍板）
-- **机器清单**：`.project/manifest.yaml`（实然，门禁状态仅由 CI 回填）
-- **义务/不变量/脆弱场景/例外**：`.project/policy.yaml` / `invariants.yaml` / `vulnerable-scenarios.yaml` / `exceptions.yaml`
+- **项目合同**：[PROJECT-CONTRACT.md](archives/gui-mcp-20261004/PROJECT-CONTRACT.md)（分级 S1/**R2**/C1 / 预算 / 预授权 / 测试缺省值；R1→R2 PI 2026-07-18 拍板）
+- **机器清单/义务/不变量**：`.project\` 治理五件已随 GUI 退役归档 `archives/gui-mcp-20261004/.project/`（史实）；`.project\pubmed-journals.json` 七刊身份正本仍留原位（活代码读取，2026-10-04 审核席抓回）
 
 ## 1. 红线（内联副本，来源母法 v1.1.2 §3.4 / §3.5；与母法出入一律以母法为准）
 
@@ -61,7 +60,7 @@
 
 **可自主（隔离环境内 / 项目边界内）：** 读/分析项目；改项目内代码；跑命令/测试/构建；
 mock 引擎与合成回执数据（测试内一律 mock spawn，不触真实 PubMed/Zotero 写路径）；
-装/升项目级依赖（venv 内）；提测试强度、加护栏、登记脆弱场景（加严不请示）；
+用公共棚 `E:\Python`（项目 venv 已于 2026-10-04 清洗除名）；提测试强度、加护栏、登记脆弱场景（加严不请示）；
 git 开发提交与 push（单执行体纪律，见 EX-01）；应急预授权内动作（回滚上一稳定 commit /
 误导入批次移回收站——执行后 24h 内补报 PI）。
 
@@ -71,9 +70,9 @@ git 开发提交与 push（单执行体纪律，见 EX-01）；应急预授权�
 
 ## 4. CI 与证据位置
 
-- **机器门禁**：`.github/workflows/quality-gates.yml`（governance / tests / secret-scan / evidence 四 job；任一红=发布阻断）
+- **机器门禁**：CI（quality-gates.yml）已随 GUI 退役归档 `archives/gui-mcp-20261004/.github/`——本仓无远端、该 CI 从未运行过；现役验证＝本地全套测试（`E:\Python\python.exe tests\*_test.py`）＋每批独立审核席
 - **证据**：GitHub Actions run artifacts `evidence-<sha>`（evidence.json：commit sha、时间、Python 版本、测试统计、TRACKEEP_CI 跳过计数、产物哈希、lock_hash）。仓库内不存副本
-- **测试**：`tests/smoke_test.py`（离线，逻辑全链路，引擎 mock）+ `tests/gui_test.py`（离屏，界面交互）；CI 下 `TRACKEEP_CI=1` 跳过联网并计数
+- **测试**：`tests/` 现役九件（smoke/workflow/fulltext/native_fulltext/native_ui/metadata/property/pubmed 等，GUI 系已归档）；联网面在本地按需真跑
 - **脏数据**：tests 内合成（BOM / 半截 JSON / 空文件 / 畸形回执样本），门禁内必过
 
 ## 5. 质量复核方式（母法 §8.5）

@@ -5,7 +5,7 @@
 绝不联网、绝不真 spawn 引擎、绝不读写引擎真实文件——所有 json/md/台账一律
 patch 模块级 *_PATH 常量到 tests/_tmp_* 临时文件，脚本末尾自清理。
 
-运行：venv\\Scripts\\python.exe tests\\smoke_test.py
+运行：E:\\Python\\python.exe tests\\smoke_test.py
 """
 import json
 import os
