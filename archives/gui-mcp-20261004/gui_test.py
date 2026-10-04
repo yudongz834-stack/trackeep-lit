@@ -2,7 +2,7 @@
 """界面离屏回归：不弹窗、不联网、不真 spawn 引擎、不碰引擎真实文件。
 
 断言来源：.project/invariants.yaml（INV-02/04/09/11）+ .project/vulnerable-scenarios.yaml
-（VS-06/07 + 受控建 VS-09）。所有 json/md/台账一律 patch 模块级常量到 tests/_tmp_*；
+（VS-06/07 + 受控建 VS-09）。所有 json/md/台账一律 patch 模块级常量到本次独有临时目录；
 engine.run_search/run_import 无条件换成可编程 mock；urllib 在 TRACKEEP_CI=1 时再桩一层。
 
 运行：venv\\Scripts\\python.exe tests\\gui_test.py
@@ -10,6 +10,7 @@ engine.run_search/run_import 无条件换成可编程 mock；urllib 在 TRACKEEP
 import os
 import sys
 import traceback
+import tempfile
 from pathlib import Path
 
 # 必须在 import Qt 之前：无显示器渲染 + 自检环境标记
@@ -20,7 +21,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding="utf-8")
 
-_TMPDIR = Path(__file__).resolve().parent / "_tmp_gui"
+_TEMP_GUI = tempfile.TemporaryDirectory(prefix="trackeep-gui-test-")
+_TMPDIR = Path(_TEMP_GUI.name)
 _TMPDIR.mkdir(exist_ok=True)
 
 
@@ -1043,13 +1045,11 @@ check("per-journal AI: _loading 期间持久化/点击不误写", ai_loading_no_
 
 
 # ============================ 收尾 ============================
-import shutil  # noqa: E402
-
 # 排空残留后台线程，避免 QThread 销毁报错
 _drain(harvest, 3)
 for p in win.pages:
     _drain(p, 2)
-shutil.rmtree(_TMPDIR, ignore_errors=True)
+_TEMP_GUI.cleanup()
 
 if os.environ.get("TRACKEEP_CI") == "1":
     print(f"[CI] TRACKEEP_CI 联网检查跳过 {_CI_SKIPS['n']} 次")

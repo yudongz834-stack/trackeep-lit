@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import sys
 
-ACTIONS = ['plan', 'plan_natural', 'search', 'import', 'review', 'review_ai', 'status', 'list_runs', 'collections', 'fulltext_jobs', 'fulltext']
+ACTIONS = ['plan', 'plan_natural', 'search', 'import', 'review', 'review_ai', 'continue', 'status', 'list_runs', 'collections', 'fulltext_jobs', 'fulltext']
 
 
 class Server:
@@ -53,7 +53,7 @@ class Server:
                 return error(-32602, 'apply 必须为布尔值')
             if 'apply_cleanup' in payload and not isinstance(payload['apply_cleanup'], bool):
                 return error(-32602, 'apply_cleanup 必须为布尔值')
-            if action in ('import', 'fulltext') and payload.get('apply') and not payload.get('run_id'):
+            if action in ('import', 'fulltext', 'continue') and payload.get('apply') and not payload.get('run_id'):
                 return error(-32602, '写入必须绑定已验证批次')
             try:
                 with contextlib.redirect_stdout(sys.stderr):

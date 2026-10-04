@@ -88,8 +88,41 @@ class WorkflowGuiTests(unittest.TestCase):
         with patch.object(QMessageBox, 'exec', return_value=QMessageBox.Yes):
             self.page.import_batch(True)
         action, payload = self.service.calls[-1]
-        self.assertEqual(action, 'import')
-        self.assertEqual(payload, {'apply': True, 'run_id': 'locked'})
+        self.assertEqual(action, 'continue')
+        self.assertEqual(payload, {'apply': True, 'criteria':'', 'run_id': 'locked'})
+
+    def test_authorized_resume_uses_saved_scope_and_no_new_dialog(self):
+        self.page.run_id='locked'
+        self.page.snapshot={'data':{'continuation':{'authorized':True,'criteria':'已锁标准'}}}
+        self.page.criteria.setText('后来改的输入')
+        with patch.object(QMessageBox,'exec') as dialog:
+            self.page.continue_batch()
+        dialog.assert_not_called()
+        self.assertEqual(self.service.calls[-1],('continue',{'apply':True,'run_id':'locked'}))
+
+    def test_attention_filter_keeps_hidden_review_decisions(self):
+        self.page.run_id='locked'
+        result={'data':{'search':{'articles':[{'pmid':'1','title':'保留'},{'pmid':'2','title':'待核'}]},
+            'review':{'items':[{'pmid':'1','decision':'keep','reason':'人工确定'},
+                               {'pmid':'2','decision':'pending','reason':'缺摘要'}]},
+            'pending_queue':[{'pmid':'2','reasons':['缺摘要']}]}}
+        self.page.snapshot=result;self.page.render(result)
+        self.page.view_filter.setCurrentIndex(1)
+        self.assertTrue(self.page.table.isRowHidden(0))
+        self.assertFalse(self.page.table.isRowHidden(1))
+        self.page.save_review()
+        self.assertEqual(len(self.service.calls[-1][1]['decisions']),2)
+        self.assertEqual(self.service.calls[-1][1]['decisions'][0]['decision'],'keep')
+
+    def test_continue_pending_auto_opens_attention_and_restores_standard(self):
+        self.page.received({'action':'continue','run_id':'locked','state':'fulltext_review_pending','data':{
+            'collection_policy':{'criteria':'确认的收集标准'},'continuation':{'authorized':True,'stage':'needs_attention'},
+            'pending_queue':[{'pmid':'1','reasons':['模型不可用']}],
+            'search':{'articles':[{'pmid':'1','title':'a'}]}}})
+        self.assertEqual(self.page.view_filter.currentData(),'attention')
+        self.assertEqual(self.page.criteria.text(),'确认的收集标准')
+        self.assertTrue(self.page.criteria.isReadOnly())
+        self.assertIn('1',self.page.queue_summary.text())
 
     def test_busy_prevents_duplicate_operation(self):
         self.page._set_busy(True)
@@ -212,10 +245,12 @@ class WorkflowGuiTests(unittest.TestCase):
         import threading
         import time
         from ui.workers import run_async
-        for number in range(50):
+        for number in range(100):  # 检索与连续流程各50轮
             gate = threading.Event()
             calls = []
             fail = number % 7 == 0
+            action = 'continue' if number % 2 else 'search'
+            body = {'apply':True} if action == 'continue' else {}
             def dispatch(action, payload):
                 calls.append((action, payload))
                 if not gate.wait(2):
@@ -226,7 +261,7 @@ class WorkflowGuiTests(unittest.TestCase):
                         'data':{}, 'counts':{}, 'errors':[]}
             self.page.run_id = 'locked'
             with patch('ui.pages.workflow_page.run_async', run_async), patch.object(self.service, 'dispatch', dispatch):
-                self.page.call('search')
+                self.page.call(action, body)
                 for _ in range(10):
                     self.page.call('status')
                     self.page.create_plan()
@@ -239,7 +274,7 @@ class WorkflowGuiTests(unittest.TestCase):
                     time.sleep(.001)
             self.assertFalse(self.page._workers, f'第{number}轮线程未清理')
             self.assertFalse(self.page._busy)
-            self.assertEqual(calls, [('search', {'run_id':'locked'})])
+            self.assertEqual(calls, [(action, {'run_id':'locked', **body})])
             if fail:
                 self.assertIn('合成网络失败', self.page.status.text())
 

@@ -29,7 +29,7 @@ class WorkflowPage(QWidget):
         title = QLabel('文献采集台')
         title.setObjectName('pageTitle')
         layout.addWidget(title)
-        layout.addWidget(QLabel('明确计划 → 核验检索 → 核重入库 → 复核 → 本机全文'))
+        layout.addWidget(QLabel('明确计划并核验检索；确认导入后自动复核，保留项继续本机全文。'))
         form = QFormLayout()
         self.mode = QComboBox()
         self.mode.addItem('按期刊和年月采集', 'journal')
@@ -61,7 +61,7 @@ class WorkflowPage(QWidget):
         self.pmids = QLineEdit()
         self.pmids.setPlaceholderText('多个 PMID 用空格或逗号分隔')
         self.criteria = QLineEdit()
-        self.criteria.setPlaceholderText('复核相关性的中文要求；缺摘要或没有判决保持待核')
+        self.criteria.setPlaceholderText('可填写收集标准；留空按已确认范围，按刊不额外缩窄主题')
         form.addRow('采集方式', self.mode)
         journal_row = QHBoxLayout()
         journal_row.addWidget(self.category)
@@ -107,8 +107,19 @@ class WorkflowPage(QWidget):
         self.table.cellDoubleClicked.connect(self._read_doubleclicked)
         split.addWidget(self.table)
         layout.addWidget(split, 1)
+        attention = QHBoxLayout()
+        attention.addWidget(QLabel('查看'))
+        self.view_filter = QComboBox()
+        for label, key in [('全部题录', 'all'), ('集中待核 / 未完成', 'attention'), ('保留', 'keep'), ('排除', 'exclude')]:
+            self.view_filter.addItem(label, key)
+        self.view_filter.currentIndexChanged.connect(self.filter_rows)
+        attention.addWidget(self.view_filter)
+        self.queue_summary = QLabel('待核项会在这里集中显示。')
+        attention.addWidget(self.queue_summary, 1)
+        self.continue_button = self._button(attention, '继续未完成步骤', self.continue_batch)
+        layout.addLayout(attention)
         reviews = QHBoxLayout()
-        self.review_button = self._button(reviews, '4 保存复核', self.save_review)
+        self.review_button = self._button(reviews, '保存人工复核并继续', self.save_review)
         self._button(reviews, '阅读题录', self.read_article)
         self.ai_button = self._button(reviews, 'AI 相关性复核', self.ai_review)
         self.fulltext_button = self._button(reviews, '5 获取并核验全文', self.fulltext)
@@ -198,22 +209,28 @@ class WorkflowPage(QWidget):
             self.failed(str(e))
             return
         if self.query.text().strip() and plan['kind'] != 'articles':
-            payload = {'text': self.query.text().strip()}
+            payload = {'text': self.query.text().strip(), 'criteria': self.criteria.text().strip()}
             payload.update({'date': plan['date']} if plan.get('date') else {'all_time': True})
             if plan.get('journal'):
                 payload['journal'] = plan['journal']
             self.call('plan_natural', payload)
         else:
-            self.call('plan', {'plan': plan})
+            self.call('plan', {'plan': plan, 'criteria': self.criteria.text().strip()})
 
     def _set_busy(self, busy):
         self._busy = busy
         for button in self._buttons:
             button.setEnabled(not busy)
         for button in (self.search_button, self.preview_button, self.import_button,
-                       self.review_button, self.ai_button, self.fulltext_button):
+                       self.review_button, self.ai_button, self.fulltext_button, self.continue_button):
             button.setEnabled(not busy and bool(self.run_id))
         self.table.setEnabled(not busy)
+        self.view_filter.setEnabled(not busy)
+        self.criteria.setReadOnly(bool(self.snapshot.get('data', {}).get('continuation', {}).get('authorized')))
+        if self.snapshot.get('data', {}).get('continuation', {}).get('authorized'):
+            self.preview_button.setEnabled(False)
+            if self.snapshot.get('data', {}).get('metadata', {}).get('status') in ('metadata_verified','review_required'):
+                self.search_button.setEnabled(False)
         self.progress.setRange(0, 0 if busy else 1)
         if not busy:
             self.progress.setValue(1)
@@ -230,6 +247,7 @@ class WorkflowPage(QWidget):
         self._set_busy(True)
         self.status.setText({'plan': '正在生成计划…', 'search': '正在核验 PubMed、获取全部匹配题录…',
                              'import': '正在核重并处理题录…', 'review': '正在复核身份、重复和撤稿信息…',
+                             'continue': '正在接续导入、AI复核及保留项全文；待核和失败会保存，可恢复继续…',
                              'fulltext': '正在获取并核验本机全文…'}.get(action, '正在读取状态…'))
         run_async(self, lambda: self.workflow.dispatch(action, body), done=self.received, failed=self.failed)
 
@@ -243,7 +261,20 @@ class WorkflowPage(QWidget):
         key = data.get('target_collection') if data.get('metadata') else self.collection.currentData()
         if key:
             payload['collection_key'] = key
-        self.call('import', payload)
+        if apply:
+            if not data.get('continuation', {}).get('authorized'):
+                payload['criteria'] = self.criteria.text().strip()
+            self.call('continue', payload)
+        else:
+            self.call('import', payload)
+
+    def continue_batch(self):
+        if self._busy or not self.run_id:
+            return
+        if not self.snapshot.get('data', {}).get('continuation', {}).get('authorized'):
+            self.import_batch(True)
+            return
+        self.call('continue', {'apply': True})
 
     def collection_description(self, key):
         data = self.snapshot.get('data', {})
@@ -271,7 +302,9 @@ class WorkflowPage(QWidget):
                        '按期刊匹配已有集合（请先核重预览确认目标）')
         text = (f'批次：{self.run_id}\n范围：{data.get("readable_plan", "以该批次已核验计划为准")}\n'
                 f'检索题录：{total}\n目标集合：{destination}\n拟新增：{new}；已存在：{existing}\n\n'
-                '写入前系统会再次核重，实际新增以读回为准；身份冲突留待核，不删除已有条目。')
+                f'收集标准：{self.criteria.text().strip() or (data.get("collection_policy") or {}).get("criteria", "依已确认范围保留，不额外缩窄主题")}\n'
+                '确认后自动完成题录导入、AI复核和保留项全文。缺摘要、模型无结论及身份异常集中待核；'
+                '排除项保留题录与理由。实际新增以再次核重及读回为准。')
         box = QMessageBox(QMessageBox.Question, '确认写入 Zotero', text,
                           QMessageBox.Yes | QMessageBox.No, self)
         box.button(QMessageBox.Yes).setText('确认导入')
@@ -290,7 +323,9 @@ class WorkflowPage(QWidget):
         self.journal.setEditText(plan.get('journal', ''))
         self.pmids.setText(' '.join(plan.get('pmids', [])))
         self.query.setText(plan.get('query', plan.get('filter_query', '')))
-        self.criteria.setText((data.get('review') or {}).get('criteria', ''))
+        self.criteria.setText((data.get('continuation') or {}).get('criteria') or
+                              (data.get('collection_policy') or {}).get('criteria') or
+                              (data.get('review') or {}).get('criteria', ''))
         # 自定义时间范围原样回显，不伪装成默认“最近60天”。
         while self.month.count() > 14:
             self.month.removeItem(self.month.count() - 1)
@@ -396,6 +431,10 @@ class WorkflowPage(QWidget):
                 index = self.collection.count() - 1
             self.collection.setCurrentIndex(index)
         self.render(result)
+        if result.get('action') == 'continue':
+            self.criteria.setText((result.get('data', {}).get('collection_policy') or {}).get('criteria', ''))
+            if result.get('data', {}).get('pending_queue'):
+                self.view_filter.setCurrentIndex(self.view_filter.findData('attention'))
         self._set_busy(False)
         self.refresh_runs()
 
@@ -410,6 +449,7 @@ class WorkflowPage(QWidget):
                   'fulltext_review_pending':'尚有题录待复核，全文仅处理已保留项',
                   'fulltext_not_required':'没有需要获取全文的保留项',
                   'review_cleanup_pending':'复核已保存，部分可恢复清理待核'}
+        states['continuation_blocked'] = '连续流程未完成，已保存检查点；可继续未完成步骤'
         self.status.setText(f'批次：{self.run_id or "—"} · {states.get(result.get("state"), "已返回回执，请核对下方结果")}')
         lines = []
         plan = data.get('readable_plan', '')
@@ -419,7 +459,7 @@ class WorkflowPage(QWidget):
             lines.extend(str(x) for x in plan)
         elif plan:
             lines.append(str(plan))
-        labels = {'keep': '保留', 'exclude': '排除', 'pending': '待核', 'new': '新题录',
+        labels = {'keep': '保留', 'exclude': '排除', 'pending': '待核', 'needs_attention':'集中待核 / 未完成', 'new': '新题录',
                   'existing': '已存在', 'failed': '失败', 'created_verified': '全文已核验',
                   'existing_verified': '现有全文已核验', 'pending_review': '全文待核',
                   'review_pending': '仍待复核', 'excluded': '已排除', 'scope': '本次范围',
@@ -479,6 +519,27 @@ class WorkflowPage(QWidget):
             self.table.setCellWidget(row, 4, choice)
             self.table.setItem(row, 5, QTableWidgetItem(decision.get('reason', '尚未复核')))
             self.table.item(row, 2).setToolTip(str(fulltext.get(pmid, {}).get('reason', '')))
+        policy = (data.get('collection_policy') or {}).get('criteria')
+        if policy:
+            self.report.appendPlainText('本批收集标准：' + policy)
+        stage = (data.get('continuation') or {}).get('stage')
+        if stage:
+            stage_names = {'import':'题录导入', 'review':'AI复核', 'fulltext':'本机全文',
+                           'needs_attention':'等待核查或重试', 'complete':'连续流程完成'}
+            self.report.appendPlainText('连续流程检查点：' + stage_names.get(stage, stage))
+        self.queue_summary.setText(f'本批待核 / 未完成：{len(data.get("pending_queue", []))}；人工保留后自动继续全文。')
+        self.filter_rows()
+
+    def filter_rows(self):
+        """仅隐藏显示行；保存人工复核仍携带全部题录，不能丢掉隐藏行的判决。"""
+        kind = self.view_filter.currentData()
+        pending = {str(i['pmid']) for i in self.snapshot.get('data', {}).get('pending_queue', [])}
+        for row, article in enumerate(self._articles):
+            choice = self.table.cellWidget(row, 4)
+            decision = choice.currentData() if choice else 'pending'
+            show = (kind == 'all' or (kind == 'attention' and (decision == 'pending' or str(article['pmid']) in pending))
+                    or kind == decision)
+            self.table.setRowHidden(row, not show)
 
     def load_collections(self):
         self.call('collections')
