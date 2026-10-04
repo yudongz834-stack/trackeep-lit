@@ -171,6 +171,18 @@ L += ['', f'## 空架子（{len(empty)} 刊，尚无任何条目）', '', '、'.
 open(OUT, 'w', encoding='utf-8').write('\n'.join(L))
 print('登记表已写:', OUT)
 
+# 周闹钟警报面（每周计划任务跑；全跟齐也留时间戳证明活着）
+ALERT = r'D:\workbench\期刊雷达-警报.txt'
+if behind:
+    open(ALERT, 'w', encoding='utf-8').write(
+        f'⚠ 落后刊 {len(behind)} 本（{today:%Y-%m-%d %H:%M} 扫）：\n' +
+        '\n'.join(f"  {r['dn']} 最新{fmt_ym(r['latest'])} PubMed近45天{r['pm']}条" for r in sorted(behind, key=lambda r: -(r['lag'] or 0))) +
+        '\n处置：对落后刊喊「lit 补货 <刊名>」\n')
+    print('⚠ 警报已写:', ALERT)
+else:
+    open(ALERT, 'w', encoding='utf-8').write(f'✅ 全部跟齐（{today:%Y-%m-%d %H:%M} 扫）\n')
+    print('✅ 全部跟齐，警报文件已刷新:', ALERT)
+
 print('\n===== 摘要 =====')
 print(f'在用 {len(have)}/{len(rows)} 刊；空架子 {len(empty)} 刊')
 for r in have:
