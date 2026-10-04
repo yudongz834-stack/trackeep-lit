@@ -125,6 +125,8 @@ for it in items:
 
 # ---------- 3. PubMed 近45天有无新货 ----------
 today = date.today()
+import datetime as _dt
+_now = _dt.datetime.now()  # 报表/警报用带时分的时间戳（date.today() 无时间分量，审核 LOW-1）
 def pubmed_recent(ta):
     q = urllib.parse.quote(f'"{ta}"[TA]')
     u = f'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&retmode=json&reldate=45&datetype=edat&term={q}&tool=trackeep-lit-registry'
@@ -154,7 +156,7 @@ have = sorted([r for r in rows if r['total']], key=lambda r: r['latest'], revers
 empty = [r for r in rows if not r['total']]
 behind = [r for r in have if r['pm'] > 0 and (r['lag'] or 0) >= 2]  # 有新货且库里最新月落后≥2月
 
-L = [f'# 期刊×月份登记表（{today:%Y-%m-%d %H:%M} 现算）', '',
+L = [f'# 期刊×月份登记表（{_now:%Y-%m-%d %H:%M} 现算）', '',
      f'> 数据源＝Zotero 库（{len(items)} 条目）＋ PubMed 近45天计数。机器现算派生视图，永不失准；重跑＝python D:\\trackeep-lit\\zotero\\journal-registry.py', '',
      '## 摘要', '',
      f'- 在用期刊：**{len(have)} / {len(rows)}**（空架子 {len(empty)} 刊）',
@@ -172,15 +174,22 @@ open(OUT, 'w', encoding='utf-8').write('\n'.join(L))
 print('登记表已写:', OUT)
 
 # 周闹钟警报面（每周计划任务跑；全跟齐也留时间戳证明活着）
+# 审核整改：pm<0＝PubMed 拉取失败≠「跟齐」，单独报「结论不可信」防假安心
 ALERT = r'D:\workbench\期刊雷达-警报.txt'
-if behind:
+pm_failed = [r for r in rows if r['pm'] < 0]
+if pm_failed:
     open(ALERT, 'w', encoding='utf-8').write(
-        f'⚠ 落后刊 {len(behind)} 本（{today:%Y-%m-%d %H:%M} 扫）：\n' +
+        f'⚠ PubMed 拉取失败 {len(pm_failed)} 刊（{_now:%Y-%m-%d %H:%M} 扫）——本次「跟齐/落后」结论不可信，需重跑：\n' +
+        '\n'.join(f"  {r['dn']}" for r in pm_failed) + '\n')
+    print(f'⚠ PubMed 拉取失败 {len(pm_failed)} 刊，警报已写:', ALERT)
+elif behind:
+    open(ALERT, 'w', encoding='utf-8').write(
+        f'⚠ 落后刊 {len(behind)} 本（{_now:%Y-%m-%d %H:%M} 扫）：\n' +
         '\n'.join(f"  {r['dn']} 最新{fmt_ym(r['latest'])} PubMed近45天{r['pm']}条" for r in sorted(behind, key=lambda r: -(r['lag'] or 0))) +
         '\n处置：对落后刊喊「lit 补货 <刊名>」\n')
     print('⚠ 警报已写:', ALERT)
 else:
-    open(ALERT, 'w', encoding='utf-8').write(f'✅ 全部跟齐（{today:%Y-%m-%d %H:%M} 扫）\n')
+    open(ALERT, 'w', encoding='utf-8').write(f'✅ 全部跟齐（{_now:%Y-%m-%d %H:%M} 扫）\n')
     print('✅ 全部跟齐，警报文件已刷新:', ALERT)
 
 print('\n===== 摘要 =====')
