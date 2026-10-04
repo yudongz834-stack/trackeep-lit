@@ -67,7 +67,14 @@ while True:
 print(f'条目拉取：{len(items)} 条')
 
 # 分区名→key（含年月子分区归属：条目挂在年月叶上，要算进期刊）
-cols = zget('/collections?limit=100')
+# 必须翻页：云端按版本排序，刚动过的刊会掉到第 2 页（2026-10-04 实测 111 个时三活刊全隐身→假绿）
+cols, cstart = [], 0
+while True:
+    page = zget(f'/collections?limit=100&start={cstart}')
+    cols += page
+    if len(page) < 100:
+        break
+    cstart += 100
 name2key, key2name, parent = {}, {}, {}
 for c in cols:
     k, n = c['key'], c['data']['name']
@@ -152,9 +159,18 @@ for grp, full, abbr, dn in journals:
 def fmt_ym(ym):
     return f'{ym[0]}-{ym[1]:02d}' if ym else '—'
 
+ALERT = r'D:\workbench\期刊雷达-警报.txt'  # 警报面（周闹钟＋诚实闸共用写点）
+
 have = sorted([r for r in rows if r['total']], key=lambda r: r['latest'], reverse=True)
 empty = [r for r in rows if not r['total']]
 behind = [r for r in have if r['pm'] > 0 and (r['lag'] or 0) >= 2]  # 有新货且库里最新月落后≥2月
+
+# 诚实闸：库里明明有货却一刊都对不上＝结构坏（collection 断链/翻页漏），不许报「跟齐」
+if items and not have:
+    msg = f'⚠ 结构异常：库内 {len(items)} 条却无一刊对上 collection——「跟齐/落后」全部作废，需检修 journal-registry'
+    open(ALERT, 'w', encoding='utf-8').write(msg + '\n')
+    print(msg)
+    sys.exit(1)
 
 L = [f'# 期刊×月份登记表（{_now:%Y-%m-%d %H:%M} 现算）', '',
      f'> 数据源＝Zotero 库（{len(items)} 条目）＋ PubMed 近45天计数。机器现算派生视图，永不失准；重跑＝python D:\\trackeep-lit\\zotero\\journal-registry.py', '',
@@ -175,7 +191,6 @@ print('登记表已写:', OUT)
 
 # 周闹钟警报面（每周计划任务跑；全跟齐也留时间戳证明活着）
 # 审核整改：pm<0＝PubMed 拉取失败≠「跟齐」，单独报「结论不可信」防假安心
-ALERT = r'D:\workbench\期刊雷达-警报.txt'
 pm_failed = [r for r in rows if r['pm'] < 0]
 if pm_failed:
     open(ALERT, 'w', encoding='utf-8').write(
