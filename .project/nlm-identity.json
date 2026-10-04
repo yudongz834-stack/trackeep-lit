@@ -1,367 +1,468 @@
 {
- "Clin Lung Cancer": {
-  "nlm_id": "100893225",
-  "ta": "Clin Lung Cancer",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/100893225"
- },
- "J Thorac Oncol": {
-  "nlm_id": "101274235",
-  "ta": "J Thorac Oncol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101274235"
- },
- "Ann Thorac Surg": {
-  "nlm_id": "15030100R",
-  "ta": "Ann Thorac Surg",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/20795"
- },
- "Eur J Cardiothorac Surg": {
-  "nlm_id": "8804069",
-  "ta": "Eur J Cardiothorac Surg",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8804069"
- },
- "J Thorac Cardiovasc Surg": {
-  "nlm_id": "0376343",
-  "ta": "J Thorac Cardiovasc Surg",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/376343"
- },
- "Lung Cancer": {
-  "nlm_id": "8800805",
-  "ta": "Lung Cancer",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8800805"
- },
- "Chest": {
-  "nlm_id": "0231335",
-  "ta": "Chest",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/231335"
- },
- "Thorax": {
-  "nlm_id": "0417353",
-  "ta": "Thorax",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/417353"
- },
- "Lancet Respir Med": {
-  "nlm_id": "101605555",
-  "ta": "Lancet Respir Med",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101605555"
- },
- "Eur Respir J": {
-  "nlm_id": "8803460",
-  "ta": "Eur Respir J",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8803460"
- },
- "Lancet Planet Health": {
-  "nlm_id": "101704339",
-  "ta": "Lancet Planet Health",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101704339"
- },
- "Lancet Glob Health": {
-  "nlm_id": "101613665",
-  "ta": "Lancet Glob Health",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101613665"
- },
- "Lancet Public Health": {
-  "nlm_id": "101699003",
-  "ta": "Lancet Public Health",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101699003"
- },
- "Lancet Reg Health Southeast Asia": {
-  "nlm_id": "9918419282806676",
-  "ta": "Lancet Reg Health Southeast Asia",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/492301"
- },
- "Lancet Reg Health West Pac": {
-  "nlm_id": "101774968",
-  "ta": "Lancet Reg Health West Pac",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101774968"
- },
- "Lancet Reg Health Eur": {
-  "nlm_id": "101777707",
-  "ta": "Lancet Reg Health Eur",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101777707"
- },
- "Lancet Reg Health Am": {
-  "nlm_id": "9918232503006676",
-  "ta": "Lancet Reg Health Am",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/381693"
- },
- "Lancet Healthy Longev": {
-  "nlm_id": "101773309",
-  "ta": "Lancet Healthy Longev",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101773309"
- },
- "Lancet Child Adolesc Health": {
-  "nlm_id": "101712925",
-  "ta": "Lancet Child Adolesc Health",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101712925"
- },
- "JAMA Surg": {
-  "nlm_id": "101589553",
-  "ta": "JAMA Surg",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101589553"
- },
- "JAMA Netw Open": {
-  "nlm_id": "101729235",
-  "ta": "JAMA Netw Open",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101729235"
- },
- "EClinicalMedicine": {
-  "nlm_id": "101733727",
-  "ta": "EClinicalMedicine",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101733727"
- },
- "BMJ": {
-  "nlm_id": "8900488",
-  "ta": "BMJ",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8900488"
- },
- "N Engl J Med": {
-  "nlm_id": "0255562",
-  "ta": "N Engl J Med",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/255562"
- },
- "Lancet": {
-  "nlm_id": "2985213R",
-  "ta": "Lancet",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/446079"
- },
- "JAMA": {
-  "nlm_id": "7501160",
-  "ta": "JAMA",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/7501160"
- },
- "Radiology": {
-  "nlm_id": "0401260",
-  "ta": "Radiology",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/401260"
- },
- "Ann Surg": {
-  "nlm_id": "0372354",
-  "ta": "Ann Surg",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/372354"
- },
- "Nat Med": {
-  "nlm_id": "9502015",
-  "ta": "Nat Med",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9502015"
- },
- "Lancet Oncol": {
-  "nlm_id": "100957246",
-  "ta": "Lancet Oncol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/100957246"
- },
- "JAMA Oncol": {
-  "nlm_id": "101652861",
-  "ta": "JAMA Oncol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101652861"
- },
- "Cancer Commun (Lond)": {
-  "nlm_id": "101723675",
-  "ta": "Cancer Commun (Lond)",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101723675"
- },
- "J Immunother Cancer": {
-  "nlm_id": "101620585",
-  "ta": "J Immunother Cancer",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101620585"
- },
- "Nat Cancer": {
-  "nlm_id": "101761119",
-  "ta": "Nat Cancer",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101761119"
- },
- "Nat Rev Cancer": {
-  "nlm_id": "101124168",
-  "ta": "Nat Rev Cancer",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101124168"
- },
- "Nat Rev Clin Oncol": {
-  "nlm_id": "101500077",
-  "ta": "Nat Rev Clin Oncol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101500077"
- },
- "Clin Cancer Res": {
-  "nlm_id": "9502500",
-  "ta": "Clin Cancer Res",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9502500"
- },
- "Ann Oncol": {
-  "nlm_id": "9007735",
-  "ta": "Ann Oncol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9007735"
- },
- "J Clin Oncol": {
-  "nlm_id": "8309333",
-  "ta": "J Clin Oncol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8309333"
- },
- "Lancet Digit Health": {
-  "nlm_id": "101751302",
-  "ta": "Lancet Digit Health",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101751302"
- },
- "NPJ Digit Med": {
-  "nlm_id": "101731738",
-  "ta": "NPJ Digit Med",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101731738"
- },
- "NEJM AI": {
-  "nlm_id": "9918752186406676",
-  "ta": "NEJM AI",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/133191"
- },
- "Sci Robot": {
-  "nlm_id": "101733136",
-  "ta": "Sci Robot",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101733136"
- },
- "Nat Nanotechnol": {
-  "nlm_id": "101283273",
-  "ta": "Nat Nanotechnol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101283273"
- },
- "Nat Mach Intell": {
-  "nlm_id": "101740243",
-  "ta": "Nat Mach Intell",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101740243"
- },
- "Nat Methods": {
-  "nlm_id": "101215604",
-  "ta": "Nat Methods",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101215604"
- },
- "Nat Biotechnol": {
-  "nlm_id": "9604648",
-  "ta": "Nat Biotechnol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9604648"
- },
- "Nat Biomed Eng": {
-  "nlm_id": "101696896",
-  "ta": "Nat Biomed Eng",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101696896"
- },
- "eBioMedicine": {
-  "nlm_id": "101647039",
-  "ta": "EBioMedicine",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101647039"
- },
- "Cancer Discov": {
-  "nlm_id": "101561693",
-  "ta": "Cancer Discov",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101561693"
- },
- "Cancer Cell": {
-  "nlm_id": "101130617",
-  "ta": "Cancer Cell",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101130617"
- },
- "Cell Stem Cell": {
-  "nlm_id": "101311472",
-  "ta": "Cell Stem Cell",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101311472"
- },
- "Cell Rep Med": {
-  "nlm_id": "101766894",
-  "ta": "Cell Rep Med",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101766894"
- },
- "Oncogene": {
-  "nlm_id": "8711562",
-  "ta": "Oncogene",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8711562"
- },
- "Signal Transduct Target Ther": {
-  "nlm_id": "101676423",
-  "ta": "Signal Transduct Target Ther",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101676423"
- },
- "Cell": {
-  "nlm_id": "0413066",
-  "ta": "Cell",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/413066"
- },
- "Trends Cancer": {
-  "nlm_id": "101665956",
-  "ta": "Trends Cancer",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101665956"
- },
- "Cell Metab": {
-  "nlm_id": "101233170",
-  "ta": "Cell Metab",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101233170"
- },
- "Cell Genom": {
-  "nlm_id": "9918284260106676",
-  "ta": "Cell Genom",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/490444"
- },
- "Cell Host Microbe": {
-  "nlm_id": "101302316",
-  "ta": "Cell Host Microbe",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101302316"
- },
- "Immunity": {
-  "nlm_id": "9432918",
-  "ta": "Immunity",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9432918"
- },
- "Mol Cell": {
-  "nlm_id": "9802571",
-  "ta": "Mol Cell",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9802571"
- },
- "Sci Immunol": {
-  "nlm_id": "101688624",
-  "ta": "Sci Immunol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101688624"
- },
- "Sci Transl Med": {
-  "nlm_id": "101505086",
-  "ta": "Sci Transl Med",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101505086"
- },
- "Sci Signal": {
-  "nlm_id": "101465400",
-  "ta": "Sci Signal",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101465400"
- },
- "J Clin Invest": {
-  "nlm_id": "7802877",
-  "ta": "J Clin Invest",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/7802877"
- },
- "Nat Microbiol": {
-  "nlm_id": "101674869",
-  "ta": "Nat Microbiol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101674869"
- },
- "Nat Immunol": {
-  "nlm_id": "100941354",
-  "ta": "Nat Immunol",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/100941354"
- },
- "Nat Genet": {
-  "nlm_id": "9216904",
-  "ta": "Nat Genet",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9216904"
- },
- "Nat Metab": {
-  "nlm_id": "101736592",
-  "ta": "Nat Metab",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101736592"
- },
- "Nat Aging": {
-  "nlm_id": "101773306",
-  "ta": "Nat Aging",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101773306"
- },
- "Cancer Res": {
-  "nlm_id": "2984705R",
-  "ta": "Cancer Res",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/445711"
- },
- "IEEE Trans Med Imaging": {
-  "nlm_id": "8310780",
-  "ta": "IEEE Trans Med Imaging",
-  "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8310780"
- }
+ "verified_on": "2026-10-04",
+ "note": "身份种子：journals=73 表刊 NLM 核验（--fetch 刷新）；legacy_mains=合并役前七刊字典原条目（含 issn/别名，史实保全，勿手编）",
+ "journals": {
+  "Clin Lung Cancer": {
+   "nlm_id": "100893225",
+   "ta": "Clin Lung Cancer",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/100893225"
+  },
+  "J Thorac Oncol": {
+   "nlm_id": "101274235",
+   "ta": "J Thorac Oncol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101274235"
+  },
+  "Ann Thorac Surg": {
+   "nlm_id": "15030100R",
+   "ta": "Ann Thorac Surg",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/20795"
+  },
+  "Eur J Cardiothorac Surg": {
+   "nlm_id": "8804069",
+   "ta": "Eur J Cardiothorac Surg",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8804069"
+  },
+  "J Thorac Cardiovasc Surg": {
+   "nlm_id": "0376343",
+   "ta": "J Thorac Cardiovasc Surg",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/376343"
+  },
+  "Lung Cancer": {
+   "nlm_id": "8800805",
+   "ta": "Lung Cancer",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8800805"
+  },
+  "Chest": {
+   "nlm_id": "0231335",
+   "ta": "Chest",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/231335"
+  },
+  "Thorax": {
+   "nlm_id": "0417353",
+   "ta": "Thorax",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/417353"
+  },
+  "Lancet Respir Med": {
+   "nlm_id": "101605555",
+   "ta": "Lancet Respir Med",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101605555"
+  },
+  "Eur Respir J": {
+   "nlm_id": "8803460",
+   "ta": "Eur Respir J",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8803460"
+  },
+  "Lancet Planet Health": {
+   "nlm_id": "101704339",
+   "ta": "Lancet Planet Health",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101704339"
+  },
+  "Lancet Glob Health": {
+   "nlm_id": "101613665",
+   "ta": "Lancet Glob Health",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101613665"
+  },
+  "Lancet Public Health": {
+   "nlm_id": "101699003",
+   "ta": "Lancet Public Health",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101699003"
+  },
+  "Lancet Reg Health Southeast Asia": {
+   "nlm_id": "9918419282806676",
+   "ta": "Lancet Reg Health Southeast Asia",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/492301"
+  },
+  "Lancet Reg Health West Pac": {
+   "nlm_id": "101774968",
+   "ta": "Lancet Reg Health West Pac",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101774968"
+  },
+  "Lancet Reg Health Eur": {
+   "nlm_id": "101777707",
+   "ta": "Lancet Reg Health Eur",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101777707"
+  },
+  "Lancet Reg Health Am": {
+   "nlm_id": "9918232503006676",
+   "ta": "Lancet Reg Health Am",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/381693"
+  },
+  "Lancet Healthy Longev": {
+   "nlm_id": "101773309",
+   "ta": "Lancet Healthy Longev",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101773309"
+  },
+  "Lancet Child Adolesc Health": {
+   "nlm_id": "101712925",
+   "ta": "Lancet Child Adolesc Health",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101712925"
+  },
+  "JAMA Surg": {
+   "nlm_id": "101589553",
+   "ta": "JAMA Surg",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101589553"
+  },
+  "JAMA Netw Open": {
+   "nlm_id": "101729235",
+   "ta": "JAMA Netw Open",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101729235"
+  },
+  "EClinicalMedicine": {
+   "nlm_id": "101733727",
+   "ta": "EClinicalMedicine",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101733727"
+  },
+  "BMJ": {
+   "nlm_id": "8900488",
+   "ta": "BMJ",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8900488"
+  },
+  "N Engl J Med": {
+   "nlm_id": "0255562",
+   "ta": "N Engl J Med",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/255562"
+  },
+  "Lancet": {
+   "nlm_id": "2985213R",
+   "ta": "Lancet",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/446079"
+  },
+  "JAMA": {
+   "nlm_id": "7501160",
+   "ta": "JAMA",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/7501160"
+  },
+  "Radiology": {
+   "nlm_id": "0401260",
+   "ta": "Radiology",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/401260"
+  },
+  "Ann Surg": {
+   "nlm_id": "0372354",
+   "ta": "Ann Surg",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/372354"
+  },
+  "Nat Med": {
+   "nlm_id": "9502015",
+   "ta": "Nat Med",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9502015"
+  },
+  "Lancet Oncol": {
+   "nlm_id": "100957246",
+   "ta": "Lancet Oncol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/100957246"
+  },
+  "JAMA Oncol": {
+   "nlm_id": "101652861",
+   "ta": "JAMA Oncol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101652861"
+  },
+  "Cancer Commun (Lond)": {
+   "nlm_id": "101723675",
+   "ta": "Cancer Commun (Lond)",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101723675"
+  },
+  "J Immunother Cancer": {
+   "nlm_id": "101620585",
+   "ta": "J Immunother Cancer",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101620585"
+  },
+  "Nat Cancer": {
+   "nlm_id": "101761119",
+   "ta": "Nat Cancer",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101761119"
+  },
+  "Nat Rev Cancer": {
+   "nlm_id": "101124168",
+   "ta": "Nat Rev Cancer",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101124168"
+  },
+  "Nat Rev Clin Oncol": {
+   "nlm_id": "101500077",
+   "ta": "Nat Rev Clin Oncol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101500077"
+  },
+  "Clin Cancer Res": {
+   "nlm_id": "9502500",
+   "ta": "Clin Cancer Res",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9502500"
+  },
+  "Ann Oncol": {
+   "nlm_id": "9007735",
+   "ta": "Ann Oncol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9007735"
+  },
+  "J Clin Oncol": {
+   "nlm_id": "8309333",
+   "ta": "J Clin Oncol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8309333"
+  },
+  "Lancet Digit Health": {
+   "nlm_id": "101751302",
+   "ta": "Lancet Digit Health",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101751302"
+  },
+  "NPJ Digit Med": {
+   "nlm_id": "101731738",
+   "ta": "NPJ Digit Med",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101731738"
+  },
+  "NEJM AI": {
+   "nlm_id": "9918752186406676",
+   "ta": "NEJM AI",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/133191"
+  },
+  "Sci Robot": {
+   "nlm_id": "101733136",
+   "ta": "Sci Robot",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101733136"
+  },
+  "Nat Nanotechnol": {
+   "nlm_id": "101283273",
+   "ta": "Nat Nanotechnol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101283273"
+  },
+  "Nat Mach Intell": {
+   "nlm_id": "101740243",
+   "ta": "Nat Mach Intell",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101740243"
+  },
+  "Nat Methods": {
+   "nlm_id": "101215604",
+   "ta": "Nat Methods",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101215604"
+  },
+  "Nat Biotechnol": {
+   "nlm_id": "9604648",
+   "ta": "Nat Biotechnol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9604648"
+  },
+  "Nat Biomed Eng": {
+   "nlm_id": "101696896",
+   "ta": "Nat Biomed Eng",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101696896"
+  },
+  "eBioMedicine": {
+   "nlm_id": "101647039",
+   "ta": "EBioMedicine",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101647039"
+  },
+  "Cancer Discov": {
+   "nlm_id": "101561693",
+   "ta": "Cancer Discov",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101561693"
+  },
+  "Cancer Cell": {
+   "nlm_id": "101130617",
+   "ta": "Cancer Cell",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101130617"
+  },
+  "Cell Stem Cell": {
+   "nlm_id": "101311472",
+   "ta": "Cell Stem Cell",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101311472"
+  },
+  "Cell Rep Med": {
+   "nlm_id": "101766894",
+   "ta": "Cell Rep Med",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101766894"
+  },
+  "Oncogene": {
+   "nlm_id": "8711562",
+   "ta": "Oncogene",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8711562"
+  },
+  "Signal Transduct Target Ther": {
+   "nlm_id": "101676423",
+   "ta": "Signal Transduct Target Ther",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101676423"
+  },
+  "Cell": {
+   "nlm_id": "0413066",
+   "ta": "Cell",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/413066"
+  },
+  "Trends Cancer": {
+   "nlm_id": "101665956",
+   "ta": "Trends Cancer",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101665956"
+  },
+  "Cell Metab": {
+   "nlm_id": "101233170",
+   "ta": "Cell Metab",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101233170"
+  },
+  "Cell Genom": {
+   "nlm_id": "9918284260106676",
+   "ta": "Cell Genom",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/490444"
+  },
+  "Cell Host Microbe": {
+   "nlm_id": "101302316",
+   "ta": "Cell Host Microbe",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101302316"
+  },
+  "Immunity": {
+   "nlm_id": "9432918",
+   "ta": "Immunity",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9432918"
+  },
+  "Mol Cell": {
+   "nlm_id": "9802571",
+   "ta": "Mol Cell",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9802571"
+  },
+  "Sci Immunol": {
+   "nlm_id": "101688624",
+   "ta": "Sci Immunol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101688624"
+  },
+  "Sci Transl Med": {
+   "nlm_id": "101505086",
+   "ta": "Sci Transl Med",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101505086"
+  },
+  "Sci Signal": {
+   "nlm_id": "101465400",
+   "ta": "Sci Signal",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101465400"
+  },
+  "J Clin Invest": {
+   "nlm_id": "7802877",
+   "ta": "J Clin Invest",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/7802877"
+  },
+  "Nat Microbiol": {
+   "nlm_id": "101674869",
+   "ta": "Nat Microbiol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101674869"
+  },
+  "Nat Immunol": {
+   "nlm_id": "100941354",
+   "ta": "Nat Immunol",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/100941354"
+  },
+  "Nat Genet": {
+   "nlm_id": "9216904",
+   "ta": "Nat Genet",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/9216904"
+  },
+  "Nat Metab": {
+   "nlm_id": "101736592",
+   "ta": "Nat Metab",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101736592"
+  },
+  "Nat Aging": {
+   "nlm_id": "101773306",
+   "ta": "Nat Aging",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/101773306"
+  },
+  "Cancer Res": {
+   "nlm_id": "2984705R",
+   "ta": "Cancer Res",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/445711"
+  },
+  "IEEE Trans Med Imaging": {
+   "nlm_id": "8310780",
+   "ta": "IEEE Trans Med Imaging",
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/8310780"
+  }
+ },
+ "legacy_mains": [
+  {
+   "name": "Nature",
+   "ta": "Nature",
+   "nlm_id": "0410462",
+   "aliases": [
+    "Nature"
+   ],
+   "issn": [
+    "0028-0836",
+    "1476-4687"
+   ],
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/410462"
+  },
+  {
+   "name": "Science",
+   "ta": "Science",
+   "nlm_id": "0404511",
+   "aliases": [
+    "Science"
+   ],
+   "issn": [
+    "0036-8075",
+    "1095-9203"
+   ],
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/404511"
+  },
+  {
+   "name": "Cell",
+   "ta": "Cell",
+   "nlm_id": "0413066",
+   "aliases": [
+    "Cell"
+   ],
+   "issn": [
+    "0092-8674",
+    "1097-4172"
+   ],
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/413066"
+  },
+  {
+   "name": "NEJM",
+   "ta": "N Engl J Med",
+   "nlm_id": "0255562",
+   "aliases": [
+    "NEJM",
+    "N Engl J Med",
+    "The New England journal of medicine"
+   ],
+   "issn": [
+    "0028-4793",
+    "1533-4406"
+   ],
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/255562"
+  },
+  {
+   "name": "Lancet",
+   "ta": "Lancet",
+   "nlm_id": "2985213R",
+   "aliases": [
+    "Lancet",
+    "The Lancet"
+   ],
+   "issn": [
+    "0140-6736",
+    "1474-547X"
+   ],
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/446079"
+  },
+  {
+   "name": "JAMA",
+   "ta": "JAMA",
+   "nlm_id": "7501160",
+   "aliases": [
+    "JAMA"
+   ],
+   "issn": [
+    "0098-7484",
+    "1538-3598"
+   ],
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog/7501160"
+  },
+  {
+   "name": "BMJ",
+   "ta": "BMJ",
+   "nlm_id": "8900488",
+   "aliases": [
+    "BMJ",
+    "The BMJ"
+   ],
+   "issn": [
+    "0959-8138",
+    "1756-1833"
+   ],
+   "source": "https://www.ncbi.nlm.nih.gov/nlmcatalog?cmd=PureSearch&db=journals&term=%228900488%22%5BNLM+ID%5D"
+  }
+ ]
 }

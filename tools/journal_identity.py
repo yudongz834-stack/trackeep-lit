@@ -60,13 +60,9 @@ def fetch_missing(rows, cache):
 
 def build():
     rows = load_table()
-    cache = json.loads(CACHE.read_text(encoding='utf-8')) if CACHE.exists() else {}
-    legacy = []
-    if TARGET.exists():
-        try:
-            legacy = json.loads(TARGET.read_text(encoding='utf-8')).get('journals', [])
-        except Exception:
-            legacy = []
+    doc = json.loads(CACHE.read_text(encoding='utf-8')) if CACHE.exists() else {}
+    cache = doc.get('journals', doc if doc else {})  # 兼容旧平铺缓存
+    legacy = doc.get('legacy_mains', [])  # 七刊遗留＝种子供结（审核 M-1 整改：注册表不再当输入，纯派生）
     records, missing = [], []
     for r in rows:
         c = cache.get(r['abbr'])
@@ -89,16 +85,18 @@ def build():
         if x.get('name') in LEGACY_MAINS and x.get('ta') not in covered:
             records.append(x)
     doc = {'verified_on': date.today().isoformat(),
-           'generated_by': 'tools/journal_identity.py（收藏口径＝期刊来源表；身份＝NLM Catalog 缓存，勿手编本文件）',
+           'generated_by': 'tools/journal_identity.py（纯派生物：期刊来源表 × 身份种子 nlm-identity.json；勿手编，--check 全字段漂移闸）',
            'journals': records}
     return doc, missing
 
 
 def main():
     if '--fetch' in sys.argv:
-        cache = json.loads(CACHE.read_text(encoding='utf-8')) if CACHE.exists() else {}
+        doc = json.loads(CACHE.read_text(encoding='utf-8')) if CACHE.exists() else {}
+        cache = doc.get('journals', doc if doc else {})
         got = fetch_missing(load_table(), cache)
-        CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding='utf-8')
+        doc['journals'] = cache
+        CACHE.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
         print(f'联网刷新：新取 {len(got)} 条，缓存共 {len(cache)} 条')
     doc, missing = build()
     if missing:

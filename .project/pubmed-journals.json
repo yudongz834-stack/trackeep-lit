@@ -1,6 +1,6 @@
 {
  "verified_on": "2026-10-04",
- "generated_by": "tools/journal_identity.py（收藏口径＝期刊来源表；身份＝NLM Catalog 缓存，勿手编本文件）",
+ "generated_by": "tools/journal_identity.py（纯派生物：期刊来源表 × 身份种子 nlm-identity.json；勿手编，--check 全字段漂移闸）",
  "journals": [
   {
    "name": "Clinical Lung Cancer",
