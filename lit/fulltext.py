@@ -94,8 +94,8 @@ class AttachmentLibrary(Library):
             raise RuntimeError('附件文件上传失败；保留原题录与可重试附件') from None
 
 
-def attach(lib,article,parent_key,blob,source,journal,apply=False):
-    check=verify_pdf(blob,article)
+def attach(lib,article,parent_key,blob,source,journal,apply=False,filename=None,verify=None):
+    check=(verify or verify_pdf)(blob,article)
     before=lib.get('/items/'+parent_key)
     if not exact(before,article) or before['data'].get('deleted'):
         raise ValueError('上传前父题录身份不符或在回收站')
@@ -120,7 +120,7 @@ def attach(lib,article,parent_key,blob,source,journal,apply=False):
     if pending:key=pending[0]['key']
     else:
         body={'itemType':'attachment','parentItem':parent_key,'linkMode':'imported_url','title':'全文 PDF',
-              'url':source,'contentType':'application/pdf','filename':article['pmid']+'.pdf','tags':[{'tag':'trackeep-fulltext'}]}
+              'url':source,'contentType':'application/pdf','filename':filename or article['pmid']+'.pdf','tags':[{'tag':'trackeep-fulltext'}]}
         journal({'stage':'creating_attachment','parent':parent_key})
         result=lib.post('/items',[body]);success=result.get('successful',{})
         if set(success)!={'0'} or result.get('failed'):raise RuntimeError('附件创建回执不完整')
@@ -132,14 +132,14 @@ def attach(lib,article,parent_key,blob,source,journal,apply=False):
     if current['data'].get('parentItem')!=parent_key or current['data'].get('md5'):
         raise RuntimeError('附件关联或文件状态变化，拒绝覆盖')
     headers={'Content-Type':'application/x-www-form-urlencoded','If-None-Match':'*'}
-    form=urllib.parse.urlencode({'md5':check['md5'],'filename':article['pmid']+'.pdf','filesize':len(blob),'mtime':int(time.time()*1000)}).encode()
+    form=urllib.parse.urlencode({'md5':check['md5'],'filename':filename or article['pmid']+'.pdf','filesize':len(blob),'mtime':int(time.time()*1000)}).encode()
     auth=lib.post('/items/'+key+'/file',form,headers)
     if not auth.get('exists'):
         lib.upload_bytes(auth,blob)
         lib.post('/items/'+key+'/file',urllib.parse.urlencode({'upload':auth['uploadKey']}).encode(),headers)
     readback=lib.file(key)
     if hashlib.sha256(readback).hexdigest()!=check['sha256']:raise RuntimeError('附件读回哈希不一致')
-    verify_pdf(readback,article)
+    (verify or verify_pdf)(readback,article)
     attachment_after=lib.get('/items/'+key)
     final_data=attachment_after['data']
     if (final_data.get('parentItem')!=parent_key or final_data.get('deleted') or
