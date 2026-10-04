@@ -8,10 +8,10 @@ Agent 直驱的文献流水线之家。2026-10-04 PI 裁：GUI／MCP 入口退�
 |---|---|
 | `zotero\` | 流水线脚本＋名册（`zotero\README.md`）：import／harvest-all／shelve／audit／trash／coverage／status／pdf／wipe／journals＋journal-registry.py |
 | `lit\` | 共享引擎包：workflow 核心、全文挂接 attach、原生界面桥 native_ui、批次复核——Agent 工具的底座 |
-| `tools\` | Agent 侧执行体：fulltext_sweep_inbox（扫箱归档）、oa_harvest（开放版扫描）、fulltext_pilot_jto |
+| `tools\` | Agent 侧执行体：fulltext_sweep_inbox（扫箱归档）、oa_harvest（开放版扫描）（pilot 试点件已随清洗归档） |
 | `规则\` | 检索规范唯一正文＋架构图 |
 | `tests\` | 引擎测试（workflow／fulltext／metadata／pubmed／native 桥） |
-| `archives\` | 史料；含 `gui-mcp-20260104`＝退役的 GUI＋MCP 全家（含其测试），要用从 git 请回 |
+| `archives\` | 史料；含 `gui-mcp-20261004`＝退役的 GUI＋MCP 全家（含其测试），要用从 git 请回 |
 
 ## 怎么跑（Agent 门）
 
@@ -27,4 +27,4 @@ Agent 直驱的文献流水线之家。2026-10-04 PI 裁：GUI／MCP 入口退�
 - Zotero 9 本地 API 只读核验；不写数据库、不动内部存储；WebDAV 远端另列未验证面
 - 凭证只进请求头不回显；`.trackeep\` 为运行状态（台账在忽略名单，journal-overrides.json 在册）
 
-依赖：公共棚 `E:\Python`（PyMuPDF 等）；`venv\` 保留作引擎历史批准环境。Zotero 桌面须运行（本地 API 23119）。
+依赖：公共棚 `E:\Python`（PyMuPDF 等）；venv 已随 GUI 退役清洗移除（2026-10-04，全套引擎测试 E:\Python 全绿实证）。Zotero 桌面须运行（本地 API 23119）。

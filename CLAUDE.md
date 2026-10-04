@@ -1,6 +1,6 @@
 # Trackeep Lit — 项目纪律（CLAUDE.md）
 
-2026-10-04 起：GUI／MCP 入口退役归档（`archives/gui-mcp-20260104`，PI 裁），**Agent 直驱脚本/引擎为唯一现役门**。下文 2026-10-03 授权注记按史实读，「GUI 确认写入」场景已不存在，写入一律走显式执行口径（`-Execute`／`apply:true`）。
+2026-10-04 起：GUI／MCP 入口退役归档（`archives/gui-mcp-20261004`，PI 裁），**Agent 直驱脚本/引擎为唯一现役门**。下文 2026-10-03 授权注记按史实读，「GUI 确认写入」场景已不存在，写入一律走显式执行口径（`-Execute`／`apply:true`）。
 
 2026-10-03 双入口完整交付的本轮具名授权与验收以 [.project/unified-workflow-task.md](.project/unified-workflow-task.md) 为准：GUI确认写入，Agent可在用户明确授权的范围内经共享流程显式 `apply:true`；不把下文历史“只由GUI触发”限制误用于本轮授权。只读预览绝不真实写入、原引擎归属、凭证保护及禁止全库清理等边界不变。规则正文仍只在既有唯一规范维护。
 
@@ -24,7 +24,7 @@ PI 的医学文献桌面进料端：选刊 → PubMed 检索 → Zotero 去重�
 
 ## 修改纪律
 
-- **每改动跑两件套**：`venv\Scripts\python.exe tests\smoke_test.py` + `tests\gui_test.py`，全绿才 commit
+- **每改动跑两件套**：`E:\Python\python.exe tests\smoke_test.py` ＋ `tests\workflow_test.py`（GUI 系测试已随退役归档，2026-10-04），全绿才 commit
 - **commit 中文人话**，改完顺手 push（单执行体纪律，EX-01 补偿措施之一）
 - 版本语义：`lit/config.py::VERSION`（主.次.修订；v0.1=Slice 1–6b 施工期收口，v0.2=品牌重构+规范落地）
 - 改动收尾同步 [阶段日志.md](./阶段日志.md)（刷新「当前活跃状态」+ 追加调整记录）
