@@ -36,7 +36,7 @@
 
 **官方事实**：期刊字段 `[TA]`（Journal）可以用完整刊名或标准缩写；只有 ISSN 的查询可能漏掉不含 ISSN 的旧记录。查询用已核实的标准缩写，返回题录用 `MedlineJournalInfo/NlmUniqueID` 校验，二者不同职责。[NLM 检索帮助](https://pubmed.ncbi.nlm.nih.gov/help/#searching-by-journal)
 
-七刊 Nature、Science、Cell、NEJM、Lancet、JAMA、BMJ 的身份正本是 [pubmed-journals.json](../.project/pubmed-journals.json)，每条附 NLM Catalog 来源；不要在别处另抄一套缩写/ID。**已实现**：表内明确别名直接解析；其余刊名通过官方 NLM Catalog 动态核验，歧义或身份缺失阻断。展示用 Memex 期刊表不替代官方身份，返回题录仍逐条核 NLM ID。
+期刊身份注册表＝[pubmed-journals.json](../.project/pubmed-journals.json)（2026-10-04 合并役起＝73 收录刊＋遗留七刊主刊共 75 条；每条附 NLM Catalog 来源，勿手编）。分域单源：**收藏口径正本＝Memex 期刊来源表**（人编；E:\Trackeep-Obsidian\00-系统\期刊来源表.md）；**官方身份＝NLM Catalog**（机器取，缓存 `.project/nlm-identity.json`）；两者由 `tools/journal_identity.py` 拼合生成注册表（`--check`＝漂移闸，`--fetch`＝联网补核），不在别处另抄缩写/ID。**已实现**：表内明确别名直接解析；其余刊名通过官方 NLM Catalog 动态核验，歧义或身份缺失阻断。展示用 Memex 期刊表不替代官方身份，返回题录仍逐条核 NLM ID。
 
 历史边界：主刊不自动包含系列刊、分刊、前身或摘要版。BMJ 主刊与 Academic edition 是不同记录；Lancet 的 Catalog 网页编号也不是 NLM ID。回溯更名前年份须另核前身集合，不因为本表七刊可用就声称覆盖所有历史。Nature 官方记录注明 PubMed 选择性收录，所以“PubMed 取齐”不能称“全刊收齐”。[Nature Catalog](https://www.ncbi.nlm.nih.gov/nlmcatalog/410462)
 

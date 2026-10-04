@@ -96,14 +96,23 @@ class PubMedTests(unittest.TestCase):
                      {'field':'dp','start':'2026-03-02','end':'2026-03-01'}):
             plan=copy.deepcopy(PLAN); plan['date']=date
             self.assertEqual(p.preview(plan)['status'],'blocked')
-        with self.assertRaises(ValueError): p.resolve_journal('Nature Medicine')
+        for bad in ('', '   ', 'a"b', 'x[y]', 'z' * 201):
+            with self.assertRaises(ValueError): p.resolve_journal(bad)
 
-    def test_seven_unique_identities_and_lancet_not_catalog_uid(self):
-        rows=p.journals()
-        self.assertEqual(len(rows),7)
-        self.assertEqual(len({j['nlm_id'] for j in rows}),7)
-        self.assertEqual(p.resolve_journal('NEJM')['ta'],'N Engl J Med')
-        self.assertEqual(p.resolve_journal('Lancet')['nlm_id'],'2985213R')
+    def test_seven_mains_identified_and_lancet_not_catalog_uid(self):
+        rows = p.journals()
+        self.assertGreaterEqual(len(rows), 75)  # 合并役后＝73 表刊＋遗留主刊（2026-10-04）
+        self.assertEqual(len(rows), len({j['nlm_id'] for j in rows}))  # 官方编号全库唯一
+        mains = {}
+        for j in rows:
+            if j['ta'] in ('Nature', 'Science', 'Cell', 'N Engl J Med', 'Lancet', 'JAMA', 'BMJ'):
+                mains[j['ta']] = j
+        self.assertEqual(len(mains), 7, '七刊主刊身份必须全部在册')
+        self.assertEqual(mains['Lancet']['nlm_id'], '2985213R')
+        self.assertNotEqual(mains['Lancet']['nlm_id'], '446079')  # Catalog 网页编号≠NLM ID（旧 bug 闸）
+        self.assertEqual(p.resolve_journal('NEJM')['ta'], 'N Engl J Med')
+        # Nature Medicine 现为表册在册刊：须解析成功，且与 Nature 主刊是两本（编号不同）
+        self.assertNotEqual(p.resolve_journal('Nature Medicine')['nlm_id'], mains['Nature']['nlm_id'])
 
     def test_filter_needs_reason_and_broad_cannot_hide_filter(self):
         plan=copy.deepcopy(PLAN); plan['filter_query']='hasabstract'

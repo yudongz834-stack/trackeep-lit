@@ -14,6 +14,7 @@ import copy
 import json
 import os
 import tempfile
+import time
 
 from lit import config, journals, overrides
 
@@ -134,6 +135,18 @@ def resolve(journal: str) -> dict:
             "deepseek_criteria": ds_criteria}
 
 
+def _replace_retry(src, dst, attempts=4, wait=0.08):
+    """os.replace 带退避重试：Windows 上杀毒实时扫描会短暂锁住新建文件（WinError 5）。"""
+    for i in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if i == attempts - 1:
+                raise
+            time.sleep(wait * (i + 1))
+
+
 def _atomic_write(data: dict) -> None:
     """原子写：临时文件 + os.replace，避免半写损坏其它分类 / version。"""
     STRATEGY_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -144,7 +157,7 @@ def _atomic_write(data: dict) -> None:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:   # utf-8 不加 BOM（见 memory）
             json.dump(data, f, ensure_ascii=False, indent=2)
             f.write("\n")
-        os.replace(tmp_path, STRATEGY_PATH)
+        _replace_retry(tmp_path, STRATEGY_PATH)
     except BaseException:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
