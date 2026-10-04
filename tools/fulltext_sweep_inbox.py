@@ -2,7 +2,7 @@
 # v2 修三病（首跑实测）：①bytes 先读再开 fitz（不再锁文件挪不动）②DOI 用正则集合精确匹配
 #   （归一化包含会把 DOI 前缀相近的认错人）③可注入验证器＝DOI 主尺＋辅助证据版
 # （Elsevier 版式：社论天生 2 页/8000 字够不着研究文标准；PubMed 题名与纸质排版有措辞差）
-import hashlib, json, re, shutil, sys, urllib.request
+import hashlib, json, re, sys, urllib.request
 from pathlib import Path
 
 sys.path.insert(0, r'D:\trackeep-lit')
@@ -90,12 +90,12 @@ print(f'收件箱 PDF: {len(files)} 份', flush=True)
 
 
 def to_archive(f):
-    dest = ARCHIVE / f.name
-    i = 1
-    while dest.exists():
-        i += 1
-        dest = ARCHIVE / f"{f.stem}({i}).pdf"
-    shutil.move(str(f), str(dest))
+    """单份制（PI 2026-10-04 定）：正本在 Zotero＋云端，原件验后即删；逐名留痕防对不上。"""
+    f.unlink()
+    deleted_log.append(f.name)
+
+
+deleted_log = []
 
 
 filed, already, bad, moved_fail = 0, 0, [], []
@@ -146,11 +146,13 @@ for f in files:
         print(f"  [挂接异常·留原地] {f.name[:46]} — {str(e)[:50]}", flush=True)
 
 missing = [t for t in by_key.values() if not t['has_pdf'] and t['key'] not in attached_keys]
-L = [f'# 全文归档对账 v2（扫描 {len(files)} 份）', '',
-     f'- 本轮挂接成功：**{filed}** 份', f'- 已在前轮挂好、原件直接归档：**{already}** 份',
+L = [f'# 全文归档对账 v3（扫描 {len(files)} 份·单份制）', '',
+     f'- 本轮挂接成功：**{filed}** 份（原件已删，正本在 Zotero＋云端）',
+     f'- 已在前轮挂好、原件即删：**{already}** 份',
      f'- 验不过（留原地）：**{len(unrecognized)}** 份', f'- 挂接异常（留原地待复核）：**{len(bad)}** 份',
      f'- 45 篇清单仍缺：**{len(missing)}** 篇', '',
-     '## 验不过/认不出'] + [f'- `{n}` — {r}' for n, r in unrecognized] + ['', '## 挂接异常'] + \
+     '## 本轮删除原件清单（逐名）'] + [f'- `{n}`' for n in deleted_log] + \
+    ['', '## 验不过/认不出'] + [f'- `{n}` — {r}' for n, r in unrecognized] + ['', '## 挂接异常'] + \
     [f'- `{n}` — {r}' for n, r in bad] + ['', '## 仍缺清单（重挂用 DOI）'] + \
     [f'- {t["doi"]} — {t["title"][:60]}' for t in missing]
 REPORT.write_text('\n'.join(L), encoding='utf-8')
