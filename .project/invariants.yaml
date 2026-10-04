@@ -6,6 +6,22 @@
 
 invariants:
 
+  - id: INV-12
+    name: 已确认批次连续执行并锁定范围
+    invariant: >
+      现役共享流程经一次确认的 continue 才自动接续题录、复核和保留项全文；apply:false 不调用模型或写库。
+      标准、目标集合、批次检索快照锁定，失败恢复不重导已确认题录、不重判人工决定。
+      缺摘要（含重新抓取缺失）、模型不可用或无可信判决、身份冲突保持待核；宽期刊范围不另加主题排除。
+    guardrail: >
+      Workflow._continue 保存授权与阶段检查点；_import/_review_ai/_search 的旧动作入口遵守同一锁定；
+      deepseek._deepseek_judge 不向模型发送缺摘要条目；WorkflowPage 确认一次与集中待核展示。
+      本条是现役流程要求，历史 HarvestPage 的 INV-02/10 不作为新流程默认操作步骤。
+    evidence:
+      - check: 连续成功、只读、锁定、人工待核保存、全文失败恢复、模型畸形与重新抓取缺摘要
+        file: tests/continuation_test.py
+      - check: 确认接续、已授权恢复、集中筛选保存、真实QThread互斥与失败恢复50轮
+        file: tests/workflow_gui_test.py
+
   - id: INV-01
     name: dry-run 零副作用
     invariant: 检索预览路径绝不写 Zotero、绝不动台账——run_search 永不携带 -Execute

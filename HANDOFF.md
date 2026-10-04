@@ -1,6 +1,26 @@
 # Trackeep Literature 当前接手状态
 
-## 当前：双入口本机实测完成，未发布（2026-10-03）
+## 当前：确认一次后自动衔接（2026-10-04，本机候选）
+
+现役 `Trackeep Lit.pyw → WorkflowPage → Workflow.dispatch` 与 Agent/MCP 共用 `continue`：确认本批范围、集合与收集标准后，接续题录导入、AI复核、保留项原生优先全文。空标准依已确认范围生成；按刊未指定主题保留刊期内全部文章。待核与全文失败集中展示原因，人工保存保留决定后自动继续，恢复沿用原批次与授权。
+
+标准和集合在首次确认时保存（包括导入前核验失败），旧批次读取既有复核标准，已确认题录不重导，已有人工保留/排除不重判。旧 import、review_ai、search 入口遵守相同锁定，不能通过旧按钮覆盖决定或检索快照。缺摘要（包括复筛重新抓取时缺失）、模型不可用/无可信明确结论、身份冲突保持待核。排除保留题录和理由；默认不清库。
+
+本轮四项独立 high/B1 反例已复测关闭：旧AI更改标准/人工决定、旧核重清复核、重新抓取缺摘要仍排除、导入前失败恢复丢目标。独立终验及源码哈希在 [final-verification.json](日志/continuation-validation/independent/final-verification.json)。连续18、共享流程33、现役GUI26（检索和continue各50轮真实QThread）、原生全文19、smoke88通过；独立对抗70通过。历史GUI首次28/29、单跑29/29；随后独立诊断发现固定夹具目录medium/B2，改为每进程独有目录后主驾29/29、独立双进程各29/29，B2关闭。原首次失败没有竞争进程时间线，原因仍未证明；原日志保留，不抹去初次红灯。远端CI未运行。
+
+增量连续编排采用隔离引擎、模型及全文响应；实际stdio仅合成只读预览。独立席自行选取旧真实失败回执复算恢复，无重导/重判、父键保留，全文执行明确为替身。前序GUI/MCP真实题录及本机PDF证据复用下文，本轮没有新增真实Zotero写入。布局为1040×760、40条合成题录，中文字体/QSS与集中待核14条检查见 [pending-console.png](日志/continuation-validation/pending-console.png)。本地明细与初次失败记录在 `日志/continuation-validation/`。
+
+CI已加入continuation测试、数量检查及日志；INV-12与VS-13/14/15登记连续保护、新增反例和测试夹具隔离。架构机器块重新生成并检查通过，含此前漏列工具与工作树中新工具事实；这不表示本轮施工或验收这些工具。当前原引擎位置由 `lit/config.py` 指向 `D:/trackeep-lit/zotero/import.ps1`，只读调用。临床小样仍为候选；插件未安装或启用，未推送或发布。本轮产出及SHA256清单见 [delivery.json](日志/continuation-validation/delivery.json)。
+
+## 前序：临床设计拆解候选小样（2026-10-04）
+
+本轮交付入口为[研究设计拆解小样](工作区/研究设计拆解小样/README.md)：候选模板v0.1、两张主卡、第三篇模式差异、单独模式记录、两席AI审阅及来源/字段依赖记录。官方全文与两篇补充原件已本地保存；事实与方法审阅分开，迁移限度保留，未发布为通用规范或Agent默认规范。未开发软件、未写Zotero、未装插件、未创建或迁移Obsidian库。
+
+资料小样完成时，“确认题录后自动AI复核并衔接全文”尚未施工验收；后续恢复与增量结论见上方当前段。资料小样本身不构成客户端验收，此前双入口具名实测结果保留在下文。
+
+本轮按入口要求运行架构检查，发现既有机器块漏列tools/fulltext_pilot_jto.py和tools/oa_harvest_jto.py。两文件及地图不是本轮修改，未为资料小样扩展施工；不宣称地图检查通过。
+
+## 前序：双入口本机实测完成，未发布（2026-10-03）
 
 PI已授权把现有采集台与Agent Skill／MCP接成完整流程。验收契约为 [.project/unified-workflow-task.md](.project/unified-workflow-task.md)。GUI和真实stdio MCP各自完成检索、题录、复核到本机全文；同批次在采集台与Agent显示一致，重复执行新增0。独立席直接读取PDF、正文身份、父子关系与哈希确认通过。项目插件可发现但未安装／启用；不同客户端、WebDAV远端、其他设备不在本轮实测结论内。
 
@@ -40,64 +60,25 @@ CI已接共享流程、现役GUI、原生UI及原生全文测试并保存日志�
 
 前序原生试验在临时父项QMZ3QGFM／K8ZWW5TD完成查找、存储副本及重复附加验证；原生重复附件确实增加1，护栏读回跳过新增0。两父项及YAW2DYA9／UICJITSE／WH83RRD9已进入回收站，空测试集合75X3U7JU保留。证据 `日志/native-zotero-validation/independent-final-acceptance.json`。本轮真实测试将使用明确隔离对象，处置以新回执为准。WebDAV远端和其他设备始终未单独验收。
 
-## 本轮产出清单（候选；每行一个绝对路径）
+## 本轮产出清单
 
-```text
-D:\trackeep-lit\.project\unified-workflow-task.md
-D:\trackeep-lit\README.md
-D:\trackeep-lit\HANDOFF.md
-D:\trackeep-lit\阶段日志.md
-D:\trackeep-lit\规则\架构.md
-D:\trackeep-lit\规则\PubMed检索规范_v1.0_20261003.md
-D:\trackeep-lit\.github\workflows\quality-gates.yml
-D:\trackeep-lit\.gitignore
-D:\trackeep-lit\Trackeep Lit.pyw
-D:\trackeep-lit\lit\config.py
-D:\trackeep-lit\lit\journals.py
-D:\trackeep-lit\lit\workflow.py
-D:\trackeep-lit\lit\pubmed.py
-D:\trackeep-lit\lit\metadata_batch.py
-D:\trackeep-lit\lit\batch_review.py
-D:\trackeep-lit\lit\library.py
-D:\trackeep-lit\lit\deepseek.py
-D:\trackeep-lit\lit\native_fulltext.py
-D:\trackeep-lit\lit\native_ui.py
-D:\trackeep-lit\lit\native_pdf.py
-D:\trackeep-lit\lit\mcp_server.py
-D:\trackeep-lit\ui\main_window.py
-D:\trackeep-lit\ui\pages\workflow_page.py
-D:\trackeep-lit\ui\pages\settings_page.py
-D:\trackeep-lit\ui\pages\help_page.py
-D:\trackeep-lit\tests\workflow_test.py
-D:\trackeep-lit\tests\workflow_gui_test.py
-D:\trackeep-lit\tests\native_fulltext_test.py
-D:\trackeep-lit\tests\native_ui_test.py
-D:\trackeep-lit\tests\fulltext_test.py
-D:\trackeep-lit\tests\gui_test.py
-D:\trackeep-lit\tests\stress_test.py
-D:\trackeep-lit\.agents\skills\trackeep-literature\SKILL.md
-D:\trackeep-lit\plugins\trackeep-literature\.mcp.json
-D:\trackeep-lit\plugins\trackeep-literature\mcp.json
-D:\trackeep-lit\plugins\trackeep-literature\plugin.json
-D:\trackeep-lit\plugins\trackeep-literature\server.py
-D:\trackeep-lit\plugins\trackeep-literature\.claude-plugin\plugin.json
-D:\trackeep-lit\plugins\trackeep-literature\.codex-plugin\plugin.json
-D:\trackeep-lit\plugins\trackeep-literature\skills\trackeep-literature\SKILL.md
-D:\trackeep-lit\日志\workflow-gui-validation\gui_test.py.log
-D:\trackeep-lit\日志\workflow-gui-validation\narrow-40-rows.png
-D:\trackeep-lit\日志\workflow-gui-validation\smoke_test.py.log
-D:\trackeep-lit\日志\workflow-gui-validation\workflow_gui_test.py.log
-D:\trackeep-lit\AGENTS.md
-D:\trackeep-lit\PROJECT-CONTRACT.md
-D:\trackeep-lit\CLAUDE.md
-D:\trackeep-lit\lit\fulltext.py
-D:\trackeep-lit\.agents\plugins\marketplace.json
-D:\trackeep-lit\工作区\验证统一MCP.py
-D:\trackeep-lit\工作区\核验双入口本机交付.py
-D:\trackeep-lit\工作区\补充已核官方全文.py
-D:\trackeep-lit\工作区\缓存全文复验.py
-D:\trackeep-lit\工作区\双入口测试收尾.py
-D:\trackeep-lit\工作区\引擎集合修复\source.json
-D:\trackeep-lit\工作区\引擎集合修复\explicit-collection.patch
-D:\trackeep-lit\工作区\引擎集合修复\verify-collection.ps1
-```
+- D:\trackeep-lit\HANDOFF.md
+- D:\trackeep-lit\阶段日志.md
+- D:\trackeep-lit\工作区\研究设计拆解小样\README.md
+- D:\trackeep-lit\工作区\研究设计拆解小样\候选模板v0.1.md
+- D:\trackeep-lit\工作区\研究设计拆解小样\可复用模式.md
+- D:\trackeep-lit\工作区\研究设计拆解小样\字段依赖.json
+- D:\trackeep-lit\工作区\研究设计拆解小样\审阅记录.md
+- D:\trackeep-lit\工作区\研究设计拆解小样\来源\BarOn2022全文.pdf
+- D:\trackeep-lit\工作区\研究设计拆解小样\来源\Magen2022全文.pdf
+- D:\trackeep-lit\工作区\研究设计拆解小样\来源\Magen2022补充.pdf
+- D:\trackeep-lit\工作区\研究设计拆解小样\来源\Moreira2022全文.xml
+- D:\trackeep-lit\工作区\研究设计拆解小样\来源\Moreira2022补充.pdf
+- D:\trackeep-lit\工作区\研究设计拆解小样\来源\Moreira分析人群核对.png
+- D:\trackeep-lit\工作区\研究设计拆解小样\来源与复核.md
+- D:\trackeep-lit\工作区\研究设计拆解小样\来源回执.json
+- D:\trackeep-lit\工作区\研究设计拆解小样\核取来源.py
+- D:\trackeep-lit\工作区\研究设计拆解小样\检查回执.json
+- D:\trackeep-lit\工作区\研究设计拆解小样\模式差异.md
+- D:\trackeep-lit\工作区\研究设计拆解小样\观察队列卡.md
+- D:\trackeep-lit\工作区\研究设计拆解小样\随机试验卡.md

@@ -1,0 +1,57 @@
+{
+  "checked_at": "2026-10-04T02:00:44.012093+00:00",
+  "purpose": "官方全文拆解小样；不作临床决策",
+  "sources": [
+    {
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC9006787/fullTextXML",
+      "file": "D:\\trackeep-lit\\工作区\\研究设计拆解小样\\来源\\Moreira2022全文.xml",
+      "status": "saved",
+      "bytes": 108193,
+      "sha256": "2b4fdd3f29a9c24047e6850e1488d148f06698dc1c44b710ac2d0c1b118af485",
+      "response_content_type": "application/xml",
+      "source_version": "2b4fdd3f29a9c24047e6850e1488d148f06698dc1c44b710ac2d0c1b118af485",
+      "retrieved_at": "2026-10-04T01:59:33.648304+00:00"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC9006787/supplementaryFiles",
+      "file": "D:\\trackeep-lit\\工作区\\研究设计拆解小样\\来源\\Moreira2022补充.pdf",
+      "status": "saved",
+      "bytes": 396323,
+      "sha256": "270312aed9aa6e8c29e69ac87ea0c7aa850c1b4d5c1f72836eca26c93c33e5ef",
+      "response_content_type": "application/zip",
+      "source_version": "270312aed9aa6e8c29e69ac87ea0c7aa850c1b4d5c1f72836eca26c93c33e5ef",
+      "retrieved_at": "2026-10-04T02:00:39.701916+00:00"
+    },
+    {
+      "url": "https://mediacenteratypon.nejmgroup-production.org/NEJMoa2201688.pdf",
+      "file": "D:\\trackeep-lit\\工作区\\研究设计拆解小样\\来源\\Magen2022全文.pdf",
+      "status": "saved",
+      "bytes": 628520,
+      "sha256": "43662958716c7a07be4d07d4fa86e6a87d0c409af802b4d47ee8228204c00ea7",
+      "response_content_type": "application/pdf",
+      "source_version": "43662958716c7a07be4d07d4fa86e6a87d0c409af802b4d47ee8228204c00ea7",
+      "retrieved_at": "2026-10-04T02:00:41.927515+00:00"
+    },
+    {
+      "url": "https://mediacenteratypon.nejmgroup-production.org/NEJMoa2201570.pdf",
+      "file": "D:\\trackeep-lit\\工作区\\研究设计拆解小样\\来源\\BarOn2022全文.pdf",
+      "status": "saved",
+      "bytes": 562762,
+      "sha256": "7b31353f132e20e1cc549dced8e7583b2d1bc52dc2e0911c09a1138021fd07f7",
+      "response_content_type": "application/pdf",
+      "source_version": "7b31353f132e20e1cc549dced8e7583b2d1bc52dc2e0911c09a1138021fd07f7",
+      "retrieved_at": "2026-10-04T02:00:44.009972+00:00"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC9020581/supplementaryFiles",
+      "file": "D:\\trackeep-lit\\工作区\\研究设计拆解小样\\来源\\Magen2022补充.pdf",
+      "status": "saved",
+      "bytes": 1217801,
+      "sha256": "b822f86477776844b9a12f8e8c21db5945d9a85953fc276fd68f5644e06d6d1f",
+      "response_content_type": "application/zip",
+      "source_version": "b822f86477776844b9a12f8e8c21db5945d9a85953fc276fd68f5644e06d6d1f",
+      "retrieved_at": "2026-10-04T02:08:46.143751+00:00"
+    }
+  ],
+  "record_revision": 1
+}

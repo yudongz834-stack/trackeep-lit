@@ -110,6 +110,22 @@ def natural_plan(payload):
     return plan
 
 
+def collection_policy(plan, criteria=None):
+    """标准来自明确输入或已锁定计划，不为按刊宽采集偷偷添加主题。"""
+    if criteria is not None and (not isinstance(criteria, str) or len(criteria) > 5000):
+        raise ValueError('复核标准必须为文字，最多5000字')
+    if criteria and criteria.strip():
+        return {'criteria': criteria.strip(), 'source': 'user', 'broad': False}
+    if plan.get('kind') == 'journal' and plan.get('selection_mode') == 'broad':
+        return {'criteria': '保留已确认期刊及日期范围内的全部文章，不按主题、文章类型或是否原创额外筛选；撤稿和身份异常由系统单独核查。',
+                'source': 'journal_scope', 'broad': True}
+    if plan.get('kind') == 'articles':
+        return {'criteria': '保留本批明确指定的文章，不另加主题筛选；撤稿和身份异常由系统单独核查。',
+                'source': 'selected_articles', 'broad': True}
+    return {'criteria': '研究主体符合本批已确认主题：' + plan.get('query', plan.get('filter_query', '')),
+            'source': 'confirmed_topic', 'broad': False}
+
+
 class Workflow:
     def __init__(self, root=None):
         self.root = Path(root or metadata_batch.ROOT).resolve()
@@ -150,6 +166,27 @@ class Workflow:
         if run.get('review',{}).get('cleanup_status') == 'partial_failure':
             errors.append('部分可逆清理尚未确认，请查看清理失败记录并读回核查')
             ok = False
+        if run.get('state') == 'continuation_blocked':
+            errors.append(run.get('continuation', {}).get('failure', '连续流程未完成，可恢复批次后继续'))
+            ok = False
+        review = {i['pmid']: i for i in run.get('review', {}).get('items', [])}
+        metadata = {i['pmid']: i for i in run.get('metadata', {}).get('items', [])}
+        fulltext = {i['pmid']: i for i in run.get('fulltext', {}).get('items', [])}
+        queue = []
+        for article in run.get('search', {}).get('articles', []):
+            pmid = article['pmid']
+            item, ft = review.get(pmid, {}), fulltext.get(pmid, {})
+            reasons = []
+            if item.get('decision') == 'pending':
+                reasons.append(item['reason'])
+            elif metadata.get(pmid, {}).get('metadata_status') == 'identity_or_duplicate_pending':
+                reasons.append('题录身份或重复状态待核')
+            if ft and ft.get('status') not in ('created_verified', 'existing_verified'):
+                reasons.append(ft.get('reason') or '本机全文未核验')
+            if reasons:
+                queue.append({'pmid': pmid, 'title': article.get('title', ''), 'reasons': reasons})
+        run['pending_queue'] = queue
+        counts['needs_attention'] = len(queue)
         return {'ok':ok, 'action':action, 'run_id':run.get('run_id'), 'state':run.get('state','blocked'),
                 'counts':counts, 'data':run, 'errors':list(dict.fromkeys(errors))}
 
@@ -159,7 +196,7 @@ class Workflow:
         try:
             if not isinstance(payload, dict):
                 raise ValueError('请求必须为对象')
-            if action not in {'plan','plan_natural','search','import','review','review_ai','status','list_runs','fulltext_jobs','fulltext','collections'}:
+            if action not in {'plan','plan_natural','search','import','review','review_ai','continue','status','list_runs','fulltext_jobs','fulltext','collections'}:
                 raise ValueError('未知流程操作')
             if 'apply' in payload and type(payload['apply']) is not bool:
                 raise ValueError('apply 必须为布尔值')
@@ -182,7 +219,8 @@ class Workflow:
                     run_id = dt.datetime.now().strftime('%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:12]
                     self._folder(run_id).mkdir()
                     run = {'schema':'trackeep-literature/workflow@1', 'run_id':run_id,
-                           'state':'planned','plan':plan,'readable_plan':readable,'history':[]}
+                           'state':'planned','plan':plan,'readable_plan':readable,'history':[],
+                           'collection_policy':collection_policy(plan, payload.get('criteria'))}
                 else:
                     run = json.loads((self._folder(payload.get('run_id'))/'run.json').read_text(encoding='utf-8'))
                     if action == 'search':
@@ -191,32 +229,18 @@ class Workflow:
                         self._import(run, payload)
                     elif action == 'review':
                         self._review(run, payload)
+                        if run.get('continuation', {}).get('authorized'):
+                            self._continue(run, {'apply': True, 'skip_ai': True})
                     elif action == 'review_ai':
                         self._review_ai(run,payload)
+                        if run.get('continuation', {}).get('authorized'):
+                            self._continue(run, {'apply':True, 'skip_ai':True})
+                    elif action == 'continue':
+                        self._continue(run, payload)
                     elif action in ('fulltext_jobs','fulltext'):
-                        jobs = self._jobs(run)
-                        run['jobs'] = jobs
+                        run['jobs'] = self._jobs(run)
                         if action == 'fulltext':
-                            from lit.native_fulltext import execute_jobs
-                            fallbacks = payload.get('fallbacks', {})
-                            if not isinstance(fallbacks, dict) or set(fallbacks) - {j['pmid'] for j in jobs}:
-                                raise ValueError('全文补充来源超出保留项范围')
-                            for job in jobs:
-                                if job['pmid'] in fallbacks:
-                                    job['fallback'] = fallbacks[job['pmid']]
-                            pending = sum(i['decision']=='pending' for i in run['review']['items'])
-                            excluded = sum(i['decision']=='exclude' for i in run['review']['items'])
-                            if jobs:
-                                run['fulltext'] = execute_jobs(jobs, apply=payload.get('apply',False), root=self.root)
-                            else:
-                                run['fulltext'] = {'status':'review_pending' if pending else 'not_required',
-                                    'items':[], 'counts':{'scope':0},
-                                    'reason':'没有已确认保留项；仍须复核' if pending else '本批没有保留项，无需获取全文'}
-                            run['fulltext'].setdefault('counts',{}).update(review_pending=pending,excluded=excluded)
-                            if pending and run['fulltext']['status'] in ('complete','preview_only'):
-                                run['fulltext']['eligible_status'] = run['fulltext']['status']
-                                run['fulltext']['status'] = 'review_pending'
-                            run['state'] = 'fulltext_' + run['fulltext']['status']
+                            self._fulltext(run, payload)
                 run.setdefault('history',[]).append({'action':action,'apply':payload.get('apply',False),
                     'at':dt.datetime.now(dt.timezone.utc).isoformat(),'state':run['state']})
                 self._save(run)
@@ -238,6 +262,9 @@ class Workflow:
             return self._response(action, run, False, [message])
 
     def _search(self, run):
+        if (run.get('continuation', {}).get('authorized') and
+                run.get('metadata', {}).get('status') in ('metadata_verified','review_required')):
+            raise ValueError('本批题录已确认，检索快照已锁定；新检索请另建计划')
         if run.get('metadata'):
             raise ValueError('已进入导入阶段的计划不可重查覆盖，请新建批次')
         report = pubmed.preview(run['plan'])
@@ -270,6 +297,12 @@ class Workflow:
         metadata_batch.save(self._folder(run['run_id'])/'search.json', report)
 
     def _import(self, run, payload):
+        if (run.get('continuation', {}).get('authorized') and
+                payload.get('collection_key') != run['continuation'].get('target_collection')):
+            raise ValueError('批次集合已锁定，不能改换目标')
+        if (run.get('continuation', {}).get('authorized') and
+                run.get('metadata', {}).get('status') in ('metadata_verified','review_required')):
+            raise ValueError('本批题录已确认，请刷新状态或继续未完成步骤；重新导入会覆盖复核，已阻止')
         search = run.get('search',{})
         if search.get('status') != 'retrieval_verified' or not search.get('retrieval_complete'):
             raise ValueError('检索未完成核验或仍有查询警告，不能导入')
@@ -368,29 +401,129 @@ class Workflow:
         run['state'] = ('review_cleanup_pending' if result.get('cleanup_status')=='partial_failure' else result['status'])
 
     def _review_ai(self, run, payload):
+        if run.get('continuation', {}).get('authorized'):
+            policy = run['collection_policy']
+            if payload.get('criteria') != policy['criteria']:
+                raise ValueError('本批复核标准已锁定，不能改用其他标准')
+            payload = {**payload, 'pending_only':True, 'broad':policy['broad']}
         criteria = payload.get('criteria')
         if not isinstance(criteria,str) or not criteria.strip():
             raise ValueError('请给出相关性复核标准')
         articles = run.get('metadata',{}).get('articles',[])
-        eligible = [a for a in articles if a.get('abstract')]
+        previous = {i['pmid']: i for i in run.get('review', {}).get('items', [])}
+        preserved = {p: i for p, i in previous.items() if payload.get('pending_only') and i['decision'] != 'pending'}
+        eligible = [a for a in articles if a.get('abstract') and a['pmid'] not in preserved]
         results = {}
         if os.environ.get('DEEPSEEK_TOKEN') and eligible:
             try:
                 results = deepseek.classify(eligible,criteria)
             except Exception:
                 results = {}
+        if not isinstance(results, dict):
+            results = {}
         decisions = []
         for article in articles:
+            if article['pmid'] in preserved:
+                old = preserved[article['pmid']]
+                decisions.append({'pmid':article['pmid'], 'decision':old['decision'], 'reason':old['reason']})
+                continue
             verdict = results.get(article['pmid'],{})
+            if not isinstance(verdict, dict):
+                verdict = {}
             reason = verdict.get('reason','')
             valid = (bool(article.get('abstract')) and verdict.get('evaluated') is True and type(verdict.get('keep')) is bool
-                     and bool(reason.strip()) and not any(s in reason for s in ('失败','默认保留','无摘要')))
+                     and isinstance(reason, str) and bool(reason.strip()) and not any(s in reason for s in ('失败','默认保留','无摘要')))
+            if payload.get('broad') and valid and not verdict['keep']:
+                valid = False
+                pending_reason = '本批要求范围内全部文章，模型排除与范围不一致，保留待核'
+            else:
+                pending_reason = ('缺摘要，保留待核' if not article.get('abstract') else
+                                  '本次复筛未取得摘要，保留待核' if reason == '本次复筛未取得摘要，待核' else
+                                  '模型未配置，保留待核' if not os.environ.get('DEEPSEEK_TOKEN') else
+                                  '模型失败或未取得可信明确结论，保留待核')
             decisions.append({'pmid':article['pmid'],'decision':
                 ('keep' if verdict['keep'] else 'exclude') if valid else 'pending',
-                'reason':reason if valid else '缺摘要、模型不可用或未取得明确结论，保留待核'})
+                'reason':reason if valid else pending_reason})
         self._review(run,{'decisions':decisions})
         run['review']['criteria'] = criteria
         run['review']['method'] = 'existing_deepseek'
+
+    def _fulltext(self, run, payload):
+        """单步与连续入口复用同一全文门禁。"""
+        from lit.native_fulltext import execute_jobs
+        jobs = self._jobs(run)
+        run['jobs'] = jobs
+        fallbacks = payload.get('fallbacks', {})
+        if not isinstance(fallbacks, dict) or set(fallbacks) - {j['pmid'] for j in jobs}:
+            raise ValueError('全文补充来源超出保留项范围')
+        for job in jobs:
+            if job['pmid'] in fallbacks:
+                job['fallback'] = fallbacks[job['pmid']]
+        pending = sum(i['decision']=='pending' for i in run['review']['items'])
+        excluded = sum(i['decision']=='exclude' for i in run['review']['items'])
+        run['fulltext'] = (execute_jobs(jobs, apply=payload.get('apply',False), root=self.root) if jobs else
+            {'status':'review_pending' if pending else 'not_required', 'items':[], 'counts':{'scope':0},
+             'reason':'没有已确认保留项；仍须复核' if pending else '本批没有保留项，无需获取全文'})
+        run['fulltext'].setdefault('counts',{}).update(review_pending=pending,excluded=excluded)
+        if pending and run['fulltext']['status'] in ('complete','preview_only'):
+            run['fulltext']['eligible_status'] = run['fulltext']['status']
+            run['fulltext']['status'] = 'review_pending'
+        run['state'] = 'fulltext_' + run['fulltext']['status']
+
+    def _continue(self, run, payload):
+        """一次授权后的可恢复衔接；每阶段先落检查点，不重导已确认题录。"""
+        saved = run.get('continuation', {})
+        policy = run.get('collection_policy') or collection_policy(
+            run['plan'], saved.get('criteria') or run.get('review', {}).get('criteria'))
+        if payload.get('criteria') is not None:
+            proposed = collection_policy(run['plan'], payload['criteria'])
+            if saved.get('authorized') and proposed != policy:
+                raise ValueError('本批复核标准已锁定；修改标准请另建计划')
+            policy = proposed
+        locked_target = saved.get('target_collection') if saved.get('authorized') else run.get('target_collection')
+        target = payload.get('collection_key', locked_target)
+        if saved.get('authorized') and target != locked_target:
+            raise ValueError('批次集合已锁定，不能改换目标')
+        if target is not None and (not isinstance(target,str) or not re.fullmatch(r'[A-Z0-9]{8}',target)):
+            raise ValueError('目标集合编号格式错误')
+        if run.get('metadata') and target != run.get('target_collection'):
+            raise ValueError('批次集合已锁定，不能改换目标')
+        if not payload.get('apply'):
+            run['continuation_preview'] = {'criteria':policy['criteria'], 'target_collection':target,
+                'steps':['题录核重与导入','AI复核','保留项原生优先全文'], 'read_only':True}
+            return
+        if not run.get('search'):
+            raise ValueError('请先核验检索，再确认连续写入')
+        run['collection_policy'] = policy
+        run['target_collection'] = target
+        run['continuation'] = {**saved, 'authorized':True, 'target_collection':target,
+                               'criteria':policy['criteria'], 'failure':None}
+        def checkpoint(stage):
+            run['continuation']['stage'] = stage
+            self._save(run)
+        try:
+            checkpoint('import')
+            if run.get('metadata', {}).get('status') not in ('metadata_verified','review_required'):
+                self._import(run, {'apply':True, 'collection_key':target})
+                self._save(run)
+            if run.get('metadata', {}).get('status') not in ('metadata_verified','review_required'):
+                return
+            checkpoint('review')
+            if not payload.get('skip_ai') and (not run.get('review') or run['review']['counts']['pending']):
+                self._review_ai(run, {'criteria':policy['criteria'], 'broad':policy['broad'], 'pending_only':True})
+            elif run.get('review') and not payload.get('skip_ai'):
+                # 恢复时仍重新读回身份；既有明确判决不再送模型。
+                self._review(run, {'decisions':[{'pmid':i['pmid'], 'decision':i['decision'], 'reason':i['reason']}
+                                               for i in run['review']['items']]})
+            self._save(run)
+            checkpoint('fulltext')
+            self._fulltext(run, {'apply':True, 'fallbacks':payload.get('fallbacks', {})})
+            checkpoint('needs_attention' if run['state'] in ('fulltext_review_pending','fulltext_partial_failure') else 'complete')
+        except Exception as exc:
+            run['continuation']['failure'] = (str(exc) if isinstance(exc,(ValueError,RuntimeError)) else
+                                              '连续流程未完成；已保存检查点，可恢复后继续')
+            run['state'] = 'continuation_blocked'
+            self._save(run)
 
     def _jobs(self, run):
         review = run.get('review',{})

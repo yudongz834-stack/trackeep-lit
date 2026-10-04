@@ -5,6 +5,27 @@
 
 scenarios:
 
+  - id: VS-15
+    scenario: 两个历史GUI测试进程共用固定临时目录，夹具被另一进程覆盖或删除，出现假失败/超时
+    source: 2026-10-04独立隔离诊断；可复现相同症状，但原首次28/29失败无进程时间线，原因未证明
+    guardrail: tests/gui_test.py 每进程创建独有TemporaryDirectory，仅清理自身目录
+    upgrade: 禁止同套测试共享可写夹具目录；并行同套两席29/29验证并保留初次失败历史
+    verification: 日志/continuation-validation/independent/final-verification.json
+
+  - id: VS-13
+    scenario: 连续流程确认后，旧导入或AI入口改写人工决定；导入前失败恢复丢失已授权目标集合
+    source: 2026-10-04独立审查反例
+    guardrail: 共享核心旧入口检查授权锁；恢复优先读取continuation中的目标；旧动作不得更换标准或覆盖已确认决定
+    upgrade: 所有GUI/MCP入口共用护栏，失败前后均保存同一目标与标准；禁止仅禁按钮而放开服务
+    verification: tests/continuation_test.py 的旧导入、旧AI及导入前失败恢复反例
+
+  - id: VS-14
+    scenario: 检索有摘要，但AI重新EFetch缺摘要；模型给出有效形状的排除而使缺摘要条目被排除
+    source: 2026-10-04独立审查实际XML解析与模型响应替身反例
+    guardrail: deepseek._deepseek_judge仅发送本次非空摘要编号，缺失保留evaluated:false；伪造未发送编号不采信
+    upgrade: 摘要映射漏项、空摘要、混批伪造编号纳入连续流程增量门禁
+    verification: tests/continuation_test.py 的重新EFetch缺摘要与混批编号反例
+
   - id: VS-01
     scenario: PowerShell 写的 JSON 带 UTF-8 BOM，普通 utf-8 读静默失败（返回空→窗口算错）
     source: "历史事故 Slice 2（2026-07-13）：台账 BOM 静默 bug——json 解析失败被吞、窗口永远按首采 60 天算"

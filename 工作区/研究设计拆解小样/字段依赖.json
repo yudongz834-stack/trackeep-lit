@@ -1,0 +1,435 @@
+{
+  "id": "clinical-design-pilot-field-dependencies",
+  "extraction_spec": "design-extract-v0.1",
+  "revision": 1,
+  "scope": "本轮承重字段的依赖演示；事实值只在论文卡中，不部署数据库",
+  "source_version_rule": "按来源回执.json的file与sha256确定原件版本",
+  "records": [
+    {
+      "id": "paper-10.1056-nejmoa2200674",
+      "file": "随机试验卡.md",
+      "source": "Moreira2022全文.xml",
+      "pattern": "pattern-randomized-add-on-v1",
+      "fields": [
+        {
+          "id": "paper-10.1056-nejmoa2200674#question_population",
+          "status": "reported",
+          "locator": "Methods—Trial Objectives",
+          "depends_on": [
+            "Moreira2022全文.xml"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2200674#design",
+          "status": "reported",
+          "locator": "Methods—Procedures; Results—Participants",
+          "depends_on": [
+            "Moreira2022全文.xml"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2200674#comparison_time",
+          "status": "reported",
+          "locator": "Methods—Efficacy; Results—Participants",
+          "depends_on": [
+            "Moreira2022全文.xml"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2200674#endpoints",
+          "status": "reported",
+          "locator": "Methods—Safety/Efficacy; supplement PDF 7–8",
+          "depends_on": [
+            "Moreira2022全文.xml",
+            "Moreira2022补充.pdf"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2200674#sample_size_unit",
+          "status": "reported",
+          "locator": "Methods—Statistical Analysis",
+          "depends_on": [
+            "Moreira2022全文.xml"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2200674#analysis_missingness",
+          "status": "reported",
+          "locator": "Methods—Statistical Analysis; supplement PDF 8–9",
+          "depends_on": [
+            "Moreira2022全文.xml",
+            "Moreira2022补充.pdf"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2200674#counts_result",
+          "status": "reported",
+          "locator": "Figure 1; Table 1/3 and footnotes",
+          "depends_on": [
+            "Moreira2022全文.xml"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2200674#bias_limits",
+          "status": "reported",
+          "locator": "Methods—Procedures; Figure 1; Discussion",
+          "depends_on": [
+            "Moreira2022全文.xml"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2200674#resources",
+          "status": "reported",
+          "locator": "Methods—Oversight/Procedures/Safety",
+          "depends_on": [
+            "Moreira2022全文.xml"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2200674#transfer_conditions",
+          "status": "reviewer_inference",
+          "locator": "设计解释和资源",
+          "depends_on": [
+            "Moreira2022全文.xml"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2200674#cost_work_hours",
+          "status": "not_checked",
+          "locator": "单独方案及资源预算未核",
+          "depends_on": [
+            "Moreira2022全文.xml"
+          ],
+          "downstream": [
+            "pattern-randomized-add-on-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        }
+      ],
+      "supplement": "Moreira2022补充.pdf",
+      "revision": 1,
+      "agent_ready": false,
+      "fact_review": "key_fields_checked",
+      "method_review": "conditional"
+    },
+    {
+      "id": "paper-10.1056-nejmoa2201688",
+      "file": "观察队列卡.md",
+      "source": "Magen2022全文.pdf",
+      "pattern": "pattern-same-day-matched-cohort-v1",
+      "fields": [
+        {
+          "id": "paper-10.1056-nejmoa2201688#question_population",
+          "status": "reported",
+          "locator": "Methods—Eligibility Criteria; PDF 3",
+          "depends_on": [
+            "Magen2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#data_design",
+          "status": "reported",
+          "locator": "Methods—Setting and Data; PDF 2",
+          "depends_on": [
+            "Magen2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#comparison_time_zero",
+          "status": "reported",
+          "locator": "Methods—Study Design; PDF 3",
+          "depends_on": [
+            "Magen2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#switch_censor_unit",
+          "status": "reported",
+          "locator": "Methods—Study Design; Figure 1; PDF 3–4",
+          "depends_on": [
+            "Magen2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#endpoints_risk_window",
+          "status": "reported",
+          "locator": "Methods—Outcomes/Statistical Analysis; PDF 3; supplement Table S1",
+          "depends_on": [
+            "Magen2022全文.pdf",
+            "Magen2022补充.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#sample_size_basis",
+          "status": "not_reported_maintext",
+          "locator": "正文Methods; 未全面核附件/其他方案是否另有论证",
+          "depends_on": [
+            "Magen2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#analysis_missingness",
+          "status": "reported",
+          "locator": "Methods—Eligibility Criteria/Statistical Analysis; PDF 3",
+          "depends_on": [
+            "Magen2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#bias_validation",
+          "status": "reported",
+          "locator": "Methods PDF 3/5; Figure 3; supplement S3–S6",
+          "depends_on": [
+            "Magen2022全文.pdf",
+            "Magen2022补充.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#result_limits",
+          "status": "reported",
+          "locator": "Table 2 PDF 8; Discussion PDF 9",
+          "depends_on": [
+            "Magen2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#resources",
+          "status": "reported",
+          "locator": "Methods—Setting and Data; PDF 2",
+          "depends_on": [
+            "Magen2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#transfer_conditions",
+          "status": "reviewer_inference",
+          "locator": "设计解释和资源",
+          "depends_on": [
+            "Magen2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201688#cost_work_hours",
+          "status": "not_checked",
+          "locator": "本次未核预算或工时",
+          "depends_on": [
+            "Magen2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-same-day-matched-cohort-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        }
+      ],
+      "supplement": "Magen2022补充.pdf",
+      "revision": 1,
+      "agent_ready": false,
+      "fact_review": "key_fields_checked",
+      "method_review": "conditional"
+    },
+    {
+      "id": "paper-10.1056-nejmoa2201570",
+      "file": "模式差异.md",
+      "source": "BarOn2022全文.pdf",
+      "pattern": "pattern-dynamic-person-time-early-control-v1",
+      "fields": [
+        {
+          "id": "paper-10.1056-nejmoa2201570#comparison",
+          "status": "reported",
+          "locator": "Methods—Study Design; PDF 2–3",
+          "depends_on": [
+            "BarOn2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-dynamic-person-time-early-control-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201570#time_structure",
+          "status": "reported",
+          "locator": "Methods—Study Design/Statistical Analysis; PDF 2–3",
+          "depends_on": [
+            "BarOn2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-dynamic-person-time-early-control-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201570#bias_control",
+          "status": "reported",
+          "locator": "Statistical Analysis PDF 3; Discussion PDF 7–8",
+          "depends_on": [
+            "BarOn2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-dynamic-person-time-early-control-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201570#validation",
+          "status": "reported",
+          "locator": "Statistical Analysis PDF 3",
+          "depends_on": [
+            "BarOn2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-dynamic-person-time-early-control-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201570#analysis_unit_ratio_direction",
+          "status": "reported",
+          "locator": "Statistical Analysis PDF 3; Table 1 PDF 5",
+          "depends_on": [
+            "BarOn2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-dynamic-person-time-early-control-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201570#severe_event_date",
+          "status": "reported",
+          "locator": "Statistical Analysis PDF 3; independently selected check",
+          "depends_on": [
+            "BarOn2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-dynamic-person-time-early-control-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201570#cross_paper_overlap",
+          "status": "reviewer_inference",
+          "locator": "共享国家/人群资格/时间窗，未取得跨文个体链接",
+          "depends_on": [
+            "BarOn2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-dynamic-person-time-early-control-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201570#overlap_count",
+          "status": "not_checked",
+          "locator": "未取得个体链接",
+          "depends_on": [
+            "BarOn2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-dynamic-person-time-early-control-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        },
+        {
+          "id": "paper-10.1056-nejmoa2201570#supplement_coverage",
+          "status": "not_checked",
+          "locator": "本次未全面核补充附件",
+          "depends_on": [
+            "BarOn2022全文.pdf"
+          ],
+          "downstream": [
+            "pattern-dynamic-person-time-early-control-v1",
+            "review-clinical-design-pilot-20261004"
+          ]
+        }
+      ],
+      "revision": 1,
+      "agent_ready": false,
+      "fact_review": "key_fields_checked",
+      "method_review": "conditional"
+    }
+  ]
+}

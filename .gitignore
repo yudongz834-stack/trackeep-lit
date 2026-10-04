@@ -21,4 +21,5 @@ tests/_tmp_*
 日志/workflow-runs/
 日志/workflow-gui-validation/
 日志/unified-live-validation/
+日志/continuation-validation/
 工作区/引擎集合修复/zotero-import.before.ps1

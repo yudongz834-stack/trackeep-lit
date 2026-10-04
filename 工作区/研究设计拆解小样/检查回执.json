@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "scope": "原件哈希、PDF结构页数、本地文档链接及候选字段依赖可读性；不是全面科学质量证明",
+  "sources": [
+    {
+      "source": "Moreira2022全文.xml",
+      "hash_matches": true
+    },
+    {
+      "source": "Moreira2022补充.pdf",
+      "hash_matches": true,
+      "pages": 15
+    },
+    {
+      "source": "Magen2022全文.pdf",
+      "hash_matches": true,
+      "pages": 12
+    },
+    {
+      "source": "BarOn2022全文.pdf",
+      "hash_matches": true,
+      "pages": 9
+    },
+    {
+      "source": "Magen2022补充.pdf",
+      "hash_matches": true,
+      "pages": 21
+    }
+  ],
+  "missing_local_links": [],
+  "paper_instances": 3,
+  "field_records": 32,
+  "fact_review": "指定承重字段独立窄复核已关闭",
+  "method_review": "限度保留，候选，不是推荐通用方案",
+  "architecture_check": "既有地图缺两工具，本轮未改产品代码或地图"
+}

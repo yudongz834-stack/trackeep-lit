@@ -104,6 +104,7 @@ jobs:
           TRACKEEP_CI: "1"
         run: |
           python tests/workflow_test.py 2>&1 | tee workflow.log
+          python tests/continuation_test.py 2>&1 | tee continuation.log
           python tests/workflow_gui_test.py 2>&1 | tee workflow-gui.log
           python tests/native_fulltext_test.py 2>&1 | tee native-fulltext.log
           python tests/native_ui_test.py 2>&1 | tee native-ui.log
@@ -173,6 +174,7 @@ jobs:
               "adversarial_pass": grab("adversarial.log", r'(\d+/\d+ 项通过)'),
               "property_pass": grab("property.log", r'(\d+/\d+ 项通过)'),
               "workflow_cases": grab("workflow.log", r'Ran (\d+) tests'),
+              "continuation_cases": grab("continuation.log", r'Ran (\d+) tests'),
               "workflow_gui_cases": grab("workflow-gui.log", r'Ran (\d+) tests'),
               "native_fulltext_cases": grab("native-fulltext.log", r'Ran (\d+) tests'),
               "native_ui_cases": grab("native-ui.log", r'Ran (\d+) tests'),
@@ -189,7 +191,7 @@ jobs:
               if not m or m.group(1) != m.group(2):
                   print(f"::error::{key} 未全过: {summary[key]}")
                   sys.exit(1)
-          for key in ("workflow_cases", "workflow_gui_cases", "native_fulltext_cases", "native_ui_cases"):
+          for key in ("workflow_cases", "continuation_cases", "workflow_gui_cases", "native_fulltext_cases", "native_ui_cases"):
               if not str(summary[key]).isdigit() or int(summary[key]) < 1:
                   print(f"::error::{key} 未取得测试数量")
                   sys.exit(1)
@@ -207,6 +209,7 @@ jobs:
             adversarial.log
             property.log
             workflow.log
+            continuation.log
             workflow-gui.log
             native-fulltext.log
             native-ui.log
@@ -300,6 +303,7 @@ jobs:
                   "adversarial_pass": summary.get("adversarial_pass", "?"),
                   "property_pass": summary.get("property_pass", "?"),
                   "workflow_cases": summary.get("workflow_cases", "?"),
+                  "continuation_cases": summary.get("continuation_cases", "?"),
                   "workflow_gui_cases": summary.get("workflow_gui_cases", "?"),
                   "native_fulltext_cases": summary.get("native_fulltext_cases", "?"),
                   "native_ui_cases": summary.get("native_ui_cases", "?"),
