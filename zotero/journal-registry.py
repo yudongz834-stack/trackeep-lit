@@ -51,30 +51,34 @@ def zget(path):
             base = base_cloud
     return get(base_cloud + path, hdr_cloud)
 
+def zpaginate(tmpl):
+    """整段翻页。中途换数据源（本地↔云端）＝两源排序/同步态不同会混页跳行——整段重拉（verify L-1）"""
+    out, start, src0 = [], 0, None
+    while True:
+        page = zget(tmpl.format(start))
+        if src0 is None:
+            src0 = base
+        elif base != src0:
+            print(f'⚠ 数据源中途切换（{src0} → {base}），整段重拉防混页')
+            out, start, src0 = [], 0, base
+            continue
+        out += page
+        if len(page) < 100:
+            return out
+        start += 100
+
 try:
     zget('/collections?limit=1')
     print('数据源：', '本地 API' if local else '云端 API')
 except Exception as e:
     print('数据源全断：', e); sys.exit(1)
 
-items, start = [], 0
-while True:
-    page = zget(f'/items?limit=100&start={start}&format=json')
-    items += page
-    if len(page) < 100:
-        break
-    start += 100
+items = zpaginate('/items?limit=100&start={0}&format=json')
 print(f'条目拉取：{len(items)} 条')
 
 # 分区名→key（含年月子分区归属：条目挂在年月叶上，要算进期刊）
 # 必须翻页：云端按版本排序，刚动过的刊会掉到第 2 页（2026-10-04 实测 111 个时三活刊全隐身→假绿）
-cols, cstart = [], 0
-while True:
-    page = zget(f'/collections?limit=100&start={cstart}')
-    cols += page
-    if len(page) < 100:
-        break
-    cstart += 100
+cols = zpaginate('/collections?limit=100&start={0}')
 name2key, key2name, parent = {}, {}, {}
 for c in cols:
     k, n = c['key'], c['data']['name']
@@ -165,12 +169,14 @@ have = sorted([r for r in rows if r['total']], key=lambda r: r['latest'], revers
 empty = [r for r in rows if not r['total']]
 behind = [r for r in have if r['pm'] > 0 and (r['lag'] or 0) >= 2]  # 有新货且库里最新月落后≥2月
 
-# 诚实闸：库里明明有货却一刊都对不上＝结构坏（collection 断链/翻页漏），不许报「跟齐」
-if items and not have:
-    msg = f'⚠ 结构异常：库内 {len(items)} 条却无一刊对上 collection——「跟齐/落后」全部作废，需检修 journal-registry'
-    open(ALERT, 'w', encoding='utf-8').write(msg + '\n')
-    print(msg)
-    sys.exit(1)
+# 活刊失联判据（verify M-1i）：台账导过的刊必须仍在 have——单刊塌方/改名/漏页不许静默掉进空架子
+LEDGER = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.trackeep', 'zotero-import-ledger.json'))
+try:
+    _led = json.load(open(LEDGER, encoding='utf-8'))
+    led_journals = {it.get('journal') for it in _led.get('items', [])}
+except Exception:
+    led_journals = set()
+lost = {j for j in led_journals if j in dn_set} - {r['dn'] for r in have}
 
 L = [f'# 期刊×月份登记表（{_now:%Y-%m-%d %H:%M} 现算）', '',
      f'> 数据源＝Zotero 库（{len(items)} 条目）＋ PubMed 近45天计数。机器现算派生视图，永不失准；重跑＝python D:\\trackeep-lit\\zotero\\journal-registry.py', '',
@@ -188,6 +194,18 @@ for r in have:
 L += ['', f'## 空架子（{len(empty)} 刊，尚无任何条目）', '', '、'.join(r['dn'] for r in empty), '']
 open(OUT, 'w', encoding='utf-8').write('\n'.join(L))
 print('登记表已写:', OUT)
+
+# 诚实闸（verify M-1）：全塌 / 空库 / 活刊失联都不许报「跟齐」
+if not have or lost:
+    if not have:
+        why = ('库拉到 0 条＝key/用户号/同步面全坏，成熟库这是灾难' if not items
+               else f'库内 {len(items)} 条却无一刊对上 collection＝断链/翻页漏')
+        msg = f'⚠ 结构异常：{why}；「跟齐/落后」全部作废，需检修 journal-registry'
+    else:
+        msg = f'⚠ 活刊失联 {len(lost)} 本：{"、".join(sorted(lost))}（台账导过、现在一条都对不上）——改名/断链/漏页，需检修'
+    open(ALERT, 'w', encoding='utf-8').write(msg + '\n')
+    print(msg)
+    sys.exit(1)
 
 # 周闹钟警报面（每周计划任务跑；全跟齐也留时间戳证明活着）
 # 审核整改：pm<0＝PubMed 拉取失败≠「跟齐」，单独报「结论不可信」防假安心
